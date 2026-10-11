@@ -4,6 +4,28 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { ClientProfile } from '@/components/clients/client-profile';
 import type { ClientWithRelations } from '@/server/clients/repo';
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+  }),
+  usePathname: () => '/en/clients/018f0000-0000-7000-8000-000000000042',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+vi.mock('@/server/clients/actions', () => ({
+  createClientAction: vi.fn(),
+  updateClientAction: vi.fn(),
+  addContactAction: vi.fn(),
+  updateContactAction: vi.fn(),
+  removeContactAction: vi.fn(),
+  upsertAddressAction: vi.fn(),
+  removeAddressAction: vi.fn(),
+  getClientAction: vi.fn(),
+  listClientsAction: vi.fn(),
+  setClientTagsAction: vi.fn(),
+}));
+
 vi.mock('next-intl', () => ({
   useTranslations: (namespace: string) => (key: string) => {
     const table: Record<string, string> = {

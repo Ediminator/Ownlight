@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Search, X, Loader2, AlertCircle, Users } from 'lucide-react';
+import { Search, X, Loader2, AlertCircle, Users, Plus } from 'lucide-react';
 import { listClientsAction } from '@/server/clients/actions';
 import type { ListClientsResult, TagSummaryItem } from '@/server/clients/repo';
 
@@ -142,12 +142,22 @@ export function ClientDirectory({
         {liveAnnouncement}
       </div>
 
-      {/* Page Title & Subtitle */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-          {t('title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t('description')}</p>
+      {/* Page Title, Subtitle & Action */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+            {t('title')}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t('description')}</p>
+        </div>
+        <Link
+          href={`/${locale}/clients/new`}
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[44px] shrink-0"
+          data-testid="new-client-btn"
+        >
+          <Plus className="h-4 w-4 mr-1.5" aria-hidden="true" />
+          {t('newClient')}
+        </Link>
       </div>
 
       {/* Filter and Search Bar */}
@@ -249,6 +259,14 @@ export function ClientDirectory({
           </div>
           <h2 className="text-lg font-semibold text-foreground">{t('emptyStateTitle')}</h2>
           <p className="text-sm text-muted-foreground max-w-sm">{t('emptyStateDescription')}</p>
+          <Link
+            href={`/${locale}/clients/new`}
+            className="mt-2 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[44px]"
+            data-testid="empty-state-new-client-btn"
+          >
+            <Plus className="h-4 w-4 mr-1.5" aria-hidden="true" />
+            {t('newClient')}
+          </Link>
         </div>
       )}
 

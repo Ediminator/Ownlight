@@ -167,7 +167,9 @@ test.describe('TASK-0013: Relationship History Timeline and Notes UI E2E', () =>
     await expect(createdEvent).toContainText('Kund:in angelegt');
   });
 
-  test('AC-13: WCAG 2.2 AA accessibility audit passes with zero violations', async ({ page }) => {
+  test('AC-13: WCAG 2.2 AA accessibility audit passes with zero violations across pages and open dialogs (I1-U01, I1-U02)', async ({
+    page,
+  }) => {
     const clientId = await createTestClient(page, 'Axe A11y Client');
 
     // Add a note to test full interactive UI state
@@ -177,13 +179,13 @@ test.describe('TASK-0013: Relationship History Timeline and Notes UI E2E', () =>
       'Consultation note for accessibility testing.',
     );
     await page.click('[data-testid="timeline-note-submit-btn"]');
-    await expect(page.locator('[data-event-type="note.created"]')).toBeVisible();
+    const noteEvent = page.locator('[data-event-type="note.created"]').first();
+    await expect(noteEvent).toBeVisible();
 
-    // 1. Run Axe on English profile
+    // 1. Run Axe on English profile (light mode)
     const enAxe = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
       .analyze();
-
     expect(enAxe.violations).toEqual([]);
 
     // 2. Run Axe on German profile
@@ -191,11 +193,180 @@ test.describe('TASK-0013: Relationship History Timeline and Notes UI E2E', () =>
     const deAxe = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
       .analyze();
-
     expect(deAxe.violations).toEqual([]);
+
+    // 3. Run Axe on English profile in dark mode
+    await page.goto(`/en/clients/${clientId}`);
+    await page.evaluate(() => {
+      document.documentElement.classList.add('dark');
+    });
+    const darkAxe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+    expect(darkAxe.violations).toEqual([]);
+
+    // Reset back to light mode for dialog audits
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('dark');
+    });
+
+    // 4. Run Axe on open edit note dialog (light mode)
+    const editBtn = page.locator('[data-testid^="edit-note-btn-"]').first();
+    await editBtn.click();
+    const editDialog = page.locator('[data-testid="edit-note-dialog"]');
+    await expect(editDialog).toBeVisible();
+    await page.waitForTimeout(300);
+
+    const editDialogAxe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+    expect(editDialogAxe.violations).toEqual([]);
+
+    await page.click('[data-testid="edit-note-cancel-btn"]');
+    await expect(editDialog).not.toBeVisible();
+    await page.waitForTimeout(300);
+
+    // 5. Run Axe on open confirm delete dialog (I1-U01 regression test: destructive button contrast >= 4.5:1)
+    const deleteBtn = page.locator('[data-testid^="delete-note-btn-"]').first();
+    await deleteBtn.click();
+    const confirmDialog = page.locator('[data-testid="confirm-dialog"]');
+    await expect(confirmDialog).toBeVisible();
+    await page.waitForTimeout(300);
+
+    const deleteDialogAxe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+    expect(deleteDialogAxe.violations).toEqual([]);
+
+    await page.click('[data-testid="confirm-dialog-cancel-btn"]');
+    await expect(confirmDialog).not.toBeVisible();
   });
 
-  test('AC-14: 320px viewport responsiveness, keyboard navigation, touch targets, and UX screenshots', async ({
+  test('AC-14: keyboard navigation for note composition, editing, and deletion (I1-V01, I1-V02)', async ({
+    page,
+  }) => {
+    const clientId = await createTestClient(page, 'Keyboard Nav Client');
+    await page.goto(`/en/clients/${clientId}`);
+
+    // Focus composer textarea directly and enter text via keyboard
+    const textarea = page.locator('[data-testid="timeline-note-textarea"]');
+    await textarea.focus();
+    await expect(textarea).toBeFocused();
+    await page.keyboard.type('Keyboard authored note content.');
+
+    // Tab to submit button and activate with Enter
+    await page.keyboard.press('Tab');
+    const submitBtn = page.locator('[data-testid="timeline-note-submit-btn"]');
+    await expect(submitBtn).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    // Verify note is rendered in timeline
+    const noteEvent = page.locator('[data-event-type="note.created"]').first();
+    await expect(noteEvent).toBeVisible();
+    const noteBody = noteEvent.locator('[data-testid^="note-body-"]');
+    await expect(noteBody).toContainText('Keyboard authored note content.');
+
+    // Focus edit button via keyboard and open dialog with Space
+    const editBtn = noteEvent.locator('[data-testid^="edit-note-btn-"]');
+    await editBtn.focus();
+    await expect(editBtn).toBeFocused();
+    await page.keyboard.press('Space');
+
+    const editDialog = page.locator('[data-testid="edit-note-dialog"]');
+    await expect(editDialog).toBeVisible();
+
+    // Test Escape key cancels dialog and restores focus to edit trigger button
+    await page.keyboard.press('Escape');
+    await expect(editDialog).not.toBeVisible();
+    await expect(editBtn).toBeFocused();
+
+    // Reopen edit dialog via Enter
+    await page.keyboard.press('Enter');
+    await expect(editDialog).toBeVisible();
+
+    // Edit textarea: update content
+    const editTextarea = page.locator('[data-testid="edit-note-textarea"]');
+    await editTextarea.fill('Keyboard revised note content.');
+
+    // Tab to cancel button, then Tab to save button, then activate with Enter
+    await page.keyboard.press('Tab');
+    const cancelBtn = page.locator('[data-testid="edit-note-cancel-btn"]');
+    await expect(cancelBtn).toBeFocused();
+    await page.keyboard.press('Tab');
+    const saveBtn = page.locator('[data-testid="edit-note-save-btn"]');
+    await expect(saveBtn).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect(editDialog).not.toBeVisible();
+    await expect(noteBody).toContainText('Keyboard revised note content.');
+
+    // Focus delete button via keyboard and open dialog with Enter
+    const deleteBtn = noteEvent.locator('[data-testid^="delete-note-btn-"]');
+    await deleteBtn.focus();
+    await expect(deleteBtn).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    const confirmDialog = page.locator('[data-testid="confirm-dialog"]');
+    await expect(confirmDialog).toBeVisible();
+
+    // Test Tab navigation inside confirm dialog to reach confirm button and activate with Enter
+    const confirmBtn = page.locator('[data-testid="confirm-dialog-confirm-btn"]');
+    await confirmBtn.focus();
+    await expect(confirmBtn).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect(confirmDialog).not.toBeVisible();
+    await expect(page.locator('[data-event-type="note.created"]')).toHaveCount(0);
+  });
+
+  test('AC-14: keyset pagination Load more button and focus movement to newly loaded item (I1-V01, I1-V02, I1-U02)', async ({
+    page,
+  }) => {
+    const clientId = await createTestClient(page, 'Pagination Focus Client');
+    await page.goto(`/en/clients/${clientId}`);
+
+    // Create 21 notes (total 22 events > 20 limit) to trigger keyset pagination
+    for (let i = 1; i <= 21; i++) {
+      await page.fill('[data-testid="timeline-note-textarea"]', `Timeline note item ${i}`);
+      await page.click('[data-testid="timeline-note-submit-btn"]');
+      await expect(page.locator('[data-event-type="note.created"]').first()).toContainText(
+        `Timeline note item ${i}`,
+      );
+    }
+
+    // Reload profile page to receive first page of 20 items + nextCursor
+    await page.goto(`/en/clients/${clientId}`);
+    await page.waitForLoadState('networkidle');
+
+    // Initial page has exactly 20 items and Load more button is visible
+    const initialItems = page.locator('ol[data-testid="timeline-events-list"] > li');
+    await expect(initialItems).toHaveCount(20);
+
+    const loadMoreBtn = page.locator('[data-testid="timeline-load-more-btn"]');
+    await expect(loadMoreBtn).toBeVisible();
+
+    // Activate Load more via keyboard
+    await loadMoreBtn.focus();
+    await expect(loadMoreBtn).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    // Once loaded, all 22 items are present and Load more button disappears
+    const allItems = page.locator('ol[data-testid="timeline-events-list"] > li');
+    await expect(allItems).toHaveCount(22);
+    await expect(loadMoreBtn).not.toBeVisible();
+
+    // Focus moved to the first newly loaded item (index 20, 21st event)
+    const isNewItemFocused = await page.evaluate(() => {
+      const active = document.activeElement;
+      const items = Array.from(
+        document.querySelectorAll('ol[data-testid="timeline-events-list"] > li'),
+      );
+      return active === items[20];
+    });
+    expect(isNewItemFocused).toBe(true);
+  });
+
+  test('AC-14: 320px viewport responsiveness, touch targets, and UX screenshots', async ({
     page,
   }) => {
     fs.mkdirSync(UX_RUN_DIR, { recursive: true });

@@ -559,7 +559,8 @@
       "errorConfirmationMismatch": "Der eingegebene Bestätigungstext stimmt nicht mit dem Kundennamen überein.",
       "errorReauth": "Falsches Passwort. Bitte versuchen Sie es erneut.",
       "errorBlocked": "Löschung wurde blockiert, da aktive Aufbewahrungsfristen bestehen.",
-      "errorNotFound": "Kunde oder Person wurde nicht gefunden."
+      "errorNotFound": "Kunde oder Person wurde nicht gefunden.",
+      "dismissBanner": "Meldung ausblenden"
     }
   }
 }

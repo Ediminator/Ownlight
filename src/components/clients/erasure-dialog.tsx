@@ -1,9 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { AlertTriangle, ShieldAlert, Trash2, UserX, Loader2, KeyRound } from 'lucide-react';
 import type { ErasureSubject, ErasureHold } from '@/server/privacy/erasure/types';
+import { formatDate } from '@/lib/formatters';
 import { planErasureAction, executeErasureAction } from '@/server/privacy/erasure/actions';
 import { reauthenticateAction } from '@/server/auth/mfa-actions';
 import {
@@ -43,6 +44,7 @@ export function ErasureDialogInner({
   onSuccess,
 }: ErasureDialogContentProps) {
   const t = useTranslations('privacy.erasure');
+  const locale = useLocale();
 
   const [isLoadingPlan, setIsLoadingPlan] = React.useState(true);
   const [categoryCounts, setCategoryCounts] = React.useState<Record<string, number>>({});
@@ -267,7 +269,7 @@ export function ErasureDialogInner({
                   <span className="font-mono font-medium">{h.reason}</span>
                   <span className="text-muted-foreground">
                     {t('retainUntil', {
-                      date: new Date(h.retainUntil).toLocaleDateString(),
+                      date: formatDate(h.retainUntil, locale),
                     })}
                   </span>
                 </li>

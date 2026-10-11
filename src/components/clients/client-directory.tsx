@@ -175,8 +175,8 @@ export function ClientDirectory({
             onClick={() => {
               setDeletedBanner(null);
             }}
-            className="text-muted-foreground hover:text-foreground text-xs p-1"
-            aria-label="Dismiss"
+            className="text-muted-foreground hover:text-foreground text-xs p-1 min-h-[24px] min-w-[24px] inline-flex items-center justify-center rounded"
+            aria-label={tErasure('dismissBanner')}
           >
             ×
           </button>

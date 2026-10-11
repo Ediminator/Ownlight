@@ -424,4 +424,29 @@ describe('TASK-0011: Client Directory UI (AC-1 to AC-13)', () => {
     mockAction.mockRejectedValueOnce(new Error('Network error'));
     await formSubmit?.({ preventDefault: () => undefined });
   });
+
+  it('I1-U01 & I1-U03: renders localized aria-label on dismiss button and ensures >= 24x24 px touch target', () => {
+    mockStateQueue = [
+      '', // searchTerm
+      { items: [], total: 0, page: 1, pageSize: 25 }, // clientsResult
+      false, // isLoading
+      null, // errorMessage
+      'Client and all associated records have been erased.', // deletedBanner
+      'Client and all associated records have been erased.', // liveAnnouncement
+    ];
+
+    const html = renderToStaticMarkup(
+      <ClientDirectory
+        initialClients={{ items: [], total: 0, page: 1, pageSize: 25 }}
+        tags={[]}
+        locale="en"
+      />,
+    );
+
+    // I1-U01: aria-label uses localized key [dismissBanner]
+    expect(html).toContain('aria-label="[dismissBanner]"');
+    // I1-U03: touch target has minimum width and height >= 24px (WCAG 2.2 AA SC 2.5.8)
+    expect(html).toContain('min-h-[24px]');
+    expect(html).toContain('min-w-[24px]');
+  });
 });

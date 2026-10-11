@@ -559,7 +559,8 @@
       "errorConfirmationMismatch": "The entered confirmation text does not match the client name.",
       "errorReauth": "Incorrect password. Please try again.",
       "errorBlocked": "Erasure was blocked because active retention holds exist.",
-      "errorNotFound": "Client or person not found."
+      "errorNotFound": "Client or person not found.",
+      "dismissBanner": "Dismiss"
     }
   }
 }

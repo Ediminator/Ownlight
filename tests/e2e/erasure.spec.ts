@@ -112,6 +112,15 @@ test.describe('TASK-0016: Erasure with retention-lock awareness E2E (AC-10 to AC
       'Client and all associated records have been erased.',
     );
 
+    // I1-U01 & I1-U03: Localized English dismiss label and >= 24x24 px touch target
+    const dismissBtn = deletedBanner.locator('button');
+    await expect(dismissBtn).toHaveAttribute('aria-label', 'Dismiss');
+    const dismissBox = await dismissBtn.boundingBox();
+    expect(dismissBox?.width).toBeGreaterThanOrEqual(24);
+    expect(dismissBox?.height).toBeGreaterThanOrEqual(24);
+    await dismissBtn.click();
+    await expect(deletedBanner).not.toBeVisible();
+
     // 2. German Flow (AC-11)
     const clientNameDe = `E2E Delete Client DE ${String(Date.now()).slice(-4)}`;
     const clientIdDe = await createTestClient(page, clientNameDe, 'de');
@@ -148,6 +157,15 @@ test.describe('TASK-0016: Erasure with retention-lock awareness E2E (AC-10 to AC
     await expect(deletedBannerDe).toContainText(
       'Kunde und alle zugehörigen Daten wurden gelöscht.',
     );
+
+    // I1-U01 & I1-U03: Localized German dismiss label and >= 24x24 px touch target
+    const dismissBtnDe = deletedBannerDe.locator('button');
+    await expect(dismissBtnDe).toHaveAttribute('aria-label', 'Meldung ausblenden');
+    const dismissBoxDe = await dismissBtnDe.boundingBox();
+    expect(dismissBoxDe?.width).toBeGreaterThanOrEqual(24);
+    expect(dismissBoxDe?.height).toBeGreaterThanOrEqual(24);
+    await dismissBtnDe.click();
+    await expect(deletedBannerDe).not.toBeVisible();
   });
 
   test('AC-3 & AC-10: Single contact erasure on multi-contact client, notes warning, and in-place profile update', async ({

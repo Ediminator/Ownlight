@@ -92,6 +92,7 @@ function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
 let currentLocale: 'en' | 'de' = 'en';
 
 vi.mock('next-intl', () => ({
+  useLocale: () => currentLocale,
   useTranslations: (namespace?: string) => {
     return (key: string, values?: Record<string, unknown>) => {
       const messages = currentLocale === 'de' ? deMessages : enMessages;
@@ -382,6 +383,43 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
     // AC-4, AC-10: offers NO confirm button, only Close button
     expect(html).not.toContain('data-testid="erasure-submit-btn"');
     expect(html).toContain('data-testid="erasure-close-btn"');
+  });
+
+  it('I1-U02: formats retainUntil date using German locale format when locale is de', () => {
+    currentLocale = 'de';
+    const mockHolds = [
+      {
+        providerId: 'statutory-tax-hold',
+        reason: 'Statutory 10-year commercial/tax retention (§147 AO, §257 HGB)',
+        retainUntil: new Date('2036-12-15T12:00:00Z'),
+      },
+    ];
+
+    mockStateQueue = [
+      false, // isLoadingPlan
+      { client: 1 }, // categoryCounts
+      mockHolds, // holds
+      false, // notesMayMentionPerson
+      'Acme Studio', // targetDisplayName
+      '', // confirmation
+      false, // isSubmitting
+      null, // error
+      false, // reauthRequired
+      '', // password
+      false, // isReauthenticating
+    ];
+
+    const html = renderToStaticMarkup(
+      <ErasureDialogInner
+        subject={{ kind: 'client', clientId: 'c1' }}
+        clientDisplayName="Acme Studio"
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    // In German, 2036-12-15 formats as 15.12.2036
+    expect(html).toContain('15.12.2036');
+    expect(html).toContain('Aufbewahrung bis: 15.12.2036');
   });
 
   it('AC-10: displays re-authentication step when reauthRequired is true', () => {

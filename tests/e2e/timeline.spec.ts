@@ -327,10 +327,11 @@ test.describe('TASK-0013: Relationship History Timeline and Notes UI E2E', () =>
 
     // Create 21 notes (total 22 events > 20 limit) to trigger keyset pagination
     for (let i = 1; i <= 21; i++) {
-      await page.fill('[data-testid="timeline-note-textarea"]', `Timeline note item ${i}`);
+      const noteLabel = `Timeline note item ${String(i)}`;
+      await page.fill('[data-testid="timeline-note-textarea"]', noteLabel);
       await page.click('[data-testid="timeline-note-submit-btn"]');
       await expect(page.locator('[data-event-type="note.created"]').first()).toContainText(
-        `Timeline note item ${i}`,
+        noteLabel,
       );
     }
 

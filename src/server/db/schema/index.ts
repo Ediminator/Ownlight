@@ -3,3 +3,4 @@ export * from './auth';
 export * from './audit';
 export * from './clients';
 export * from './tags';
+export * from './timeline';

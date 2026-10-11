@@ -39,14 +39,22 @@ import { ContactDialog } from './contact-dialog';
 import { AddressDialog } from './address-dialog';
 import { TagsDialog } from './tags-dialog';
 import { ConfirmDialog } from './confirm-dialog';
+import { ClientTimeline } from './client-timeline';
+import type { ListTimelineResult } from '@/server/timeline/repo';
 
 export interface ClientProfileProps {
   clientData: ClientWithRelations;
   locale: string;
   studioTimezone: string;
+  initialTimeline?: ListTimelineResult;
 }
 
-export function ClientProfile({ clientData, locale, studioTimezone }: ClientProfileProps) {
+export function ClientProfile({
+  clientData,
+  locale,
+  studioTimezone,
+  initialTimeline,
+}: ClientProfileProps) {
   const t = useTranslations('clients.profile');
   const tForm = useTranslations('clients.form');
   const tErrors = useTranslations('clients.errors');
@@ -571,6 +579,15 @@ export function ClientProfile({ clientData, locale, studioTimezone }: ClientProf
           )}
         </section>
       </div>
+
+      {/* Timeline & Notes Section (TASK-0013) */}
+      <ClientTimeline
+        clientId={client.id}
+        locale={locale}
+        studioTimezone={studioTimezone}
+        initialItems={initialTimeline?.items}
+        initialNextCursor={initialTimeline?.nextCursor}
+      />
 
       {/* Timestamps Section */}
       <section

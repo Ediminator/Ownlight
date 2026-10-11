@@ -15,7 +15,7 @@ import { faker } from '@faker-js/faker';
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { eq } from 'drizzle-orm';
-import { pgTable, uuid, varchar, char, boolean, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, char, boolean, timestamp, jsonb, text } from 'drizzle-orm/pg-core';
 
 export const SAFE_EMAIL_DOMAINS = ['example.com', 'example.org'];
 export const DEFAULT_SEED = 42;
@@ -79,6 +79,27 @@ export const clientTagsTable = pgTable('client_tags', {
   clientId: uuid('client_id').notNull(),
   tagId: uuid('tag_id').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const clientTimelineEventsTable = pgTable('client_timeline_events', {
+  id: uuid('id').primaryKey(),
+  clientId: uuid('client_id').notNull(),
+  type: varchar('type', { length: 100 }).notNull(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' }).notNull(),
+  actorType: varchar('actor_type', { length: 20 }).notNull(),
+  actorId: varchar('actor_id', { length: 100 }),
+  subjectType: varchar('subject_type', { length: 50 }),
+  subjectId: varchar('subject_id', { length: 100 }),
+  data: jsonb('data').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const clientNotesTable = pgTable('client_notes', {
+  id: uuid('id').primaryKey(),
+  clientId: uuid('client_id').notNull(),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull(),
 });
 
 /**
@@ -239,6 +260,66 @@ export function generateDemoData(seed = DEFAULT_SEED) {
       ...(i % 2 === 0 ? [tags[(i + 1) % tags.length]] : []),
     ];
 
+    // Synthetic notes and timeline events (TASK-0013)
+    const clientNotesList = [];
+    const clientTimelineEventsList = [];
+
+    // 1. client.created event
+    clientTimelineEventsList.push({
+      id: generateDeterministicUuidV7(faker, clientTimestampMs),
+      clientId,
+      type: 'client.created',
+      actorType: 'owner',
+      actorId: null,
+      subjectType: 'client',
+      subjectId: clientId,
+      occurredAt: new Date(clientTimestampMs),
+      data: {},
+      createdAt: new Date(clientTimestampMs),
+    });
+
+    // 2. client.contact.added events
+    for (const c of clientContactsList) {
+      clientTimelineEventsList.push({
+        id: generateDeterministicUuidV7(faker, c.createdAt.getTime()),
+        clientId,
+        type: 'client.contact.added',
+        actorType: 'owner',
+        actorId: null,
+        subjectType: 'contact',
+        subjectId: c.id,
+        occurredAt: c.createdAt,
+        data: {},
+        createdAt: c.createdAt,
+      });
+    }
+
+    // 3. Demo note for every other client
+    if (i % 2 === 0) {
+      const noteTs = clientTimestampMs + 3600000;
+      const noteId = generateDeterministicUuidV7(faker, noteTs);
+      const note = {
+        id: noteId,
+        clientId,
+        body: `Initial consultation for ${displayName}. Discussed shoot details and package preferences.`,
+        createdAt: new Date(noteTs),
+        updatedAt: new Date(noteTs),
+      };
+      clientNotesList.push(note);
+      clientTimelineEventsList.push({
+        id: generateDeterministicUuidV7(faker, noteTs + 10),
+        clientId,
+        type: 'note.created',
+        actorType: 'owner',
+        actorId: null,
+        subjectType: 'note',
+        subjectId: noteId,
+        occurredAt: new Date(noteTs),
+        data: {},
+        createdAt: new Date(noteTs),
+      });
+    }
+
     return {
       id: clientId,
       kind,
@@ -250,6 +331,8 @@ export function generateDemoData(seed = DEFAULT_SEED) {
       contacts: clientContactsList,
       addresses: clientAddressesList,
       tags: clientTagsList,
+      notes: clientNotesList,
+      timelineEvents: clientTimelineEventsList,
     };
   });
 
@@ -400,6 +483,31 @@ export async function seedDemo(options = {}) {
             createdAt: cl.createdAt,
           })
           .onConflictDoNothing();
+      }
+
+      for (const note of cl.notes) {
+        await client.insert(clientNotesTable).values({
+          id: note.id,
+          clientId: note.clientId,
+          body: note.body,
+          createdAt: note.createdAt,
+          updatedAt: note.updatedAt,
+        });
+      }
+
+      for (const event of cl.timelineEvents) {
+        await client.insert(clientTimelineEventsTable).values({
+          id: event.id,
+          clientId: event.clientId,
+          type: event.type,
+          actorType: event.actorType,
+          actorId: event.actorId,
+          subjectType: event.subjectType,
+          subjectId: event.subjectId,
+          occurredAt: event.occurredAt,
+          data: event.data,
+          createdAt: event.createdAt,
+        });
       }
     }
 

@@ -33,3 +33,5 @@ Use these terms consistently in code, UI strings and docs. The UX reviewer check
 | Possible duplicate   | Possible duplicate    | Mögliches Duplikat             | `duplicateEmail`     | Warning when a contact email is already registered to another client       |
 | Primary contact      | Primary contact       | Hauptkontakt                   | `primaryContact`     | The designated main person representing a client for communication         |
 | Tag                  | Tag                   | Schlagwort                     | `tag`                | Studio-defined label for categorizing and filtering clients                |
+| Timeline             | Timeline              | Verlauf                        | `timeline`           | Unified chronological event log of interactions, changes and notes         |
+| Note                 | Note                  | Notiz                          | `note`               | Free-text annotation attached to a client profile                          |

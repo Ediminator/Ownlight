@@ -300,6 +300,43 @@
       "notFoundDescription": "The requested client does not exist or may have been deleted.",
       "errorMessage": "An error occurred while loading the client profile."
     },
+    "timeline": {
+      "title": "Timeline",
+      "empty": "No timeline events recorded yet.",
+      "composer": {
+        "title": "Add note",
+        "label": "Client note",
+        "placeholder": "Write a note about this client...",
+        "submit": "Add note",
+        "submitting": "Adding...",
+        "hint": "Please avoid recording sensitive personal data such as health information unless strictly necessary.",
+        "counter": "{count} / {max}"
+      },
+      "events": {
+        "client_created": "Client created",
+        "client_contact_added": "Contact added: {name}",
+        "client_contact_added_deleted": "Contact added",
+        "client_contact_removed": "Contact removed",
+        "note_created": "Note added",
+        "deleted_item": "Deleted item"
+      },
+      "note": {
+        "edited": "(edited)",
+        "edit": "Edit note",
+        "delete": "Delete note",
+        "deleteTitle": "Delete note",
+        "deleteConfirm": "Are you sure you want to delete this note? This action cannot be undone.",
+        "save": "Save changes",
+        "saving": "Saving...",
+        "cancel": "Cancel",
+        "bodyLabel": "Edit note content"
+      },
+      "pagination": {
+        "loadMore": "Load more",
+        "loading": "Loading...",
+        "allLoaded": "All events loaded"
+      }
+    },
     "form": {
       "title": "New client",
       "description": "Add a new client to your studio.",

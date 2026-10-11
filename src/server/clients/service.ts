@@ -115,6 +115,7 @@ export async function createClient(
       phone: input.primaryContact.phone ? input.primaryContact.phone.trim() : null,
     },
     client,
+    { actorType: 'owner', actorId: getAuditActor(auth).actorId },
   );
 
   // 4. Audit logging
@@ -276,6 +277,7 @@ export async function addContact(
       isPrimary: input.isPrimary,
     },
     client,
+    getAuditActor(auth),
   );
 
   const { actorType, actorId } = getAuditActor(auth);
@@ -457,7 +459,12 @@ export async function removeContact(
     };
   }
 
-  const result = await deleteContactRecord(input.clientId, input.contactId, client);
+  const result = await deleteContactRecord(
+    input.clientId,
+    input.contactId,
+    client,
+    getAuditActor(auth),
+  );
   if (!result) {
     return { success: false, code: 'NOT_FOUND', error: 'NOT_FOUND' };
   }

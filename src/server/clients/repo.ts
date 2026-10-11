@@ -12,6 +12,8 @@ import {
   type AddressType,
 } from '@/server/db/schema/clients';
 import { tags, clientTags } from '@/server/db/schema/tags';
+import type { ActorType } from '@/server/db/schema/audit';
+import { recordTimelineEvent } from '@/server/timeline/service';
 import { escapeLikeWildcards } from './schema';
 import { generateUuidV7 } from '@/lib/id';
 
@@ -490,6 +492,7 @@ export async function insertClientWithPrimaryContact(
     phone?: string | null;
   },
   dbClient: DbClient = defaultDb,
+  actor?: { actorType: ActorType; actorId: string | null },
 ): Promise<{ clientId: string; contactId: string }> {
   return await dbClient.transaction(async (tx) => {
     const clientId = generateUuidV7();
@@ -517,6 +520,17 @@ export async function insertClientWithPrimaryContact(
       isPrimary: true,
       createdAt: now,
       updatedAt: now,
+    });
+
+    await recordTimelineEvent(tx, {
+      clientId,
+      type: 'client.created',
+      occurredAt: now,
+      actorType: actor?.actorType ?? 'owner',
+      actorId: actor?.actorId ?? null,
+      subjectType: 'client',
+      subjectId: clientId,
+      data: {},
     });
 
     return { clientId, contactId };
@@ -579,6 +593,7 @@ export async function insertContact(
     isPrimary?: boolean;
   },
   dbClient: DbClient = defaultDb,
+  actor?: { actorType: ActorType; actorId: string | null },
 ): Promise<ClientContact> {
   return await dbClient.transaction(async (tx) => {
     const now = new Date();
@@ -618,6 +633,17 @@ export async function insertContact(
       .update(clients)
       .set({ lastActivityAt: now, updatedAt: now })
       .where(eq(clients.id, clientId));
+
+    await recordTimelineEvent(tx, {
+      clientId,
+      type: 'client.contact.added',
+      occurredAt: now,
+      actorType: actor?.actorType ?? 'owner',
+      actorId: actor?.actorId ?? null,
+      subjectType: 'contact',
+      subjectId: contactId,
+      data: {},
+    });
 
     return inserted;
   });
@@ -689,6 +715,7 @@ export async function deleteContactRecord(
   clientId: string,
   contactId: string,
   dbClient: DbClient = defaultDb,
+  actor?: { actorType: ActorType; actorId: string | null },
 ): Promise<{ success: boolean; wasPrimary: boolean; newPrimaryId?: string } | null> {
   return await dbClient.transaction(async (tx) => {
     // Verify existence strictly scoped by clientId
@@ -734,6 +761,17 @@ export async function deleteContactRecord(
       .update(clients)
       .set({ lastActivityAt: now, updatedAt: now })
       .where(eq(clients.id, clientId));
+
+    await recordTimelineEvent(tx, {
+      clientId,
+      type: 'client.contact.removed',
+      occurredAt: now,
+      actorType: actor?.actorType ?? 'owner',
+      actorId: actor?.actorId ?? null,
+      subjectType: 'contact',
+      subjectId: contactId,
+      data: {},
+    });
 
     return {
       success: true,

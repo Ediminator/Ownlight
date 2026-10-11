@@ -172,3 +172,73 @@ Constraints:
 - Primary Key: `PRIMARY KEY (client_id, tag_id)`
 - Foreign Keys: `ON DELETE CASCADE` on both references ensures tag links are cleaned up when a client or tag is deleted.
 - Index: `client_tags_tag_id_idx` on `tag_id` for efficient reverse lookups and client counts.
+
+---
+
+## 8. Relationship Timeline & Notes Domain (TASK-0013, ADR-0011)
+
+The relationship timeline models the unified append-only activity history for each client (enquiries, client creation, contact changes, notes, emails, documents, and portal activity). Notes provide free-text operator annotations.
+
+### `client_timeline_events` Table
+
+| Column         | Type          | Constraints                                                                        | Description                                                   |
+| -------------- | ------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `id`           | `uuid`        | `PRIMARY KEY`                                                                      | UUIDv7 primary key                                            |
+| `client_id`    | `uuid`        | `NOT NULL, REFERENCES clients(id) ON DELETE CASCADE`                               | Owning client ID                                              |
+| `type`         | `varchar(64)` | `NOT NULL`                                                                         | Typed event type key (e.g. `client.created`, `note.created`)  |
+| `actor_type`   | `varchar(16)` | `NOT NULL, CHECK (actor_type IN ('owner', 'client', 'system', 'api_key', 'cron'))` | Identity principal type that triggered the event              |
+| `actor_id`     | `uuid`        | `NULL`                                                                             | User or API key ID of the actor (NULL for system)             |
+| `subject_type` | `varchar(32)` | `NULL`                                                                             | Optional target entity type (`client`, `contact`, `note`)     |
+| `subject_id`   | `uuid`        | `NULL`                                                                             | Optional target entity UUID                                   |
+| `occurred_at`  | `timestamptz` | `NOT NULL`                                                                         | Time the real-world business event occurred (UTC)             |
+| `data`         | `jsonb`       | `NOT NULL, DEFAULT '{}'::jsonb`                                                    | Non-PII structured attributes allowlisted per registered type |
+| `created_at`   | `timestamptz` | `NOT NULL, DEFAULT now()`                                                          | Write-time ledger timestamp                                   |
+
+Constraints:
+
+- Foreign Key: `ON DELETE CASCADE` ensures timeline history is permanently expunged when the parent client is erased.
+- Index: `(client_id, occurred_at DESC, id DESC)` optimizes keyset pagination for reverse-chronological feeds.
+- Actor Type Check: Enforces audit-compliant actor types matching the system audit log contract.
+- Privacy Rule: Personal data (names, emails, note bodies) must **never** be copied into `data`. All content is resolved at read time by subject reference.
+
+### `client_notes` Table
+
+| Column       | Type          | Constraints                                          | Description                                    |
+| ------------ | ------------- | ---------------------------------------------------- | ---------------------------------------------- |
+| `id`         | `uuid`        | `PRIMARY KEY`                                        | UUIDv7 primary key                             |
+| `client_id`  | `uuid`        | `NOT NULL, REFERENCES clients(id) ON DELETE CASCADE` | Owning client ID                               |
+| `body`       | `text`        | `NOT NULL`                                           | Free-text note body (CHECK 1–5,000 characters) |
+| `created_at` | `timestamptz` | `NOT NULL, DEFAULT now()`                            | UTC creation timestamp                         |
+| `updated_at` | `timestamptz` | `NOT NULL, DEFAULT now()`                            | UTC last update timestamp                      |
+
+Constraints:
+
+- `client_notes_body_len_check`: `CHECK (char_length(body) >= 1 AND char_length(body) <= 5000)`
+- Foreign Key: `ON DELETE CASCADE` ensures notes are removed when their client is erased. Deleting an individual note also deletes its corresponding `note.created` timeline event in the same transaction.
+
+---
+
+## 9. How to Add a Timeline Event Type
+
+Follow these steps whenever a new domain capability (e.g. project booking, contract signing, questionnaire submission) emits a timeline event:
+
+1. **Register the Event Type:**
+   In `src/server/timeline/registry.ts`, register the event specification using `registerTimelineEventType`:
+   ```typescript
+   registerTimelineEventType({
+     type: 'project.created',
+     dataKeys: ['project_number'], // strictly non-PII keys allowed in data JSONB
+     messageKey: 'clients.timeline.events.projectCreated',
+     resolve: async (events, ctx) => {
+       // Optional batch content resolution for live entity attributes
+     },
+   });
+   ```
+2. **Ensure Privacy by Design (No PII in `data`):**
+   The `data` payload must only contain identifiers, state codes, counts, or enum values. Never include names, email addresses, phone numbers, or free-text messages.
+3. **Add Localisation Keys:**
+   Add message formatting keys to both `messages/en.json` and `messages/de.json` under `clients.timeline.events.<camelCaseType>`.
+4. **Emit Transactionally:**
+   In your domain service or repository transaction, call `recordTimelineEvent(tx, input)` inside the exact same database transaction that persists the state change. If the domain operation fails, the event rolls back atomically.
+5. **Verify with Tests:**
+   Add test assertions verifying event registration, transactional rollback on error, and absence of PII in the database `data` column.

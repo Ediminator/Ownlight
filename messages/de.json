@@ -300,6 +300,43 @@
       "notFoundDescription": "Die angeforderte Kund:in existiert nicht oder wurde möglicherweise gelöscht.",
       "errorMessage": "Beim Laden des Kundenprofils ist ein Fehler aufgetreten."
     },
+    "timeline": {
+      "title": "Verlauf",
+      "empty": "Noch keine Verlaufsereignisse aufgezeichnet.",
+      "composer": {
+        "title": "Notiz hinzufügen",
+        "label": "Kundennotiz",
+        "placeholder": "Notiz über diese:n Kund:in verfassen...",
+        "submit": "Notiz hinzufügen",
+        "submitting": "Wird hinzugefügt...",
+        "hint": "Bitte vermeiden Sie es, sensible personenbezogene Daten wie Gesundheitsdaten zu erfassen, sofern dies nicht zwingend erforderlich ist.",
+        "counter": "{count} / {max}"
+      },
+      "events": {
+        "client_created": "Kund:in angelegt",
+        "client_contact_added": "Kontakt hinzugefügt: {name}",
+        "client_contact_added_deleted": "Kontakt hinzugefügt",
+        "client_contact_removed": "Kontakt entfernt",
+        "note_created": "Notiz hinzugefügt",
+        "deleted_item": "Gelöschter Eintrag"
+      },
+      "note": {
+        "edited": "(bearbeitet)",
+        "edit": "Notiz bearbeiten",
+        "delete": "Notiz löschen",
+        "deleteTitle": "Notiz löschen",
+        "deleteConfirm": "Möchten Sie diese Notiz wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "save": "Änderungen speichern",
+        "saving": "Wird gespeichert...",
+        "cancel": "Abbrechen",
+        "bodyLabel": "Notizinhalt bearbeiten"
+      },
+      "pagination": {
+        "loadMore": "Mehr laden",
+        "loading": "Wird geladen...",
+        "allLoaded": "Alle Ereignisse geladen"
+      }
+    },
     "form": {
       "title": "Neuer Kunde",
       "description": "Erstellen Sie einen neuen Kunden in Ihrem Studio.",

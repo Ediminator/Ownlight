@@ -20,6 +20,7 @@ export const CLIENT_PII_COLUMNS = [
   'client_addresses.region',
   'client_addresses.country_code',
   'tags.name',
+  'client_notes.body',
 ] as const;
 
 export type ClientPiiColumn = (typeof CLIENT_PII_COLUMNS)[number];

@@ -41,6 +41,8 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
+vi.mock('server-only', () => ({}));
+
 vi.mock('@/server/clients/actions', () => ({
   createClientAction: vi.fn(),
   updateClientAction: vi.fn(),
@@ -52,6 +54,15 @@ vi.mock('@/server/clients/actions', () => ({
   getClientAction: vi.fn(),
   listClientsAction: vi.fn(),
   setClientTagsAction: vi.fn(),
+}));
+
+vi.mock('@/server/timeline/actions', () => ({
+  addNoteAction: vi.fn(),
+  updateNoteAction: vi.fn(),
+  deleteNoteAction: vi.fn(),
+  listTimelineAction: vi
+    .fn()
+    .mockResolvedValue({ success: true, data: { items: [], nextCursor: null } }),
 }));
 
 vi.mock('next-intl', () => ({

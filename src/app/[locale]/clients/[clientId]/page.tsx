@@ -4,6 +4,7 @@ import { getTranslations } from 'next-intl/server';
 import { z } from 'zod';
 import { requireOwner } from '@/server/auth/guards';
 import { getClient } from '@/server/clients/service';
+import { listTimeline } from '@/server/timeline/service';
 import { getStudioSettings } from '@/server/settings/repo';
 import { ClientProfile } from '@/components/clients/client-profile';
 
@@ -50,8 +51,9 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
     return null;
   }
 
-  const [clientRes, settings] = await Promise.all([
+  const [clientRes, timelineRes, settings] = await Promise.all([
     getClient(clientId),
+    listTimeline(clientId).catch(() => null),
     getStudioSettings().catch(() => null),
   ]);
 
@@ -64,7 +66,12 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <ClientProfile clientData={clientRes.data} locale={locale} studioTimezone={studioTimezone} />
+      <ClientProfile
+        clientData={clientRes.data}
+        locale={locale}
+        studioTimezone={studioTimezone}
+        initialTimeline={timelineRes?.success ? timelineRes.data : undefined}
+      />
     </div>
   );
 }

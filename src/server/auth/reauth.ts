@@ -10,15 +10,18 @@ import { verifySession, SESSION_COOKIE_NAME, SECURE_SESSION_COOKIE_NAME } from '
 export async function assertFreshReauthentication(
   userId: string,
   client: DbClient = db,
+  sessionTokenOverride?: string,
 ): Promise<void> {
-  let sessionToken: string | undefined;
-  try {
-    const cookieStore = await cookies();
-    sessionToken =
-      cookieStore.get(SECURE_SESSION_COOKIE_NAME)?.value ??
-      cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  } catch {
-    sessionToken = undefined;
+  let sessionToken: string | undefined = sessionTokenOverride;
+  if (!sessionToken) {
+    try {
+      const cookieStore = await cookies();
+      sessionToken =
+        cookieStore.get(SECURE_SESSION_COOKIE_NAME)?.value ??
+        cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    } catch {
+      sessionToken = undefined;
+    }
   }
 
   if (!sessionToken) {

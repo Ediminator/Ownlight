@@ -59,6 +59,7 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
   ['client.note.deleted', ['note_id']],
   ['consent.granted', ['contact_id', 'purpose', 'method']],
   ['consent.withdrawn', ['contact_id', 'purpose', 'method']],
+  ['privacy.export.generated', ['contact_id', 'format', 'locale', 'category_count']],
 ]);
 
 /**

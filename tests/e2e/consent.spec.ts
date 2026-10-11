@@ -206,7 +206,9 @@ test.describe('TASK-0014: Consent Records & History E2E (AC-10 to AC-13)', () =>
     expect(textContent).toMatch(/No consent recorded|Granted|Withdrawn/);
 
     // 4. Test dark mode error alert and field error contrast with axe (I1-U02, I1-U03)
-    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.evaluate(() => {
+      document.documentElement.classList.add('dark');
+    });
     await page.check('[data-testid="consent-purpose-image-usage"]');
     await page.check('[data-testid="consent-status-granted"]');
     await page.fill('[data-testid="consent-scope-input"]', '');
@@ -223,7 +225,9 @@ test.describe('TASK-0014: Consent Records & History E2E (AC-10 to AC-13)', () =>
       .analyze();
     expect(resultsDialogErrorDark.violations).toEqual([]);
 
-    await page.emulateMedia({ colorScheme: 'light' });
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('dark');
+    });
     await page.click('[data-testid="consent-dialog-cancel-btn"]');
     await expect(dialog).not.toBeVisible();
   });

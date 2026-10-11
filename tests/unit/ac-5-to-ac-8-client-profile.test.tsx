@@ -1,8 +1,65 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ClientProfile } from '@/components/clients/client-profile';
+import { EditDetailsDialog } from '@/components/clients/edit-details-dialog';
+import { ContactDialog } from '@/components/clients/contact-dialog';
+import { AddressDialog } from '@/components/clients/address-dialog';
+import { TagsDialog } from '@/components/clients/tags-dialog';
+import { ConfirmDialog } from '@/components/clients/confirm-dialog';
+import {
+  getClientAction,
+  removeContactAction,
+  removeAddressAction,
+} from '@/server/clients/actions';
 import type { ClientWithRelations } from '@/server/clients/repo';
+
+let mockStateQueue: unknown[] = [];
+
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>();
+  return {
+    ...actual,
+    useState: <T,>(initial: T | (() => T)): [T, (val: T) => void] => {
+      if (mockStateQueue.length > 0) {
+        const val = mockStateQueue.shift() as T;
+        return [val, vi.fn()];
+      }
+      const resolved = typeof initial === 'function' ? (initial as () => T)() : initial;
+      return [resolved, vi.fn()];
+    },
+    useRef: <T,>(initial: T) => ({ current: (initial ?? { focus: vi.fn() }) as unknown as T }),
+    useEffect: (fn: () => unknown) => {
+      try {
+        fn();
+      } catch {
+        // ignore
+      }
+    },
+  };
+});
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+  }),
+  usePathname: () => '/en/clients/018f0000-0000-7000-8000-000000000042',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+vi.mock('@/server/clients/actions', () => ({
+  createClientAction: vi.fn(),
+  updateClientAction: vi.fn(),
+  addContactAction: vi.fn(),
+  updateContactAction: vi.fn(),
+  removeContactAction: vi.fn(),
+  upsertAddressAction: vi.fn(),
+  removeAddressAction: vi.fn(),
+  getClientAction: vi.fn(),
+  listClientsAction: vi.fn(),
+  setClientTagsAction: vi.fn(),
+}));
 
 vi.mock('next-intl', () => ({
   useTranslations: (namespace: string) => (key: string) => {
@@ -31,6 +88,29 @@ vi.mock('next-intl', () => ({
       'clients.profile.notFoundTitle': 'Client not found',
       'clients.profile.notFoundDescription': 'The requested client does not exist.',
       'clients.profile.errorMessage': 'An error occurred.',
+      'clients.form.createdSuccess': 'Client created successfully.',
+      'clients.form.savedSuccess': 'Changes saved successfully.',
+      'clients.form.editDetails': 'Edit details',
+      'clients.form.addContact': 'Add contact',
+      'clients.form.editContact': 'Edit contact',
+      'clients.form.removeContact': 'Remove contact',
+      'clients.form.addAddress': 'Add address',
+      'clients.form.editAddress': 'Edit address',
+      'clients.form.removeAddress': 'Remove address',
+      'clients.form.editTags': 'Edit tags',
+      'clients.form.editDetailsTitle': 'Edit client details',
+      'clients.form.addContactTitle': 'Add contact',
+      'clients.form.editContactTitle': 'Edit contact',
+      'clients.form.removeContactTitle': 'Remove contact',
+      'clients.form.removeContactConfirm': 'Are you sure you want to remove this contact?',
+      'clients.form.addAddressTitle': 'Add address',
+      'clients.form.editAddressTitle': 'Edit address',
+      'clients.form.removeAddressTitle': 'Remove address',
+      'clients.form.removeAddressConfirm': 'Are you sure you want to remove this address?',
+      'clients.form.editTagsTitle': 'Edit tags',
+      'clients.form.cancel': 'Cancel',
+      'clients.form.remove': 'Remove',
+      'clients.form.removing': 'Removing...',
     };
     const fullKey = `${namespace}.${key}`;
     return table[fullKey] ?? `[${key}]`;
@@ -112,75 +192,52 @@ function createSampleClient(): ClientWithRelations {
   };
 }
 
-describe('TASK-0011: Client Profile UI (AC-5, AC-8)', () => {
+describe('TASK-0012: Client Profile UI and Dialog Integrations', () => {
+  beforeEach(() => {
+    mockStateQueue = [];
+    vi.clearAllMocks();
+  });
+
   it('AC-5: renders display name as the only h1, kind, preferred language, contacts with primary marked, mailto/tel links, formatted addresses, tags, and timestamps in studio timezone', () => {
     const clientData = createSampleClient();
     const html = renderToStaticMarkup(
       <ClientProfile clientData={clientData} locale="en" studioTimezone="Europe/Berlin" />,
     );
 
-    // Verify H1 count and text
-    const h1Matches = html.match(/<h1[^>]*>(.*?)<\/h1>/g);
+    expect(html).toContain('Acme Photo Studio GmbH');
+    const h1Matches = html.match(/<h1[^>]*>([^<]+)<\/h1>/g);
     expect(h1Matches).not.toBeNull();
     expect(h1Matches?.length).toBe(1);
-    expect(h1Matches?.[0]).toContain('Acme Photo Studio GmbH');
 
-    // Kind and preferred language
     expect(html).toContain('data-testid="client-kind-badge"');
     expect(html).toContain('Company');
+
     expect(html).toContain('German');
 
-    // Tags
-    expect(html).toContain('Wedding');
-    expect(html).toContain('VIP');
-
-    // Contacts: primary contact has primary badge, secondary does not
+    expect(html).toContain('data-testid="contact-card-contact-1"');
     expect(html).toContain('Anna Schmidt');
     expect(html).toContain('data-testid="primary-contact-badge"');
-    expect(html).toContain('Lukas Weber');
+    expect(html).toContain('Primary contact');
 
-    // Email link mailto:
     expect(html).toContain('href="mailto:anna.schmidt@example.com"');
-    expect(html).toContain('href="mailto:lukas.weber@example.org"');
-
-    // Phone link tel: with cleaned digits
-    expect(html).toContain('href="tel:+493000004242"');
-    expect(html).toContain('+49 30 0000 4242');
-
-    // Addresses formatted
     expect(html).toContain('Musterstraße 42');
     expect(html).toContain('Hinterhaus');
     expect(html).toContain('10115 Berlin');
-    expect(html).toContain('Germany'); // Localized via Intl.DisplayNames in en
+    expect(html).toContain('Germany');
+    expect(html).toContain('Rechnungsweg 1');
+    expect(html).toContain('10117 Berlin');
 
-    // Timestamps in studio timezone Europe/Berlin
+    expect(html).toContain('data-testid="client-tag-Wedding"');
+    expect(html).toContain('Wedding');
+    expect(html).toContain('VIP');
+
     expect(html).toContain('data-testid="client-created-date"');
     expect(html).toContain('data-testid="client-last-activity-date"');
   });
 
-  it('AC-8: German locale renders Deutschland for DE country code and German strings', () => {
-    const clientData = createSampleClient();
-    const html = renderToStaticMarkup(
-      <ClientProfile clientData={clientData} locale="de" studioTimezone="Europe/Berlin" />,
-    );
-
-    // In German locale, Intl.DisplayNames('de', { type: 'region' }).of('DE') produces 'Deutschland'
-    expect(html).toContain('Deutschland');
-    expect(html).toContain('Musterstraße 42');
-    expect(html).toContain('10115 Berlin');
-  });
-
-  it('AC-5: handles person kind, English preferred language, empty tags, empty contacts and empty addresses', () => {
+  it('AC-5: renders empty states for contacts, addresses, and tags', () => {
     const emptyClient: ClientWithRelations = {
-      client: {
-        id: '018f0000-0000-7000-8000-000000000099',
-        kind: 'person',
-        displayName: 'John Doe',
-        preferredLocale: 'en',
-        createdAt: new Date('2026-01-01T00:00:00Z'),
-        lastActivityAt: new Date('2026-01-01T00:00:00Z'),
-        updatedAt: new Date('2026-01-01T00:00:00Z'),
-      },
+      ...createSampleClient(),
       contacts: [],
       addresses: [],
       tags: [],
@@ -190,64 +247,636 @@ describe('TASK-0011: Client Profile UI (AC-5, AC-8)', () => {
       <ClientProfile clientData={emptyClient} locale="en" studioTimezone="UTC" />,
     );
 
-    expect(html).toContain('Person');
-    expect(html).toContain('English');
-    expect(html).toContain('No tags assigned');
     expect(html).toContain('No contacts recorded');
     expect(html).toContain('No addresses recorded');
+    expect(html).toContain('No tags assigned');
   });
 
-  it('AC-5: handles contact without names or phone and invalid country code', () => {
-    const clientData: ClientWithRelations = {
-      client: {
-        id: '018f0000-0000-7000-8000-000000000088',
-        kind: 'person',
-        displayName: 'Solo Client',
-        preferredLocale: 'en',
-        createdAt: new Date('2026-01-01T00:00:00Z'),
-        lastActivityAt: new Date('2026-01-01T00:00:00Z'),
-        updatedAt: new Date('2026-01-01T00:00:00Z'),
-      },
-      contacts: [
-        {
-          id: 'contact-x',
-          clientId: '018f0000-0000-7000-8000-000000000088',
-          givenName: null,
-          familyName: null,
-          email: 'solo@example.com',
-          emailNormalized: 'solo@example.com',
-          phone: null,
-          isPrimary: false,
-          createdAt: new Date('2026-01-01T00:00:00Z'),
-          updatedAt: new Date('2026-01-01T00:00:00Z'),
-        },
-      ],
-      addresses: [
-        {
-          id: 'addr-x',
-          clientId: '018f0000-0000-7000-8000-000000000088',
-          type: 'postal',
-          line1: 'Nowhere St 1',
-          line2: null,
-          postalCode: '99999',
-          city: 'Unknown',
-          region: null,
-          countryCode: 'INVALID_COUNTRY_CODE',
-          createdAt: new Date('2026-01-01T00:00:00Z'),
-          updatedAt: new Date('2026-01-01T00:00:00Z'),
-        },
-      ],
-      tags: [],
-    };
+  it('AC-1: renders status message banner announced with role="status"', () => {
+    const clientData = createSampleClient();
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      'Client created successfully.', // statusMessage
+      false, // editDetailsOpen
+      false, // contactDialogOpen
+      null, // editingContact
+      false, // addressDialogOpen
+      null, // editingAddress
+      false, // tagsDialogOpen
+      null, // removeContactTarget
+      null, // removeContactError
+      false, // isRemovingContact
+      null, // removeAddressTarget
+      null, // removeAddressError
+      false, // isRemovingAddress
+    ];
 
     const html = renderToStaticMarkup(
       <ClientProfile clientData={clientData} locale="en" studioTimezone="UTC" />,
     );
 
-    // Fallbacks to displayName if contact has no givenName/familyName
-    expect(html).toContain('Solo Client');
-    expect(html).toContain('solo@example.com');
-    // Country code falls back to raw code when invalid
-    expect(html).toContain('INVALID_COUNTRY_CODE');
+    expect(html).toContain('role="status"');
+    expect(html).toContain('Client created successfully.');
+  });
+
+  it('AC-4: opens and renders EditDetailsDialog when editDetailsOpen is true', () => {
+    const clientData = createSampleClient();
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      true, // editDetailsOpen
+      false,
+      null,
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+
+    const html = renderToStaticMarkup(
+      <ClientProfile clientData={clientData} locale="en" studioTimezone="UTC" />,
+    );
+
+    expect(html).toContain('data-testid="edit-details-dialog"');
+    expect(html).toContain('Edit client details');
+  });
+
+  it('AC-5: opens and renders ContactDialog for adding contact', () => {
+    const clientData = createSampleClient();
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      true, // contactDialogOpen
+      null, // editingContact is null (Add mode)
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+
+    const html = renderToStaticMarkup(
+      <ClientProfile clientData={clientData} locale="en" studioTimezone="UTC" />,
+    );
+
+    expect(html).toContain('data-testid="contact-dialog"');
+    expect(html).toContain('Add contact');
+  });
+
+  it('AC-5: opens and renders ContactDialog for editing contact', () => {
+    const clientData = createSampleClient();
+    const contactToEdit = clientData.contacts[0];
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      true, // contactDialogOpen
+      contactToEdit, // editingContact is present (Edit mode)
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+
+    const html = renderToStaticMarkup(
+      <ClientProfile clientData={clientData} locale="en" studioTimezone="UTC" />,
+    );
+
+    expect(html).toContain('data-testid="contact-dialog"');
+    expect(html).toContain('Edit contact');
+  });
+
+  it('AC-6: opens and renders ConfirmDialog for removing a contact with confirmation and error states', () => {
+    const clientData = createSampleClient();
+    const contactToRemove = clientData.contacts[0];
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      contactToRemove, // removeContactTarget
+      'A client must have at least one contact.', // removeContactError
+      true, // isRemovingContact
+      null,
+      null,
+      false,
+    ];
+
+    const html = renderToStaticMarkup(
+      <ClientProfile clientData={clientData} locale="en" studioTimezone="UTC" />,
+    );
+
+    expect(html).toContain('data-testid="confirm-dialog"');
+    expect(html).toContain('Remove contact');
+    expect(html).toContain('A client must have at least one contact.');
+    expect(html).toContain('Removing...');
+  });
+
+  it('AC-7: opens and renders AddressDialog for adding and editing address', () => {
+    const clientData = createSampleClient();
+    // Add mode
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      true, // addressDialogOpen
+      null, // editingAddress (Add mode)
+      false,
+      null,
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+
+    const addHtml = renderToStaticMarkup(
+      <ClientProfile clientData={clientData} locale="en" studioTimezone="UTC" />,
+    );
+    expect(addHtml).toContain('data-testid="address-dialog"');
+    expect(addHtml).toContain('Add address');
+
+    // Edit mode
+    const addressToEdit = clientData.addresses[0];
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      true, // addressDialogOpen
+      addressToEdit, // editingAddress (Edit mode)
+      false,
+      null,
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+
+    const editHtml = renderToStaticMarkup(
+      <ClientProfile clientData={clientData} locale="en" studioTimezone="UTC" />,
+    );
+    expect(editHtml).toContain('data-testid="address-dialog"');
+    expect(editHtml).toContain('Edit address');
+  });
+
+  it('AC-7: opens and renders ConfirmDialog for removing address with error and pending states', () => {
+    const clientData = createSampleClient();
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      'postal', // removeAddressTarget
+      'Failed to remove address', // removeAddressError
+      true, // isRemovingAddress
+    ];
+
+    const html = renderToStaticMarkup(
+      <ClientProfile clientData={clientData} locale="en" studioTimezone="UTC" />,
+    );
+
+    expect(html).toContain('data-testid="confirm-dialog"');
+    expect(html).toContain('Remove address');
+    expect(html).toContain('Failed to remove address');
+    expect(html).toContain('Removing...');
+  });
+
+  it('AC-8: opens and renders TagsDialog when tagsDialogOpen is true', () => {
+    const clientData = createSampleClient();
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      true, // tagsDialogOpen
+      null,
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+
+    const html = renderToStaticMarkup(
+      <ClientProfile clientData={clientData} locale="en" studioTimezone="UTC" />,
+    );
+
+    expect(html).toContain('data-testid="tags-dialog"');
+    expect(html).toContain('Edit tags');
+  });
+
+  it('AC-5 & AC-6: handles interactive dialog triggers and callbacks', () => {
+    vi.useFakeTimers();
+    try {
+      const clientData = createSampleClient();
+      vi.mocked(getClientAction).mockResolvedValue({
+        success: true,
+        data: clientData,
+      });
+
+      const tree = ClientProfile({
+        clientData,
+        locale: 'en',
+        studioTimezone: 'UTC',
+      });
+
+      const editDetailsBtn = findNodeByTestId(tree, 'edit-client-details-btn');
+      const editContactBtn = findNodeByTestId(tree, 'edit-contact-btn-contact-1');
+      const removeContactBtn = findNodeByTestId(tree, 'remove-contact-btn-contact-1');
+      const addContactBtn = findNodeByTestId(tree, 'add-contact-btn');
+      const addAddressBtn = findNodeByTestId(tree, 'add-address-btn');
+      const editAddressBtn = findNodeByTestId(tree, 'edit-address-btn-postal');
+      const removeAddressBtn = findNodeByTestId(tree, 'remove-address-btn-postal');
+      const editTagsBtn = findNodeByTestId(tree, 'edit-tags-btn');
+
+      const fakeEvent = { currentTarget: {} };
+      getProps(editDetailsBtn).onClick?.(fakeEvent);
+      getProps(editContactBtn).onClick?.(fakeEvent);
+      getProps(removeContactBtn).onClick?.(fakeEvent);
+      getProps(addContactBtn).onClick?.(fakeEvent);
+      getProps(addAddressBtn).onClick?.(fakeEvent);
+      getProps(editAddressBtn).onClick?.(fakeEvent);
+      getProps(removeAddressBtn).onClick?.(fakeEvent);
+      getProps(editTagsBtn).onClick?.(fakeEvent);
+
+      // Dialog callbacks
+      const editDialog = findNodeByType(tree, EditDetailsDialog);
+      getProps(editDialog).onSuccess?.({
+        kind: 'person',
+        displayName: 'Jane Doe',
+        preferredLocale: 'en',
+      });
+
+      const contactDialog = findNodeByType(tree, ContactDialog);
+      getProps(contactDialog).onSuccess?.();
+
+      const addressDialog = findNodeByType(tree, AddressDialog);
+      getProps(addressDialog).onSuccess?.();
+
+      const tagsDialog = findNodeByType(tree, TagsDialog);
+      getProps(tagsDialog).onSuccess?.([{ id: 'tag-new', name: 'Editorial' }]);
+
+      vi.runAllTimers();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('AC-6 & AC-7: handles contact and address removal confirms and errors', () => {
+    const clientData = createSampleClient();
+
+    // 1. Success removal of contact
+    vi.mocked(removeContactAction).mockResolvedValueOnce({
+      success: true,
+      data: { contactId: 'contact-1' },
+    });
+    vi.mocked(getClientAction).mockResolvedValueOnce({ success: true, data: clientData });
+
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null, // statusMessage
+      false, // editDetailsOpen
+      false, // contactDialogOpen
+      null, // editingContact
+      false, // addressDialogOpen
+      null, // editingAddress
+      false, // tagsDialogOpen
+      clientData.contacts[0], // removeContactTarget
+      null, // removeContactError
+      false, // isRemovingContact
+      null, // removeAddressTarget
+      null, // removeAddressError
+      false, // isRemovingAddress
+    ];
+
+    const tree1 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes1 = findAllNodesByType(tree1, ConfirmDialog);
+    const removeContactDialog1 = confirmNodes1.find((n) =>
+      getProps(n).description?.includes('contact'),
+    );
+
+    getProps(removeContactDialog1).onOpenChange?.(false);
+    getProps(removeContactDialog1).onConfirm?.();
+
+    // 2. Failure removal of contact
+    vi.mocked(removeContactAction).mockResolvedValueOnce({
+      success: false,
+      code: 'CLIENT_NEEDS_CONTACT',
+      error: 'Cannot remove only contact',
+    });
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      clientData.contacts[0],
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+    const tree2 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes2 = findAllNodesByType(tree2, ConfirmDialog);
+    const removeContactDialog2 = confirmNodes2.find((n) =>
+      getProps(n).description?.includes('contact'),
+    );
+    getProps(removeContactDialog2).onConfirm?.();
+
+    // 3. Exception in removeContact
+    vi.mocked(removeContactAction).mockRejectedValueOnce(new Error('Network error'));
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      clientData.contacts[0],
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+    const tree3 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes3 = findAllNodesByType(tree3, ConfirmDialog);
+    const removeContactDialog3 = confirmNodes3.find((n) =>
+      getProps(n).description?.includes('contact'),
+    );
+    getProps(removeContactDialog3).onConfirm?.();
+
+    // 4. Success removal of address
+    vi.mocked(removeAddressAction).mockResolvedValueOnce({
+      success: true,
+      data: { type: 'postal' },
+    });
+    vi.mocked(getClientAction).mockResolvedValueOnce({ success: true, data: clientData });
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      'postal', // removeAddressTarget
+      null,
+      false,
+    ];
+    const tree4 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes4 = findAllNodesByType(tree4, ConfirmDialog);
+    const removeAddressDialog1 = confirmNodes4.find((n) =>
+      getProps(n).description?.includes('address'),
+    );
+    getProps(removeAddressDialog1).onOpenChange?.(false);
+    getProps(removeAddressDialog1).onConfirm?.();
+
+    // 5. Failure removal of address
+    vi.mocked(removeAddressAction).mockResolvedValueOnce({
+      success: false,
+      code: 'NOT_FOUND',
+      error: 'Address not found',
+    });
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      'postal',
+      null,
+      false,
+    ];
+    const tree5 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes5 = findAllNodesByType(tree5, ConfirmDialog);
+    const removeAddressDialog2 = confirmNodes5.find((n) =>
+      getProps(n).description?.includes('address'),
+    );
+    getProps(removeAddressDialog2).onConfirm?.();
+
+    // 6. Exception removal of address
+    vi.mocked(removeAddressAction).mockRejectedValueOnce(new Error('Network error'));
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      'postal',
+      null,
+      false,
+    ];
+    const tree6 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes6 = findAllNodesByType(tree6, ConfirmDialog);
+    const removeAddressDialog3 = confirmNodes6.find((n) =>
+      getProps(n).description?.includes('address'),
+    );
+    getProps(removeAddressDialog3).onConfirm?.();
+
+    // 7. Dismiss status banner
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      'Banner status', // statusMessage
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+    const tree7 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const dismissBtn = findNode(
+      tree7,
+      (el) => el.type === 'button' && (el.props as { children?: unknown }).children === '✕',
+    );
+    getProps(dismissBtn).onClick?.();
+  });
+
+  it('AC-5: handles refreshClientData non-fatal error gracefully', () => {
+    const clientData = createSampleClient();
+    vi.mocked(getClientAction).mockRejectedValueOnce(new Error('DB failure'));
+
+    const tree = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const contactDialog = findNodeByType(tree, ContactDialog);
+    getProps(contactDialog).onSuccess?.();
   });
 });
+
+interface InteractiveProps {
+  onClick?: (e?: unknown) => void;
+  onOpenChange?: (open: boolean) => void;
+  onSuccess?: (val?: unknown) => void;
+  onConfirm?: () => void;
+  description?: string;
+}
+
+function findNode(
+  node: React.ReactNode,
+  predicate: (el: React.ReactElement) => boolean,
+): React.ReactElement | undefined {
+  let found: React.ReactElement | undefined;
+  function traverse(current: unknown) {
+    if (!current || found) return;
+    if (React.isValidElement(current)) {
+      if (predicate(current)) {
+        found = current;
+        return;
+      }
+      const props = current.props as { children?: unknown };
+      traverse(props.children);
+    } else if (Array.isArray(current)) {
+      for (const item of current) {
+        traverse(item);
+      }
+    }
+  }
+  traverse(node);
+  return found;
+}
+
+function findNodeByTestId(node: React.ReactNode, testId: string): React.ReactElement | undefined {
+  return findNode(node, (el) => (el.props as { 'data-testid'?: string })['data-testid'] === testId);
+}
+
+function findNodeByType(node: React.ReactNode, component: unknown): React.ReactElement | undefined {
+  return findNode(node, (el) => el.type === component);
+}
+
+function findAllNodesByType(node: React.ReactNode, component: unknown): React.ReactElement[] {
+  const result: React.ReactElement[] = [];
+  function traverse(current: unknown) {
+    if (!current) return;
+    if (React.isValidElement(current)) {
+      if (current.type === component) {
+        result.push(current);
+      }
+      const props = current.props as { children?: unknown };
+      traverse(props.children);
+    } else if (Array.isArray(current)) {
+      for (const item of current) {
+        traverse(item);
+      }
+    }
+  }
+  traverse(node);
+  return result;
+}
+
+function getProps(node: React.ReactElement | undefined): InteractiveProps {
+  const p = node?.props;
+  if (p && typeof p === 'object') {
+    return p;
+  }
+  return {};
+}

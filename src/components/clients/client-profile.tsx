@@ -1,9 +1,44 @@
+'use client';
+
 import * as React from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, Tag, UserCheck } from 'lucide-react';
-import type { ClientWithRelations } from '@/server/clients/repo';
+import {
+  ArrowLeft,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Tag,
+  UserCheck,
+  Pencil,
+  Plus,
+  Trash2,
+  CheckCircle2,
+} from 'lucide-react';
+import type { ClientWithRelations, ClientTagItem } from '@/server/clients/repo';
+import type {
+  Client,
+  ClientContact,
+  ClientAddress,
+  ClientKind,
+  ClientLocale,
+  AddressType,
+} from '@/server/db/schema/clients';
 import { formatDateTime } from '@/lib/formatters';
+import { getLocalizedCountryName } from '@/lib/countries';
+import {
+  removeContactAction,
+  removeAddressAction,
+  getClientAction,
+} from '@/server/clients/actions';
+import { getClientErrorMessage } from '@/lib/client-errors';
+import { EditDetailsDialog } from './edit-details-dialog';
+import { ContactDialog } from './contact-dialog';
+import { AddressDialog } from './address-dialog';
+import { TagsDialog } from './tags-dialog';
+import { ConfirmDialog } from './confirm-dialog';
 
 export interface ClientProfileProps {
   clientData: ClientWithRelations;
@@ -13,15 +48,172 @@ export interface ClientProfileProps {
 
 export function ClientProfile({ clientData, locale, studioTimezone }: ClientProfileProps) {
   const t = useTranslations('clients.profile');
-  const { client, contacts, addresses, tags } = clientData;
+  const tForm = useTranslations('clients.form');
+  const tErrors = useTranslations('clients.errors');
+  const searchParams = useSearchParams();
 
-  const getCountryName = (countryCode: string) => {
-    try {
-      const displayNames = new Intl.DisplayNames([locale], { type: 'region' });
-      return displayNames.of(countryCode) ?? countryCode;
-    } catch {
-      return countryCode;
+  // Component state
+  const [client, setClient] = React.useState<Client>(clientData.client);
+  const [contacts, setContacts] = React.useState<ClientContact[]>(clientData.contacts);
+  const [addresses, setAddresses] = React.useState<ClientAddress[]>(clientData.addresses);
+  const [tags, setTags] = React.useState<ClientTagItem[]>(clientData.tags);
+
+  // Status message for screen reader announcements and banner (AC-1, AC-13)
+  const [statusMessage, setStatusMessage] = React.useState<string | null>(() =>
+    searchParams.get('created') === '1' ? tForm('createdSuccess') : null,
+  );
+
+  // Focus targets for post-save keyboard navigation (AC-13)
+  const statusRef = React.useRef<HTMLDivElement>(null);
+  const detailsHeadingRef = React.useRef<HTMLHeadingElement>(null);
+  const contactsHeadingRef = React.useRef<HTMLHeadingElement>(null);
+  const addressesHeadingRef = React.useRef<HTMLHeadingElement>(null);
+  const tagsSectionRef = React.useRef<HTMLDivElement>(null);
+
+  // Trigger refs for post-dismiss focus restoration (AC-13)
+  const editDetailsTriggerRef = React.useRef<HTMLButtonElement>(null);
+  const contactTriggerRef = React.useRef<HTMLElement | null>(null);
+  const addressTriggerRef = React.useRef<HTMLElement | null>(null);
+  const tagsTriggerRef = React.useRef<HTMLElement | null>(null);
+  const confirmTriggerRef = React.useRef<HTMLElement | null>(null);
+
+  // Dialog open states
+  const [editDetailsOpen, setEditDetailsOpen] = React.useState(false);
+  const [contactDialogOpen, setContactDialogOpen] = React.useState(false);
+  const [editingContact, setEditingContact] = React.useState<ClientContact | null>(null);
+  const [addressDialogOpen, setAddressDialogOpen] = React.useState(false);
+  const [editingAddress, setEditingAddress] = React.useState<ClientAddress | null>(null);
+  const [tagsDialogOpen, setTagsDialogOpen] = React.useState(false);
+
+  // Confirm removal dialog states
+  const [removeContactTarget, setRemoveContactTarget] = React.useState<ClientContact | null>(null);
+  const [removeContactError, setRemoveContactError] = React.useState<string | null>(null);
+  const [isRemovingContact, setIsRemovingContact] = React.useState(false);
+
+  const [removeAddressTarget, setRemoveAddressTarget] = React.useState<AddressType | null>(null);
+  const [removeAddressError, setRemoveAddressError] = React.useState<string | null>(null);
+  const [isRemovingAddress, setIsRemovingAddress] = React.useState(false);
+
+  // Focus announcement on mount if created (AC-1)
+  React.useEffect(() => {
+    if (statusMessage) {
+      statusRef.current?.focus();
     }
+  }, [statusMessage]);
+
+  const announceAndFocus = (message: string, targetRef?: React.RefObject<HTMLElement | null>) => {
+    setStatusMessage(message);
+    setTimeout(() => {
+      if (targetRef?.current) {
+        targetRef.current.focus();
+      } else {
+        statusRef.current?.focus();
+      }
+    }, 50);
+  };
+
+  const refreshClientData = async () => {
+    try {
+      const res = await getClientAction({ clientId: client.id });
+      if (res.success) {
+        setClient(res.data.client);
+        setContacts(res.data.contacts);
+        setAddresses(res.data.addresses);
+        setTags(res.data.tags);
+      }
+    } catch {
+      // Non-fatal
+    }
+  };
+
+  // Edit details success
+  const handleDetailsSuccess = (updated: {
+    kind: ClientKind;
+    displayName: string;
+    preferredLocale: ClientLocale;
+  }) => {
+    setClient((prev) => ({
+      ...prev,
+      kind: updated.kind,
+      displayName: updated.displayName,
+      preferredLocale: updated.preferredLocale,
+    }));
+    announceAndFocus(tForm('savedSuccess'), detailsHeadingRef);
+  };
+
+  // Contact add/edit success
+  const handleContactSuccess = async () => {
+    await refreshClientData();
+    announceAndFocus(tForm('savedSuccess'), contactsHeadingRef);
+  };
+
+  // Confirm remove contact
+  const handleConfirmRemoveContact = async () => {
+    if (!removeContactTarget || isRemovingContact) return;
+
+    setIsRemovingContact(true);
+    setRemoveContactError(null);
+
+    try {
+      const res = await removeContactAction({
+        clientId: client.id,
+        contactId: removeContactTarget.id,
+      });
+
+      if (!res.success) {
+        // AC-6: Single contact removal shows localized CLIENT_NEEDS_CONTACT message
+        setRemoveContactError(getClientErrorMessage(res.code, tErrors));
+        return;
+      }
+
+      await refreshClientData();
+      setRemoveContactTarget(null);
+      announceAndFocus(tForm('savedSuccess'), contactsHeadingRef);
+    } catch {
+      setRemoveContactError(tErrors('GENERIC_ERROR'));
+    } finally {
+      setIsRemovingContact(false);
+    }
+  };
+
+  // Address add/edit success
+  const handleAddressSuccess = async () => {
+    await refreshClientData();
+    announceAndFocus(tForm('savedSuccess'), addressesHeadingRef);
+  };
+
+  // Confirm remove address
+  const handleConfirmRemoveAddress = async () => {
+    if (!removeAddressTarget || isRemovingAddress) return;
+
+    setIsRemovingAddress(true);
+    setRemoveAddressError(null);
+
+    try {
+      const res = await removeAddressAction({
+        clientId: client.id,
+        type: removeAddressTarget,
+      });
+
+      if (!res.success) {
+        setRemoveAddressError(getClientErrorMessage(res.code, tErrors));
+        return;
+      }
+
+      await refreshClientData();
+      setRemoveAddressTarget(null);
+      announceAndFocus(tForm('savedSuccess'), addressesHeadingRef);
+    } catch {
+      setRemoveAddressError(tErrors('GENERIC_ERROR'));
+    } finally {
+      setIsRemovingAddress(false);
+    }
+  };
+
+  // Tags success
+  const handleTagsSuccess = (newTags: ClientTagItem[]) => {
+    setTags(newTags);
+    announceAndFocus(tForm('savedSuccess'), tagsSectionRef);
   };
 
   const cleanPhoneForHref = (phone: string | null) => {
@@ -43,49 +235,115 @@ export function ClientProfile({ clientData, locale, studioTimezone }: ClientProf
         </Link>
       </div>
 
-      {/* Header with single H1 (AC-5) */}
+      {/* Localized status announcement banner (AC-1, AC-13) */}
+      {statusMessage && (
+        <div
+          ref={statusRef}
+          tabIndex={-1}
+          role="status"
+          aria-live="polite"
+          className="rounded-lg border border-primary/30 bg-primary/10 p-4 text-primary flex items-center justify-between gap-3 focus:outline-none focus:ring-2 focus:ring-primary"
+          data-testid="profile-status-message"
+        >
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <span>{statusMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setStatusMessage(null);
+            }}
+            className="text-xs font-semibold hover:underline rounded p-1 min-h-[32px] min-w-[32px]"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Header Card (Details + Tags) */}
       <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
-              data-testid="client-kind-badge"
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="space-y-2 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
+                data-testid="client-kind-badge"
+              >
+                {client.kind === 'company' ? t('kind.company') : t('kind.person')}
+              </span>
+              <span
+                className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
+                data-testid="client-locale-badge"
+              >
+                {t('preferredLanguage')}:{' '}
+                {client.preferredLocale === 'de' ? t('language.de') : t('language.en')}
+              </span>
+            </div>
+
+            <h1
+              ref={detailsHeadingRef}
+              tabIndex={-1}
+              className="text-2xl md:text-3xl font-bold tracking-tight text-foreground break-words focus:outline-none"
+              data-testid="client-display-name"
             >
-              {client.kind === 'company' ? t('kind.company') : t('kind.person')}
-            </span>
-            <span
-              className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
-              data-testid="client-locale-badge"
-            >
-              {t('preferredLanguage')}:{' '}
-              {client.preferredLocale === 'de' ? t('language.de') : t('language.en')}
-            </span>
+              {client.displayName}
+            </h1>
           </div>
 
-          <h1
-            className="text-2xl md:text-3xl font-bold tracking-tight text-foreground break-words"
-            data-testid="client-display-name"
+          {/* Edit Client Details Button */}
+          <button
+            type="button"
+            ref={editDetailsTriggerRef}
+            onClick={() => {
+              setEditDetailsOpen(true);
+            }}
+            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[44px] shrink-0"
+            data-testid="edit-client-details-btn"
           >
-            {client.displayName}
-          </h1>
+            <Pencil className="h-4 w-4 mr-1.5" aria-hidden="true" />
+            <span>{t('editDetails')}</span>
+          </button>
         </div>
 
-        {/* Tags */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1" data-testid="client-tags-section">
-          <Tag className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <span className="text-xs font-medium text-muted-foreground mr-1">{t('tags')}:</span>
-          {tags.length > 0 ? (
-            tags.map((tag) => (
-              <span
-                key={tag.id}
-                className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground"
-              >
-                {tag.name}
-              </span>
-            ))
-          ) : (
-            <span className="text-xs text-muted-foreground">{t('noTags')}</span>
-          )}
+        {/* Tags Section */}
+        <div
+          ref={tagsSectionRef}
+          tabIndex={-1}
+          className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t focus:outline-none"
+          data-testid="client-tags-section"
+        >
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Tag className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <span className="text-xs font-medium text-muted-foreground mr-1">{t('tags')}:</span>
+            {tags.length > 0 ? (
+              tags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground"
+                  data-testid={`client-tag-${tag.name}`}
+                >
+                  {tag.name}
+                </span>
+              ))
+            ) : (
+              <span className="text-xs text-muted-foreground">{t('noTags')}</span>
+            )}
+          </div>
+
+          {/* Edit Tags Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              tagsTriggerRef.current = e.currentTarget;
+              setTagsDialogOpen(true);
+            }}
+            className="inline-flex items-center rounded text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring px-2 py-1 min-h-[36px]"
+            data-testid="edit-tags-btn"
+          >
+            <Pencil className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+            <span>{t('editTags')}</span>
+          </button>
         </div>
       </div>
 
@@ -95,11 +353,31 @@ export function ClientProfile({ clientData, locale, studioTimezone }: ClientProf
           aria-labelledby="contacts-heading"
           className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4"
         >
-          <div className="flex items-center gap-2 border-b pb-3">
-            <UserCheck className="h-5 w-5 text-primary" aria-hidden="true" />
-            <h2 id="contacts-heading" className="text-lg font-semibold text-foreground">
-              {t('contactsTitle')}
-            </h2>
+          <div className="flex items-center justify-between border-b pb-3">
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+              <h2
+                id="contacts-heading"
+                ref={contactsHeadingRef}
+                tabIndex={-1}
+                className="text-lg font-semibold text-foreground focus:outline-none"
+              >
+                {t('contactsTitle')}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                contactTriggerRef.current = e.currentTarget;
+                setEditingContact(null);
+                setContactDialogOpen(true);
+              }}
+              className="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[36px]"
+              data-testid="add-contact-btn"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+              <span>{t('addContact')}</span>
+            </button>
           </div>
 
           {contacts.length === 0 ? (
@@ -119,15 +397,47 @@ export function ClientProfile({ clientData, locale, studioTimezone }: ClientProf
                     data-testid={`contact-card-${contact.id}`}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-medium text-sm text-foreground">{fullName}</span>
-                      {contact.isPrimary && (
-                        <span
-                          className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium"
-                          data-testid="primary-contact-badge"
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-foreground">{fullName}</span>
+                        {contact.isPrimary && (
+                          <span
+                            className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium"
+                            data-testid="primary-contact-badge"
+                          >
+                            {t('primaryBadge')}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Contact Action Buttons */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            contactTriggerRef.current = e.currentTarget;
+                            setEditingContact(contact);
+                            setContactDialogOpen(true);
+                          }}
+                          className="rounded p-1.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
+                          data-testid={`edit-contact-btn-${contact.id}`}
+                          aria-label={`${t('editContact')}: ${fullName}`}
                         >
-                          {t('primaryBadge')}
-                        </span>
-                      )}
+                          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            confirmTriggerRef.current = e.currentTarget;
+                            setRemoveContactTarget(contact);
+                            setRemoveContactError(null);
+                          }}
+                          className="rounded p-1.5 text-red-700 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
+                          data-testid={`remove-contact-btn-${contact.id}`}
+                          aria-label={`${t('removeContact')}: ${fullName}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-1.5 text-sm">
@@ -175,11 +485,31 @@ export function ClientProfile({ clientData, locale, studioTimezone }: ClientProf
           aria-labelledby="addresses-heading"
           className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4"
         >
-          <div className="flex items-center gap-2 border-b pb-3">
-            <MapPin className="h-5 w-5 text-primary" aria-hidden="true" />
-            <h2 id="addresses-heading" className="text-lg font-semibold text-foreground">
-              {t('addressesTitle')}
-            </h2>
+          <div className="flex items-center justify-between border-b pb-3">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" aria-hidden="true" />
+              <h2
+                id="addresses-heading"
+                ref={addressesHeadingRef}
+                tabIndex={-1}
+                className="text-lg font-semibold text-foreground focus:outline-none"
+              >
+                {t('addressesTitle')}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                addressTriggerRef.current = e.currentTarget;
+                setEditingAddress(null);
+                setAddressDialogOpen(true);
+              }}
+              className="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[36px]"
+              data-testid="add-address-btn"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+              <span>{t('addAddress')}</span>
+            </button>
           </div>
 
           {addresses.length === 0 ? (
@@ -192,9 +522,40 @@ export function ClientProfile({ clientData, locale, studioTimezone }: ClientProf
                   className={`space-y-1 text-sm ${idx > 0 ? 'pt-4' : ''}`}
                   data-testid={`address-card-${addr.type}`}
                 >
-                  <span className="font-medium text-xs uppercase tracking-wider text-muted-foreground block mb-1">
-                    {addr.type === 'billing' ? t('addressType.billing') : t('addressType.postal')}
-                  </span>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="font-medium text-xs uppercase tracking-wider text-muted-foreground block">
+                      {addr.type === 'billing' ? t('addressType.billing') : t('addressType.postal')}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          addressTriggerRef.current = e.currentTarget;
+                          setEditingAddress(addr);
+                          setAddressDialogOpen(true);
+                        }}
+                        className="rounded p-1.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
+                        data-testid={`edit-address-btn-${addr.type}`}
+                        aria-label={`${t('editAddress')}: ${addr.type}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          confirmTriggerRef.current = e.currentTarget;
+                          setRemoveAddressTarget(addr.type);
+                          setRemoveAddressError(null);
+                        }}
+                        className="rounded p-1.5 text-red-700 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
+                        data-testid={`remove-address-btn-${addr.type}`}
+                        aria-label={`${t('removeAddress')}: ${addr.type}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="text-foreground">{addr.line1}</div>
                   {addr.line2 && <div className="text-foreground">{addr.line2}</div>}
                   <div className="text-foreground">
@@ -202,7 +563,7 @@ export function ClientProfile({ clientData, locale, studioTimezone }: ClientProf
                   </div>
                   {addr.region && <div className="text-muted-foreground">{addr.region}</div>}
                   <div className="font-medium text-foreground">
-                    {getCountryName(addr.countryCode)}
+                    {getLocalizedCountryName(addr.countryCode, locale)}
                   </div>
                 </div>
               ))}
@@ -243,6 +604,86 @@ export function ClientProfile({ clientData, locale, studioTimezone }: ClientProf
           </div>
         </div>
       </section>
+
+      {/* Dialogs */}
+      <EditDetailsDialog
+        client={client}
+        isOpen={editDetailsOpen}
+        onOpenChange={setEditDetailsOpen}
+        triggerRef={editDetailsTriggerRef}
+        onSuccess={handleDetailsSuccess}
+      />
+
+      <ContactDialog
+        clientId={client.id}
+        locale={locale}
+        isOpen={contactDialogOpen}
+        onOpenChange={setContactDialogOpen}
+        contactToEdit={editingContact}
+        triggerRef={contactTriggerRef}
+        onSuccess={() => {
+          void handleContactSuccess();
+        }}
+      />
+
+      <AddressDialog
+        clientId={client.id}
+        locale={locale}
+        isOpen={addressDialogOpen}
+        onOpenChange={setAddressDialogOpen}
+        addressToEdit={editingAddress}
+        triggerRef={addressTriggerRef}
+        onSuccess={() => {
+          void handleAddressSuccess();
+        }}
+      />
+
+      <TagsDialog
+        clientId={client.id}
+        isOpen={tagsDialogOpen}
+        onOpenChange={setTagsDialogOpen}
+        currentTags={tags}
+        triggerRef={tagsTriggerRef}
+        onSuccess={handleTagsSuccess}
+      />
+
+      {/* Confirm Remove Contact Dialog (AC-6) */}
+      <ConfirmDialog
+        isOpen={Boolean(removeContactTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoveContactTarget(null);
+            setRemoveContactError(null);
+          }
+        }}
+        title={tForm('removeContactTitle')}
+        description={tForm('removeContactConfirm')}
+        errorMessage={removeContactError}
+        isSubmitting={isRemovingContact}
+        triggerRef={confirmTriggerRef}
+        onConfirm={() => {
+          void handleConfirmRemoveContact();
+        }}
+      />
+
+      {/* Confirm Remove Address Dialog (AC-7) */}
+      <ConfirmDialog
+        isOpen={Boolean(removeAddressTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoveAddressTarget(null);
+            setRemoveAddressError(null);
+          }
+        }}
+        title={tForm('removeAddressTitle')}
+        description={tForm('removeAddressConfirm')}
+        errorMessage={removeAddressError}
+        isSubmitting={isRemovingAddress}
+        triggerRef={confirmTriggerRef}
+        onConfirm={() => {
+          void handleConfirmRemoveAddress();
+        }}
+      />
     </div>
   );
 }

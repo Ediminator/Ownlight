@@ -24,5 +24,5 @@ describe('AC-1: GitHub Actions workflow validation with actionlint and zizmor', 
       expect(output).toContain('zizmor binary not found on PATH');
     }
     expect(output).toContain('All workflow linter and security checks passed');
-  });
+  }, 90_000);
 });

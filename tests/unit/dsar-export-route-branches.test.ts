@@ -30,7 +30,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
     session: {
       id: 's-1',
       userId: '01912345-6789-7abc-8def-012345678000',
-      token: 'session-token-123',
+      token: 'tok_test',
       expiresAt: new Date(Date.now() + 86400000),
       ipAddress: null,
       userAgent: null,

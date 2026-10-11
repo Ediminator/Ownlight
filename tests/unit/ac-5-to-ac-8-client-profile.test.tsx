@@ -27,7 +27,7 @@ vi.mock('react', async (importOriginal) => {
       }
       return [initial, vi.fn()];
     },
-    useRef: <T,>(initial: T) => ({ current: initial }),
+    useRef: <T,>(initial: T) => ({ current: (initial ?? { focus: vi.fn() }) as unknown as T }),
     useEffect: (fn: () => unknown) => {
       try {
         fn();
@@ -526,53 +526,60 @@ describe('TASK-0012: Client Profile UI and Dialog Integrations', () => {
   });
 
   it('AC-5 & AC-6: handles interactive dialog triggers and callbacks', () => {
-    const clientData = createSampleClient();
-    vi.mocked(getClientAction).mockResolvedValue({
-      success: true,
-      data: clientData,
-    });
+    vi.useFakeTimers();
+    try {
+      const clientData = createSampleClient();
+      vi.mocked(getClientAction).mockResolvedValue({
+        success: true,
+        data: clientData,
+      });
 
-    const tree = ClientProfile({
-      clientData,
-      locale: 'en',
-      studioTimezone: 'UTC',
-    });
+      const tree = ClientProfile({
+        clientData,
+        locale: 'en',
+        studioTimezone: 'UTC',
+      });
 
-    const editDetailsBtn = findNodeByTestId(tree, 'edit-details-btn');
-    const editContactBtn = findNodeByTestId(tree, 'edit-contact-btn-contact-1');
-    const removeContactBtn = findNodeByTestId(tree, 'remove-contact-btn-contact-1');
-    const addContactBtn = findNodeByTestId(tree, 'add-contact-btn');
-    const addAddressBtn = findNodeByTestId(tree, 'add-address-btn');
-    const editAddressBtn = findNodeByTestId(tree, 'edit-address-btn-postal');
-    const removeAddressBtn = findNodeByTestId(tree, 'remove-address-btn-postal');
-    const editTagsBtn = findNodeByTestId(tree, 'edit-tags-btn');
+      const editDetailsBtn = findNodeByTestId(tree, 'edit-client-details-btn');
+      const editContactBtn = findNodeByTestId(tree, 'edit-contact-btn-contact-1');
+      const removeContactBtn = findNodeByTestId(tree, 'remove-contact-btn-contact-1');
+      const addContactBtn = findNodeByTestId(tree, 'add-contact-btn');
+      const addAddressBtn = findNodeByTestId(tree, 'add-address-btn');
+      const editAddressBtn = findNodeByTestId(tree, 'edit-address-btn-postal');
+      const removeAddressBtn = findNodeByTestId(tree, 'remove-address-btn-postal');
+      const editTagsBtn = findNodeByTestId(tree, 'edit-tags-btn');
 
-    const fakeEvent = { currentTarget: {} };
-    getProps(editDetailsBtn).onClick?.(fakeEvent);
-    getProps(editContactBtn).onClick?.(fakeEvent);
-    getProps(removeContactBtn).onClick?.(fakeEvent);
-    getProps(addContactBtn).onClick?.(fakeEvent);
-    getProps(addAddressBtn).onClick?.(fakeEvent);
-    getProps(editAddressBtn).onClick?.(fakeEvent);
-    getProps(removeAddressBtn).onClick?.(fakeEvent);
-    getProps(editTagsBtn).onClick?.(fakeEvent);
+      const fakeEvent = { currentTarget: {} };
+      getProps(editDetailsBtn).onClick?.(fakeEvent);
+      getProps(editContactBtn).onClick?.(fakeEvent);
+      getProps(removeContactBtn).onClick?.(fakeEvent);
+      getProps(addContactBtn).onClick?.(fakeEvent);
+      getProps(addAddressBtn).onClick?.(fakeEvent);
+      getProps(editAddressBtn).onClick?.(fakeEvent);
+      getProps(removeAddressBtn).onClick?.(fakeEvent);
+      getProps(editTagsBtn).onClick?.(fakeEvent);
 
-    // Dialog callbacks
-    const editDialog = findNodeByType(tree, EditDetailsDialog);
-    getProps(editDialog).onSuccess?.({
-      kind: 'person',
-      displayName: 'Jane Doe',
-      preferredLocale: 'en',
-    });
+      // Dialog callbacks
+      const editDialog = findNodeByType(tree, EditDetailsDialog);
+      getProps(editDialog).onSuccess?.({
+        kind: 'person',
+        displayName: 'Jane Doe',
+        preferredLocale: 'en',
+      });
 
-    const contactDialog = findNodeByType(tree, ContactDialog);
-    getProps(contactDialog).onSuccess?.();
+      const contactDialog = findNodeByType(tree, ContactDialog);
+      getProps(contactDialog).onSuccess?.();
 
-    const addressDialog = findNodeByType(tree, AddressDialog);
-    getProps(addressDialog).onSuccess?.();
+      const addressDialog = findNodeByType(tree, AddressDialog);
+      getProps(addressDialog).onSuccess?.();
 
-    const tagsDialog = findNodeByType(tree, TagsDialog);
-    getProps(tagsDialog).onSuccess?.([{ id: 'tag-new', name: 'Editorial' }]);
+      const tagsDialog = findNodeByType(tree, TagsDialog);
+      getProps(tagsDialog).onSuccess?.([{ id: 'tag-new', name: 'Editorial' }]);
+
+      vi.runAllTimers();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('AC-6 & AC-7: handles contact and address removal confirms and errors', () => {

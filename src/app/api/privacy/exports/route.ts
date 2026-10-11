@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, type DbClient } from '@/server/db/client';
 import {
-  requireOwner,
+  requireOwnerSession,
   extractBearerToken,
   ForbiddenError,
   type AuthContext,
@@ -100,10 +100,10 @@ export async function POST(request: NextRequest, context?: ExportRouteContext): 
     );
   }
 
-  // 3. Web session authentication & owner role check
+  // 3. Web session authentication & owner role check (session-only, ADR-0006, AC-4)
   let authContext: AuthContext;
   try {
-    authContext = await requireOwner({ headers: request.headers, client: dbClient });
+    authContext = await requireOwnerSession({ headers: request.headers, client: dbClient });
   } catch (err) {
     if (err instanceof ForbiddenError) {
       return NextResponse.json(

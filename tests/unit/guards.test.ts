@@ -11,7 +11,14 @@ vi.mock('next/headers', () => ({
   cookies: () => Promise.resolve({ get: () => undefined }),
 }));
 
-import { extractBearerToken, requireAuth } from '@/server/auth/guards';
+import {
+  extractBearerToken,
+  extractSessionToken,
+  requireAuth,
+  requireOwnerSession,
+  ForbiddenError,
+  UnauthorizedError,
+} from '@/server/auth/guards';
 import type { DbClient } from '@/server/db/client';
 
 describe('Authentication and authorization guards (guards.ts)', () => {
@@ -90,6 +97,113 @@ describe('Authentication and authorization guards (guards.ts)', () => {
           } as unknown as DbClient,
         }),
       ).rejects.toThrow('Invalid or expired session.');
+    });
+  });
+
+  describe('extractSessionToken', () => {
+    it('extracts session token from standard and secure cookie headers', async () => {
+      expect(await extractSessionToken({ cookie: 'ownlight_session=standard_token_123' })).toBe(
+        'standard_token_123',
+      );
+      expect(
+        await extractSessionToken({ cookie: '__Secure-ownlight_session=secure_token_456' }),
+      ).toBe('secure_token_456');
+
+      const headersInstance = new Headers();
+      headersInstance.set('cookie', 'foo=bar; ownlight_session=header_token_789; baz=qux');
+      expect(await extractSessionToken(headersInstance)).toBe('header_token_789');
+
+      expect(await extractSessionToken(undefined)).toBeUndefined();
+      expect(await extractSessionToken({})).toBeUndefined();
+      expect(await extractSessionToken({ cookie: 'other_cookie=xyz' })).toBeUndefined();
+    });
+  });
+
+  describe('requireOwnerSession (I4-CI01: session-only guard)', () => {
+    it('I4-CI01: strictly ignores Bearer API keys and throws UnauthorizedError when no session cookie is present', async () => {
+      // Even if an Authorization: Bearer ... header is supplied, requireOwnerSession strictly ignores it
+      await expect(
+        requireOwnerSession({
+          headers: { authorization: 'Bearer ow_live_valid_key_123' },
+          client: {} as DbClient,
+        }),
+      ).rejects.toThrow(UnauthorizedError);
+    });
+
+    it('I4-CI01: throws UnauthorizedError when no session cookie is supplied', async () => {
+      await expect(
+        requireOwnerSession({
+          headers: {},
+          client: {} as DbClient,
+        }),
+      ).rejects.toThrow(UnauthorizedError);
+    });
+
+    it('I4-CI01: throws UnauthorizedError when session cookie is invalid or expired', async () => {
+      await expect(
+        requireOwnerSession({
+          headers: { cookie: 'ownlight_session=expired-tok' },
+          client: {
+            select: () => ({
+              from: () => ({
+                innerJoin: () => ({
+                  where: () => ({
+                    limit: () => [],
+                  }),
+                }),
+              }),
+            }),
+          } as unknown as DbClient,
+        }),
+      ).rejects.toThrow(UnauthorizedError);
+    });
+
+    it('I4-CI01: throws ForbiddenError when authenticated user is not an owner', async () => {
+      const mockAssistantUser = { id: 'u1', role: 'assistant', name: 'Assistant' };
+      const mockSession = { id: 's1', token: 'tok-asst', userId: 'u1' };
+
+      await expect(
+        requireOwnerSession({
+          headers: { cookie: 'ownlight_session=tok-asst' },
+          client: {
+            select: () => ({
+              from: () => ({
+                innerJoin: () => ({
+                  where: () => ({
+                    limit: () => [{ session: mockSession, user: mockAssistantUser }],
+                  }),
+                }),
+              }),
+            }),
+          } as unknown as DbClient,
+        }),
+      ).rejects.toThrow(ForbiddenError);
+    });
+
+    it('I4-CI01: successfully returns AuthContext for authenticated studio owner', async () => {
+      const mockOwnerUser = { id: 'u-owner', role: 'owner', name: 'Studio Owner' };
+      const mockSession = { id: 's-owner', token: 'tok_owner', userId: 'u-owner' };
+
+      const context = await requireOwnerSession({
+        headers: { cookie: 'ownlight_session=tok_owner' },
+        client: {
+          select: () => ({
+            from: () => ({
+              innerJoin: () => ({
+                where: () => ({
+                  limit: () => [{ session: mockSession, user: mockOwnerUser }],
+                }),
+              }),
+            }),
+          }),
+        } as unknown as DbClient,
+      });
+
+      expect(context.authType).toBe('session');
+      expect(context.user.id).toBe('u-owner');
+      expect(context.user.role).toBe('owner');
+      expect(context.session?.id).toBe('s-owner');
+      expect(context.scopes).toEqual(['*']);
     });
   });
 });

@@ -63,7 +63,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
   });
 
   it('allows origin matching host header and proceeds to auth check', async () => {
-    vi.spyOn(authGuards, 'requireOwner').mockRejectedValueOnce(
+    vi.spyOn(authGuards, 'requireOwnerSession').mockRejectedValueOnce(
       new UnauthorizedError('Authentication required'),
     );
 
@@ -97,8 +97,8 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
     expect(body.message).toBe('API keys are not permitted for data exports');
   });
 
-  it('returns 403 Forbidden when requireOwner throws ForbiddenError', async () => {
-    vi.spyOn(authGuards, 'requireOwner').mockRejectedValueOnce(
+  it('returns 403 Forbidden when requireOwnerSession throws ForbiddenError', async () => {
+    vi.spyOn(authGuards, 'requireOwnerSession').mockRejectedValueOnce(
       new ForbiddenError('Owner role required'),
     );
 
@@ -114,8 +114,8 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
     expect(body.message).toBe('Owner role required');
   });
 
-  it('returns 401 Unauthorized when requireOwner throws UnauthorizedError', async () => {
-    vi.spyOn(authGuards, 'requireOwner').mockRejectedValueOnce(
+  it('returns 401 Unauthorized when requireOwnerSession throws UnauthorizedError', async () => {
+    vi.spyOn(authGuards, 'requireOwnerSession').mockRejectedValueOnce(
       new UnauthorizedError('Authentication required'),
     );
 
@@ -132,7 +132,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
   });
 
   it('returns 403 Forbidden when authType is not session', async () => {
-    vi.spyOn(authGuards, 'requireOwner').mockResolvedValueOnce({
+    vi.spyOn(authGuards, 'requireOwnerSession').mockResolvedValueOnce({
       authType: 'apiKey',
       scopes: ['*'],
       user: validOwnerAuth.user,
@@ -164,7 +164,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
   });
 
   it('returns 403 REAUTH_REQUIRED when assertFreshReauthentication throws', async () => {
-    vi.spyOn(authGuards, 'requireOwner').mockResolvedValueOnce(validOwnerAuth);
+    vi.spyOn(authGuards, 'requireOwnerSession').mockResolvedValueOnce(validOwnerAuth);
     vi.spyOn(reauthModule, 'assertFreshReauthentication').mockRejectedValueOnce(
       new Error('REAUTH_REQUIRED'),
     );
@@ -182,7 +182,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
   });
 
   it('returns 400 BAD_REQUEST on invalid JSON payload', async () => {
-    vi.spyOn(authGuards, 'requireOwner').mockResolvedValueOnce(validOwnerAuth);
+    vi.spyOn(authGuards, 'requireOwnerSession').mockResolvedValueOnce(validOwnerAuth);
     vi.spyOn(reauthModule, 'assertFreshReauthentication').mockResolvedValueOnce();
 
     const req = new NextRequest('http://localhost:3000/api/privacy/exports', {
@@ -198,7 +198,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
   });
 
   it('returns 400 BAD_REQUEST when contactId is invalid UUID', async () => {
-    vi.spyOn(authGuards, 'requireOwner').mockResolvedValueOnce(validOwnerAuth);
+    vi.spyOn(authGuards, 'requireOwnerSession').mockResolvedValueOnce(validOwnerAuth);
     vi.spyOn(reauthModule, 'assertFreshReauthentication').mockResolvedValueOnce();
 
     const req = new NextRequest('http://localhost:3000/api/privacy/exports', {
@@ -214,7 +214,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
   });
 
   it('returns 404 NOT_FOUND when generateExport returns null', async () => {
-    vi.spyOn(authGuards, 'requireOwner').mockResolvedValueOnce(validOwnerAuth);
+    vi.spyOn(authGuards, 'requireOwnerSession').mockResolvedValueOnce(validOwnerAuth);
     vi.spyOn(reauthModule, 'assertFreshReauthentication').mockResolvedValueOnce();
     vi.spyOn(exportService, 'generateExport').mockResolvedValueOnce(null);
 

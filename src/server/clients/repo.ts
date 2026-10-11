@@ -279,29 +279,30 @@ export async function listClients(
   }
 
   const clientIds = clientRows.map((c) => c.id);
-  const primaryContacts = await client
-    .select({
-      clientId: clientContacts.clientId,
-      givenName: clientContacts.givenName,
-      familyName: clientContacts.familyName,
-      email: clientContacts.email,
-      phone: clientContacts.phone,
-    })
-    .from(clientContacts)
-    .where(and(inArray(clientContacts.clientId, clientIds), eq(clientContacts.isPrimary, true)));
+  const [primaryContacts, clientTagRows] = await Promise.all([
+    client
+      .select({
+        clientId: clientContacts.clientId,
+        givenName: clientContacts.givenName,
+        familyName: clientContacts.familyName,
+        email: clientContacts.email,
+        phone: clientContacts.phone,
+      })
+      .from(clientContacts)
+      .where(and(inArray(clientContacts.clientId, clientIds), eq(clientContacts.isPrimary, true))),
+    client
+      .select({
+        clientId: clientTags.clientId,
+        id: tags.id,
+        name: tags.name,
+      })
+      .from(clientTags)
+      .innerJoin(tags, eq(clientTags.tagId, tags.id))
+      .where(inArray(clientTags.clientId, clientIds))
+      .orderBy(asc(tags.name), asc(tags.id)),
+  ]);
 
   const primaryContactMap = new Map(primaryContacts.map((c) => [c.clientId, c]));
-
-  const clientTagRows = await client
-    .select({
-      clientId: clientTags.clientId,
-      id: tags.id,
-      name: tags.name,
-    })
-    .from(clientTags)
-    .innerJoin(tags, eq(clientTags.tagId, tags.id))
-    .where(inArray(clientTags.clientId, clientIds))
-    .orderBy(asc(tags.name), asc(tags.id));
 
   const clientTagsMap = new Map<string, ClientTagItem[]>();
   for (const row of clientTagRows) {

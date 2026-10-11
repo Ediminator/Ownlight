@@ -102,4 +102,64 @@ describe('AC-1: Re-authentication helper export isolation', () => {
     // assertFreshReauthentication is exported from reauth.ts
     expect(typeof reauthModule.assertFreshReauthentication).toBe('function');
   });
+
+  it('assertFreshReauthentication validates session freshness and handles branches', async () => {
+    const dummyDb = {} as unknown as import('@/server/db/client').DbClient;
+    const baseUser: import('@/server/db/schema/auth').User = {
+      id: 'u-123',
+      email: 'u123@example.com',
+      name: 'User 123',
+      emailVerified: true,
+      image: null,
+      role: 'owner',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const baseSession: import('@/server/db/schema/auth').Session = {
+      id: 's-123',
+      userId: 'u-123',
+      token: 'valid-token',
+      expiresAt: new Date(Date.now() + 86400000),
+      ipAddress: null,
+      userAgent: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastReauthenticatedAt: new Date(Date.now() - 60 * 1000),
+    };
+
+    // 1. Session token override succeeds when session is fresh
+    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce({
+      user: baseUser,
+      session: baseSession,
+    });
+    await expect(
+      reauthModule.assertFreshReauthentication('u-123', dummyDb, 'valid-token'),
+    ).resolves.toBeUndefined();
+
+    // 2. Throws when user id does not match
+    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce({
+      user: { ...baseUser, id: 'other-user' },
+      session: baseSession,
+    });
+    await expect(
+      reauthModule.assertFreshReauthentication('u-123', dummyDb, 'valid-token'),
+    ).rejects.toThrow('REAUTH_REQUIRED: Invalid session.');
+
+    // 3. Throws when session is older than 5 minutes
+    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce({
+      user: baseUser,
+      session: {
+        ...baseSession,
+        lastReauthenticatedAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+    });
+    await expect(
+      reauthModule.assertFreshReauthentication('u-123', dummyDb, 'valid-token'),
+    ).rejects.toThrow('REAUTH_REQUIRED: Re-authentication required for sensitive operation.');
+
+    // 4. Throws when no session cookie is found and no override is provided
+    await expect(reauthModule.assertFreshReauthentication('u-123', dummyDb)).rejects.toThrow(
+      'REAUTH_REQUIRED: No active session cookie found.',
+    );
+  });
 });

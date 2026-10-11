@@ -298,7 +298,9 @@
       "lastActivityAt": "Last activity",
       "notFoundTitle": "Client not found",
       "notFoundDescription": "The requested client does not exist or may have been deleted.",
-      "errorMessage": "An error occurred while loading the client profile."
+      "errorMessage": "An error occurred while loading the client profile.",
+      "exportData": "Export personal data",
+      "exportDataDescription": "Generate and download a personal data export (DSAR) for this contact."
     },
     "timeline": {
       "title": "Timeline",
@@ -483,6 +485,32 @@
       "CONSENT_NOT_GRANTED": "Consent cannot be withdrawn because no active grant is currently recorded.",
       "scopeRequired": "Scope is required when granting image usage consent.",
       "futureDate": "Effective date cannot be in the future."
+    }
+  },
+  "privacy": {
+    "export": {
+      "title": "Export personal data",
+      "description": "Generate a machine-readable JSON or printable HTML data subject access export (DSAR, Art. 15 GDPR) for {name}.",
+      "formatLabel": "Export format",
+      "formatJson": "Machine-readable data (JSON)",
+      "formatHtml": "Printable document (HTML)",
+      "localeLabel": "Document language",
+      "localeEn": "English",
+      "localeDe": "German (Deutsch)",
+      "reviewNoticeTitle": "Third-party data review required (Art. 15(4) GDPR)",
+      "reviewNotice": "Before delivering this export to the data subject, carefully review the contents for third-party personal data (such as names or details of partners, guests, or associates mentioned in notes or timeline events) that must be redacted.",
+      "submit": "Generate and download",
+      "generating": "Generating...",
+      "cancel": "Cancel",
+      "reauthTitle": "Re-authentication required",
+      "reauthDescription": "Data export requires confirmation with your account password (recent within 5 minutes).",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "confirmPassword": "Confirm and proceed",
+      "reauthenticating": "Verifying...",
+      "downloadStarted": "Download started.",
+      "errorGeneric": "Export generation failed. Please try again.",
+      "errorReauth": "Incorrect password. Please try again."
     }
   }
 }

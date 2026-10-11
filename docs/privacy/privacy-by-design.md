@@ -20,8 +20,18 @@ The system provides built-in mechanisms to handle data subject access requests (
 
 ### Right to Access & Data Portability (Art. 15, Art. 20)
 
-- **One-Click Export:** The studio owner can generate a complete machine-readable archive (JSON) and a human-readable document (PDF/HTML) of all data associated with a contact or client.
-- **Includes:** Contact details, shoot history, contract records, questionnaire responses, gallery proofing choices, and consent history.
+- **On-Demand Per-Contact Export:** The studio owner can generate on-demand data subject access exports via `POST /api/privacy/exports` or directly from the client profile contact card.
+- **Formats Generated:**
+  - **Machine-readable JSON:** Validated against `ownlight.dsar.v1`, structured by domain categories.
+  - **Self-contained HTML:** Zero-script, zero-external-resource printable document with inline CSS, output encoding, and full GDPR Art. 15(1) disclosures (purposes, legal bases, retention periods, recipients, data source, and Art. 16–21 rights).
+- **Extensible Domain Registry:** Data is assembled using an export provider registry (`src/server/privacy/export/registry.ts`). Built-in providers cover contact identity (excluding normalized internal lookup indexes), client relationship, addresses, tags, notes, timeline events, consent history, and relevant audit logs.
+- **Privacy & Security Safeguards:**
+  - **Third-Party Isolation:** Strictly exports only the selected data subject; other contacts of the client (such as partners) are omitted to protect third-party rights.
+  - **Zero Server-Side Storage:** Exports are generated on the fly, streamed directly as downloads (`Cache-Control: no-store`, `Content-Disposition: attachment`), and never saved to disk or object storage.
+  - **Owner Web Session & Step-Up Auth:** Restricted strictly to owner web sessions with fresh password re-authentication (≤ 5 minutes). API keys are rejected regardless of scope; same-origin verification is strictly enforced.
+  - **Art. 15(4) Review Notice:** Prominently alerts the studio owner prior to download to review notes and timeline events for incidental third-party data and redact where necessary before transmission.
+  - **Audit Logging:** Every export records a `privacy.export.generated` audit event with strict metadata allowlisting and zero personal data in server logs.
+- **Reference:** See [`docs/privacy/dsar-export.md`](./dsar-export.md) for full technical documentation and developer guides.
 
 ### Right to Rectification (Art. 16)
 

@@ -63,6 +63,91 @@ export function extractBearerToken(
   return null;
 }
 
+export interface RequireSessionOptions {
+  headers?: Headers | Record<string, string | undefined>;
+  client?: DbClient;
+}
+
+/**
+ * Extracts session token from next/headers cookies() or an explicit headers / Record object.
+ */
+export async function extractSessionToken(
+  headerSource?: Headers | Record<string, string | undefined>,
+): Promise<string | undefined> {
+  let sessionToken: string | undefined;
+
+  // Try extracting from next/headers cookies()
+  try {
+    const cookieStore = await cookies();
+    sessionToken =
+      cookieStore.get(SECURE_SESSION_COOKIE_NAME)?.value ??
+      cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  } catch {
+    // cookies() may throw outside Next.js request context (e.g. testing)
+    sessionToken = undefined;
+  }
+
+  // If not found in cookieStore, try headers object directly if passed
+  if (!sessionToken && headerSource) {
+    const cookieHeader =
+      typeof (headerSource as Headers).get === 'function'
+        ? (headerSource as Headers).get('cookie')
+        : (headerSource as Record<string, string | undefined>).cookie;
+
+    if (cookieHeader) {
+      const secureMatch = /__Secure-ownlight_session=([^;]+)/.exec(cookieHeader);
+      const standardMatch = /ownlight_session=([^;]+)/.exec(cookieHeader);
+      const match = secureMatch ?? standardMatch;
+      if (match?.[1]) {
+        sessionToken = match[1];
+      }
+    }
+  }
+
+  return sessionToken;
+}
+
+/**
+ * Session-only authorization guard for the studio owner (ADR-0006, TASK-0015 AC-4).
+ * Enforces cookie-based web session authentication ONLY.
+ * Strictly excludes and ignores API keys / Bearer tokens to prevent CodeQL CWE-807 bypass alerts.
+ */
+export async function requireOwnerSession(
+  options: RequireSessionOptions = {},
+): Promise<AuthContext> {
+  const client = options.client ?? defaultDb;
+
+  let headerSource = options.headers;
+  if (!headerSource) {
+    try {
+      headerSource = await headers();
+    } catch {
+      headerSource = undefined;
+    }
+  }
+
+  const sessionToken = await extractSessionToken(headerSource);
+  if (!sessionToken) {
+    throw new UnauthorizedError('Authentication required. Active web session required.');
+  }
+
+  const sessionResult = await verifySession(sessionToken, client);
+  if (!sessionResult) {
+    throw new UnauthorizedError('Invalid or expired session.');
+  }
+
+  if (sessionResult.user.role !== 'owner') {
+    throw new ForbiddenError('Owner role required for this action.');
+  }
+
+  return {
+    user: sessionResult.user,
+    session: sessionResult.session,
+    authType: 'session',
+    scopes: ['*'],
+  };
+}
+
 /**
  * Central authorization guard (ADR-0006).
  * Accepts either:
@@ -125,36 +210,7 @@ export async function requireAuth(options: RequireAuthOptions = {}): Promise<Aut
   }
 
   // 2. Check Web Session Cookie
-  let sessionToken: string | undefined;
-
-  // Try extracting from explicit headers or next/headers cookies()
-  try {
-    const cookieStore = await cookies();
-    sessionToken =
-      cookieStore.get(SECURE_SESSION_COOKIE_NAME)?.value ??
-      cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  } catch {
-    // cookies() may throw outside Next.js request context (e.g. testing)
-    sessionToken = undefined;
-  }
-
-  // If not found in cookieStore, try headers object directly if passed
-  if (!sessionToken && headerSource) {
-    const cookieHeader =
-      typeof (headerSource as Headers).get === 'function'
-        ? (headerSource as Headers).get('cookie')
-        : (headerSource as Record<string, string | undefined>).cookie;
-
-    if (cookieHeader) {
-      const secureMatch = /__Secure-ownlight_session=([^;]+)/.exec(cookieHeader);
-      const standardMatch = /ownlight_session=([^;]+)/.exec(cookieHeader);
-      const match = secureMatch ?? standardMatch;
-      if (match?.[1]) {
-        sessionToken = match[1];
-      }
-    }
-  }
-
+  const sessionToken = await extractSessionToken(headerSource);
   if (!sessionToken) {
     throw new UnauthorizedError('Authentication required. No session or API key provided.');
   }

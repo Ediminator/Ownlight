@@ -222,33 +222,24 @@ export async function listClients(
   if (q && q.trim().length > 0) {
     const escapedPattern = `%${escapeLikeWildcards(q.trim())}%`;
     whereConditions.push(
-      sql`(
-        ${clients.displayName} ILIKE ${escapedPattern} ESCAPE '\\'
-        OR EXISTS (
-          SELECT 1 FROM client_contacts
-          WHERE client_contacts.client_id = ${clients.id}
-          AND (
-            client_contacts.given_name ILIKE ${escapedPattern} ESCAPE '\\'
-            OR client_contacts.family_name ILIKE ${escapedPattern} ESCAPE '\\'
-            OR client_contacts.email_normalized ILIKE ${escapedPattern} ESCAPE '\\'
-            OR client_contacts.phone ILIKE ${escapedPattern} ESCAPE '\\'
-          )
+      sql`${clients.id} IN (
+        SELECT id FROM clients WHERE display_name ILIKE ${escapedPattern} ESCAPE '\\'
+        UNION
+        SELECT client_id FROM client_contacts WHERE (
+          given_name ILIKE ${escapedPattern} ESCAPE '\\'
+          OR family_name ILIKE ${escapedPattern} ESCAPE '\\'
+          OR email_normalized ILIKE ${escapedPattern} ESCAPE '\\'
+          OR phone ILIKE ${escapedPattern} ESCAPE '\\'
         )
-        OR EXISTS (
-          SELECT 1 FROM client_tags
-          JOIN tags ON tags.id = client_tags.tag_id
-          WHERE client_tags.client_id = ${clients.id}
-          AND tags.name ILIKE ${escapedPattern} ESCAPE '\\'
-        )
+        UNION
+        SELECT client_id FROM client_tags
+        JOIN tags ON tags.id = client_tags.tag_id
+        WHERE tags.name ILIKE ${escapedPattern} ESCAPE '\\'
       )`,
     );
   }
 
   const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
-
-  const countQuery = client.select({ total: count() }).from(clients);
-  const [totalRow] = whereClause ? await countQuery.where(whereClause) : await countQuery;
-  const total = totalRow?.total ?? 0;
 
   const dataQuery = client
     .select({
@@ -269,6 +260,15 @@ export async function listClients(
         .limit(pageSize)
         .offset(offset);
 
+  let total: number;
+  if (offset === 0 && clientRows.length < pageSize) {
+    total = clientRows.length;
+  } else {
+    const countQuery = client.select({ total: count() }).from(clients);
+    const [totalRow] = whereClause ? await countQuery.where(whereClause) : await countQuery;
+    total = totalRow?.total ?? 0;
+  }
+
   if (clientRows.length === 0) {
     return {
       items: [],
@@ -279,29 +279,30 @@ export async function listClients(
   }
 
   const clientIds = clientRows.map((c) => c.id);
-  const primaryContacts = await client
-    .select({
-      clientId: clientContacts.clientId,
-      givenName: clientContacts.givenName,
-      familyName: clientContacts.familyName,
-      email: clientContacts.email,
-      phone: clientContacts.phone,
-    })
-    .from(clientContacts)
-    .where(and(inArray(clientContacts.clientId, clientIds), eq(clientContacts.isPrimary, true)));
+  const [primaryContacts, clientTagRows] = await Promise.all([
+    client
+      .select({
+        clientId: clientContacts.clientId,
+        givenName: clientContacts.givenName,
+        familyName: clientContacts.familyName,
+        email: clientContacts.email,
+        phone: clientContacts.phone,
+      })
+      .from(clientContacts)
+      .where(and(inArray(clientContacts.clientId, clientIds), eq(clientContacts.isPrimary, true))),
+    client
+      .select({
+        clientId: clientTags.clientId,
+        id: tags.id,
+        name: tags.name,
+      })
+      .from(clientTags)
+      .innerJoin(tags, eq(clientTags.tagId, tags.id))
+      .where(inArray(clientTags.clientId, clientIds))
+      .orderBy(asc(tags.name), asc(tags.id)),
+  ]);
 
   const primaryContactMap = new Map(primaryContacts.map((c) => [c.clientId, c]));
-
-  const clientTagRows = await client
-    .select({
-      clientId: clientTags.clientId,
-      id: tags.id,
-      name: tags.name,
-    })
-    .from(clientTags)
-    .innerJoin(tags, eq(clientTags.tagId, tags.id))
-    .where(inArray(clientTags.clientId, clientIds))
-    .orderBy(asc(tags.name), asc(tags.id));
 
   const clientTagsMap = new Map<string, ClientTagItem[]>();
   for (const row of clientTagRows) {

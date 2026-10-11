@@ -298,7 +298,9 @@
       "lastActivityAt": "Letzte Aktivität",
       "notFoundTitle": "Kund:in nicht gefunden",
       "notFoundDescription": "Die angeforderte Kund:in existiert nicht oder wurde möglicherweise gelöscht.",
-      "errorMessage": "Beim Laden des Kundenprofils ist ein Fehler aufgetreten."
+      "errorMessage": "Beim Laden des Kundenprofils ist ein Fehler aufgetreten.",
+      "exportData": "Personenbezogene Daten exportieren",
+      "exportDataDescription": "Datenauskunft (DSAR) für diesen Kontakt erstellen und herunterladen."
     },
     "timeline": {
       "title": "Verlauf",
@@ -483,6 +485,32 @@
       "CONSENT_NOT_GRANTED": "Einwilligung kann nicht widerrufen werden, da aktuell keine aktive Einwilligung vorliegt.",
       "scopeRequired": "Der Umfang ist bei Erteilung der Einwilligung zur Bildnutzung erforderlich.",
       "futureDate": "Das Gültigkeitsdatum darf nicht in der Zukunft liegen."
+    }
+  },
+  "privacy": {
+    "export": {
+      "title": "Personenbezogene Daten exportieren",
+      "description": "Erstellen Sie eine maschinenlesbare JSON-Datei oder ein lesbares HTML-Dokument (DSAR, Art. 15 DSGVO) für {name}.",
+      "formatLabel": "Exportformat",
+      "formatJson": "Maschinenlesbare Daten (JSON)",
+      "formatHtml": "Druckbares Dokument (HTML)",
+      "localeLabel": "Dokumentensprache",
+      "localeEn": "Englisch (English)",
+      "localeDe": "Deutsch",
+      "reviewNoticeTitle": "Prüfung auf Drittpersonendaten erforderlich (Art. 15 Abs. 4 DSGVO)",
+      "reviewNotice": "Bevor Sie diesen Export an die betroffene Person weiterleiten, prüfen Sie bitte enthaltene Notizen und Verlaufseinträge auf personenbezogene Daten Dritter (z. B. Partnerangaben), um diese gegebenenfalls zu schwärzen.",
+      "submit": "Erstellen und herunterladen",
+      "generating": "Wird generiert...",
+      "cancel": "Abbrechen",
+      "reauthTitle": "Erneute Authentifizierung erforderlich",
+      "reauthDescription": "Der Datenexport erfordert die Bestätigung mit Ihrem Kontopasswort (kürzlich innerhalb von 5 Minuten).",
+      "passwordLabel": "Passwort",
+      "passwordPlaceholder": "Passwort eingeben",
+      "confirmPassword": "Bestätigen und fortfahren",
+      "reauthenticating": "Wird geprüft...",
+      "downloadStarted": "Download gestartet.",
+      "errorGeneric": "Export konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+      "errorReauth": "Ungültiges Passwort. Bitte versuchen Sie es erneut."
     }
   }
 }

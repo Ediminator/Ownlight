@@ -16,6 +16,7 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
+  Download,
 } from 'lucide-react';
 import type { ClientWithRelations, ClientTagItem } from '@/server/clients/repo';
 import type {
@@ -41,6 +42,7 @@ import { TagsDialog } from './tags-dialog';
 import { ConfirmDialog } from './confirm-dialog';
 import { ClientTimeline } from './client-timeline';
 import { ConsentSection } from './consent-section';
+import { ExportDataDialog } from './export-data-dialog';
 import type { ListTimelineResult } from '@/server/timeline/repo';
 import type { ClientConsentsResult } from '@/server/consents/repo';
 
@@ -105,6 +107,10 @@ export function ClientProfile({
   const [removeAddressTarget, setRemoveAddressTarget] = React.useState<AddressType | null>(null);
   const [removeAddressError, setRemoveAddressError] = React.useState<string | null>(null);
   const [isRemovingAddress, setIsRemovingAddress] = React.useState(false);
+
+  // DSAR personal data export dialog states (TASK-0015)
+  const [exportContactTarget, setExportContactTarget] = React.useState<ClientContact | null>(null);
+  const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
 
   // Focus announcement on mount if created (AC-1)
   React.useEffect(() => {
@@ -427,6 +433,20 @@ export function ClientProfile({
                           type="button"
                           onClick={(e) => {
                             contactTriggerRef.current = e.currentTarget;
+                            setExportContactTarget(contact);
+                            setExportDialogOpen(true);
+                          }}
+                          className="rounded p-1.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
+                          data-testid={`export-contact-btn-${contact.id}`}
+                          aria-label={`${t('exportData')}: ${fullName}`}
+                          title={t('exportData')}
+                        >
+                          <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            contactTriggerRef.current = e.currentTarget;
                             setEditingContact(contact);
                             setContactDialogOpen(true);
                           }}
@@ -719,6 +739,19 @@ export function ClientProfile({
         triggerRef={confirmTriggerRef}
         onConfirm={() => {
           void handleConfirmRemoveAddress();
+        }}
+      />
+
+      {/* Export Personal Data Dialog (AC-9, TASK-0015) */}
+      <ExportDataDialog
+        contact={exportContactTarget}
+        clientDisplayName={client.displayName}
+        preferredLocale={client.preferredLocale}
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        triggerRef={contactTriggerRef}
+        onDownloadStarted={() => {
+          announceAndFocus(t('exportDataDescription'), contactTriggerRef);
         }}
       />
     </div>

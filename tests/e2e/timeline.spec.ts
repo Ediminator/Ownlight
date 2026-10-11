@@ -197,18 +197,44 @@ test.describe('TASK-0013: Relationship History Timeline and Notes UI E2E', () =>
 
     // 3. Run Axe on English profile in dark mode
     await page.goto(`/en/clients/${clientId}`);
+    await page.emulateMedia({ colorScheme: 'dark' });
     await page.evaluate(() => {
+      try {
+        localStorage.setItem('theme', 'dark');
+      } catch {
+        // ignore
+      }
+      document.documentElement.classList.remove('light');
       document.documentElement.classList.add('dark');
     });
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await page.waitForFunction(() => {
+      const bg = window.getComputedStyle(document.body).backgroundColor;
+      return bg === 'rgb(9, 9, 11)' || bg === '#09090b';
+    });
+    await page.waitForTimeout(200);
+
     const darkAxe = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
       .analyze();
     expect(darkAxe.violations).toEqual([]);
 
     // Reset back to light mode for dialog audits
+    await page.emulateMedia({ colorScheme: 'light' });
     await page.evaluate(() => {
+      try {
+        localStorage.setItem('theme', 'light');
+      } catch {
+        // ignore
+      }
       document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
     });
+    await page.waitForFunction(() => {
+      const bg = window.getComputedStyle(document.body).backgroundColor;
+      return bg !== 'rgb(9, 9, 11)' && bg !== '#09090b';
+    });
+    await page.waitForTimeout(200);
 
     // 4. Run Axe on open edit note dialog (light mode)
     const editBtn = page.locator('[data-testid^="edit-note-btn-"]').first();

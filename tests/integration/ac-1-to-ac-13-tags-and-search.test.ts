@@ -48,7 +48,7 @@ import type { DbClient } from '@/server/db/client';
 import { createSession, SESSION_COOKIE_NAME } from '@/server/auth/session';
 import { createApiKey } from '@/server/auth/api-keys';
 import { CLIENTS_READ } from '@/server/auth/scopes';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { logger } from '@/server/log';
 import { generateUuidV7 } from '@/lib/id';
 
@@ -601,6 +601,10 @@ describe('TASK-0010: Client tags and search (AC-1 through AC-13)', () => {
     for (let b = 0; b < clientTagRows.length; b += 1000) {
       await dbClient.insert(clientTags).values(clientTagRows.slice(b, b + 1000));
     }
+
+    // Warm up planner statistics and query cache after bulk loading 5,000 clients and 10,000 contacts
+    await dbClient.execute(sql`ANALYZE;`);
+    await clientService.getClientList(1, 25, 'warmup', undefined, dbClient);
 
     // 5. Run 20 sequential searches measuring latency at service layer
     const searchQueries = [

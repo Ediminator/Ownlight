@@ -595,14 +595,18 @@ describe('TASK-0019: Manual Client Legal Hold Integration (AC-1 to AC-7, AC-14 t
     mockHeadersStore.set('authorization', 'Bearer ownlight_live_test');
     const apiRes = await getLegalHoldAction(clientId);
     expect(apiRes.success).toBe(false);
-    expect(apiRes.error).toBe('API keys are not permitted for legal hold actions.');
+    if (!apiRes.success) {
+      expect(apiRes.error).toBe('API keys are not permitted for legal hold actions.');
+    }
 
     // 3. Reject unauthenticated (no session cookie)
     mockHeadersStore.clear();
     mockCookiesStore.clear();
     const unauthRes = await getLegalHoldAction(clientId);
     expect(unauthRes.success).toBe(false);
-    expect(unauthRes.error).toBe('Authentication required.');
+    if (!unauthRes.success) {
+      expect(unauthRes.error).toBe('Authentication required.');
+    }
 
     // Restore session
     mockCookiesStore.set(SESSION_COOKIE_NAME, sessionToken);
@@ -618,7 +622,9 @@ describe('TASK-0019: Manual Client Legal Hold Integration (AC-1 to AC-7, AC-14 t
       until: '2028-13-45',
     });
     expect(invalidDateRes.success).toBe(false);
-    expect(invalidDateRes.code).toBe('VALIDATION_FAILED');
+    if (!invalidDateRes.success) {
+      expect(invalidDateRes.code).toBe('VALIDATION_FAILED');
+    }
 
     // setLegalHoldAction when client doesn't exist
     const clientNotFoundRes = await setLegalHoldAction({
@@ -627,14 +633,18 @@ describe('TASK-0019: Manual Client Legal Hold Integration (AC-1 to AC-7, AC-14 t
       until: '2028-12-31',
     });
     expect(clientNotFoundRes.success).toBe(false);
-    expect(clientNotFoundRes.code).toBe('NOT_FOUND');
+    if (!clientNotFoundRes.success) {
+      expect(clientNotFoundRes.code).toBe('NOT_FOUND');
+    }
 
     // releaseLegalHoldAction when client doesn't exist
     const releaseClientNotFound = await releaseLegalHoldAction({
       clientId: nonExistentClientId,
     });
     expect(releaseClientNotFound.success).toBe(false);
-    expect(releaseClientNotFound.code).toBe('NOT_FOUND');
+    if (!releaseClientNotFound.success) {
+      expect(releaseClientNotFound.code).toBe('NOT_FOUND');
+    }
 
     // releaseLegalHoldAction when client exists but has no hold
     const clientNoHoldId = '018f0000-0000-7000-8000-000000000098';
@@ -651,7 +661,9 @@ describe('TASK-0019: Manual Client Legal Hold Integration (AC-1 to AC-7, AC-14 t
       clientId: clientNoHoldId,
     });
     expect(releaseHoldNotFound.success).toBe(false);
-    expect(releaseHoldNotFound.code).toBe('NOT_FOUND');
-    expect(releaseHoldNotFound.error).toBe('Legal hold not found.');
+    if (!releaseHoldNotFound.success) {
+      expect(releaseHoldNotFound.code).toBe('NOT_FOUND');
+      expect(releaseHoldNotFound.error).toBe('Legal hold not found.');
+    }
   });
 });

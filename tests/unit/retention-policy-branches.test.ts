@@ -176,16 +176,10 @@ describe('Retention policy utility and definition branches', () => {
 
     if (inactiveClientsPolicy) {
       if (inactiveClientsPolicy.legalHold) {
-        const holdNoTx = await inactiveClientsPolicy.legalHold(
-          { id: 'c-1', lastActivityAt: now },
-          undefined,
-        );
+        const holdNoTx = await inactiveClientsPolicy.legalHold({ id: 'c-1' }, undefined);
         expect(holdNoTx).toBe(false);
 
-        const holdWithTx = await inactiveClientsPolicy.legalHold(
-          { id: 'c-1', lastActivityAt: now },
-          mockClient,
-        );
+        const holdWithTx = await inactiveClientsPolicy.legalHold({ id: 'c-1' }, mockClient);
         expect(typeof holdWithTx).toBe('boolean');
       }
 

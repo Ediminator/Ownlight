@@ -49,12 +49,12 @@ describe('TASK-0019: Client activity provider registry and domain providers', ()
 
     const providerA: ActivityProvider = {
       id: 'providerA',
-      activeClientIds: async () => ['client-1', 'client-2'],
+      activeClientIds: () => Promise.resolve(['client-1', 'client-2']),
     };
 
     const providerB: ActivityProvider = {
       id: 'providerB',
-      activeClientIds: async () => new Set(['client-2', 'client-3']),
+      activeClientIds: () => Promise.resolve(new Set(['client-2', 'client-3'])),
     };
 
     registerActivityProvider(providerA);
@@ -71,15 +71,13 @@ describe('TASK-0019: Client activity provider registry and domain providers', ()
     const since = new Date('2026-01-01T00:00:00Z');
 
     const mockTimelineRows = [{ clientId: 'client-timeline' }];
-    const mockNotesRows = [{ clientId: 'client-note' }];
     const mockConsentsRows = [{ clientId: 'client-consent' }];
 
     const mockTx = {
       selectDistinct: vi.fn().mockReturnValue({
-        from: vi.fn().mockImplementation((table: unknown) => {
+        from: vi.fn().mockImplementation(() => {
           return {
             where: vi.fn().mockImplementation(() => {
-              // Return based on which query is executing
               return Promise.resolve(mockTimelineRows);
             }),
             innerJoin: vi.fn().mockReturnValue({
@@ -92,12 +90,18 @@ describe('TASK-0019: Client activity provider registry and domain providers', ()
 
     const timelineProvider = getActivityProviders().find((p) => p.id === 'timeline');
     expect(timelineProvider).toBeDefined();
-    const resTimeline = await timelineProvider!.activeClientIds(mockTx, since, ['client-timeline']);
-    expect(resTimeline).toEqual(['client-timeline']);
+    if (timelineProvider) {
+      const resTimeline = await timelineProvider.activeClientIds(mockTx, since, [
+        'client-timeline',
+      ]);
+      expect(resTimeline).toEqual(['client-timeline']);
+    }
 
     const consentsProvider = getActivityProviders().find((p) => p.id === 'consents');
     expect(consentsProvider).toBeDefined();
-    const resConsents = await consentsProvider!.activeClientIds(mockTx, since, ['client-consent']);
-    expect(resConsents).toEqual(['client-consent']);
+    if (consentsProvider) {
+      const resConsents = await consentsProvider.activeClientIds(mockTx, since, ['client-consent']);
+      expect(resConsents).toEqual(['client-consent']);
+    }
   });
 });

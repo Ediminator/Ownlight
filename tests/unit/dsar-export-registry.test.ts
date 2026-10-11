@@ -305,6 +305,7 @@ describe('TASK-0015: DSAR export provider registry', () => {
       contactId: '00000000-0000-0000-0000-000000000000',
       format: 'json',
       locale: 'en',
+      actorId: '01912345-6789-7abc-8def-012345678000',
       client: {
         select: () => ({
           from: () => ({
@@ -313,7 +314,7 @@ describe('TASK-0015: DSAR export provider registry', () => {
             }),
           }),
         }),
-      } as any,
+      } as unknown as DbClient,
     });
     expect(nullRes).toBeNull();
 
@@ -324,6 +325,7 @@ describe('TASK-0015: DSAR export provider registry', () => {
       contactId: '00000000-0000-0000-0000-000000000000',
       format: 'json',
       locale: 'en',
+      actorId: '01912345-6789-7abc-8def-012345678000',
     });
     expect(fallbackDbRes).toBeNull();
   });
@@ -332,61 +334,70 @@ describe('TASK-0015: DSAR export provider registry', () => {
     const providers = getExportProviders();
     const subjectProvider = providers.find((p) => p.id === 'subject');
     expect(subjectProvider).toBeDefined();
+    if (!subjectProvider) {
+      throw new Error('subjectProvider not found');
+    }
+
+    const dummyDb = {} as unknown as DbClient;
+    const baseClient = {
+      id: 'c1',
+      kind: 'person' as const,
+      displayName: 'Fallback Client',
+      preferredLocale: 'en' as const,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastActivityAt: new Date(),
+    };
+    const baseContact = {
+      id: 'ct1',
+      clientId: 'c1',
+      givenName: 'John' as string | null,
+      familyName: null as string | null,
+      email: null as string | null,
+      emailNormalized: null as string | null,
+      phone: null as string | null,
+      isPrimary: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
     // 1. Given name only
-    const resGivenOnly = await subjectProvider!.collect({
-      clientId: 'c1',
-      contactId: 'ct1',
-      client: { displayName: 'Fallback Client' } as any,
-      contact: {
-        id: 'ct1',
-        givenName: 'John',
-        familyName: null,
-        email: null,
-        phone: null,
-        isPrimary: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any,
-    });
-    expect((resGivenOnly as any[])[0].display_name).toBe('John');
-    expect((resGivenOnly as any[])[0].role).toBe('secondary');
+    const resGivenOnly = (await subjectProvider.collect(
+      { clientId: 'c1', contactId: 'ct1', client: baseClient, contact: baseContact },
+      dummyDb,
+    )) as { display_name: string; role: string }[];
+    expect(resGivenOnly[0]?.display_name).toBe('John');
+    expect(resGivenOnly[0]?.role).toBe('secondary');
 
     // 2. Family name only
-    const resFamilyOnly = await subjectProvider!.collect({
-      clientId: 'c1',
-      contactId: 'ct2',
-      client: { displayName: 'Fallback Client' } as any,
-      contact: {
-        id: 'ct2',
-        givenName: null,
-        familyName: 'Smith',
-        email: null,
-        phone: null,
-        isPrimary: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any,
-    });
-    expect((resFamilyOnly as any[])[0].display_name).toBe('Smith');
-    expect((resFamilyOnly as any[])[0].role).toBe('primary');
+    const resFamilyOnly = (await subjectProvider.collect(
+      {
+        clientId: 'c1',
+        contactId: 'ct2',
+        client: baseClient,
+        contact: {
+          ...baseContact,
+          id: 'ct2',
+          givenName: null,
+          familyName: 'Smith',
+          isPrimary: true,
+        },
+      },
+      dummyDb,
+    )) as { display_name: string; role: string }[];
+    expect(resFamilyOnly[0]?.display_name).toBe('Smith');
+    expect(resFamilyOnly[0]?.role).toBe('primary');
 
     // 3. Both empty/null -> falls back to client.displayName
-    const resNeither = await subjectProvider!.collect({
-      clientId: 'c1',
-      contactId: 'ct3',
-      client: { displayName: 'Fallback Studio Client' } as any,
-      contact: {
-        id: 'ct3',
-        givenName: '',
-        familyName: null,
-        email: null,
-        phone: null,
-        isPrimary: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any,
-    });
-    expect((resNeither as any[])[0].display_name).toBe('Fallback Studio Client');
+    const resNeither = (await subjectProvider.collect(
+      {
+        clientId: 'c1',
+        contactId: 'ct3',
+        client: { ...baseClient, displayName: 'Fallback Studio Client' },
+        contact: { ...baseContact, id: 'ct3', givenName: '', familyName: null, isPrimary: false },
+      },
+      dummyDb,
+    )) as { display_name: string; role: string }[];
+    expect(resNeither[0]?.display_name).toBe('Fallback Studio Client');
   });
 });

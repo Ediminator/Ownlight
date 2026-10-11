@@ -817,6 +817,8 @@ describe('Clients Domain & Actions Branch Coverage (Unit)', () => {
     });
 
     it('covers client repo error and not-found branches', async () => {
+      type TxType = Parameters<Parameters<DbClient['transaction']>[0]>[0];
+
       // 1. deleteContactRecord returns null when contact not found
       const mockTxNotFound = {
         select: () => ({
@@ -828,7 +830,7 @@ describe('Clients Domain & Actions Branch Coverage (Unit)', () => {
         }),
       };
       const mockDbNotFound = {
-        transaction: (cb: any) => cb(mockTxNotFound),
+        transaction: ((cb) => cb(mockTxNotFound as unknown as TxType)) as DbClient['transaction'],
       } as unknown as DbClient;
 
       const delContactRes = await clientRepo.deleteContactRecord(
@@ -871,7 +873,8 @@ describe('Clients Domain & Actions Branch Coverage (Unit)', () => {
         }),
       };
       const mockDbUpsertEmpty = {
-        transaction: (cb: any) => cb(mockTxUpsertEmpty),
+        transaction: ((cb) =>
+          cb(mockTxUpsertEmpty as unknown as TxType)) as DbClient['transaction'],
       } as unknown as DbClient;
 
       await expect(
@@ -922,7 +925,8 @@ describe('Clients Domain & Actions Branch Coverage (Unit)', () => {
         }),
       };
       const mockDbInsertEmpty = {
-        transaction: (cb: any) => cb(mockTxInsertEmpty),
+        transaction: ((cb) =>
+          cb(mockTxInsertEmpty as unknown as TxType)) as DbClient['transaction'],
       } as unknown as DbClient;
 
       await expect(

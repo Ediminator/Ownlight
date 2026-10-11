@@ -104,40 +104,55 @@ describe('AC-1: Re-authentication helper export isolation', () => {
   });
 
   it('assertFreshReauthentication validates session freshness and handles branches', async () => {
-    const dummyDb = {} as any;
+    const dummyDb = {} as unknown as import('@/server/db/client').DbClient;
+    const baseUser: import('@/server/db/schema/auth').User = {
+      id: 'u-123',
+      email: 'u123@example.com',
+      name: 'User 123',
+      emailVerified: true,
+      image: null,
+      role: 'owner',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const baseSession: import('@/server/db/schema/auth').Session = {
+      id: 's-123',
+      userId: 'u-123',
+      token: 'valid-token',
+      expiresAt: new Date(Date.now() + 86400000),
+      ipAddress: null,
+      userAgent: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastReauthenticatedAt: new Date(Date.now() - 60 * 1000),
+    };
 
     // 1. Session token override succeeds when session is fresh
-    const mockVerifiedFresh = {
-      user: { id: 'u-123' },
-      session: { lastReauthenticatedAt: new Date(Date.now() - 60 * 1000) }, // 1 min ago
-    };
-    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce(
-      mockVerifiedFresh as any,
-    );
+    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce({
+      user: baseUser,
+      session: baseSession,
+    });
     await expect(
       reauthModule.assertFreshReauthentication('u-123', dummyDb, 'valid-token'),
     ).resolves.toBeUndefined();
 
     // 2. Throws when user id does not match
-    const mockVerifiedWrongUser = {
-      user: { id: 'other-user' },
-      session: { lastReauthenticatedAt: new Date() },
-    };
-    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce(
-      mockVerifiedWrongUser as any,
-    );
+    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce({
+      user: { ...baseUser, id: 'other-user' },
+      session: baseSession,
+    });
     await expect(
       reauthModule.assertFreshReauthentication('u-123', dummyDb, 'valid-token'),
     ).rejects.toThrow('REAUTH_REQUIRED: Invalid session.');
 
     // 3. Throws when session is older than 5 minutes
-    const mockVerifiedStale = {
-      user: { id: 'u-123' },
-      session: { lastReauthenticatedAt: new Date(Date.now() - 10 * 60 * 1000) }, // 10 min ago
-    };
-    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce(
-      mockVerifiedStale as any,
-    );
+    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce({
+      user: baseUser,
+      session: {
+        ...baseSession,
+        lastReauthenticatedAt: new Date(Date.now() - 10 * 60 * 1000),
+      },
+    });
     await expect(
       reauthModule.assertFreshReauthentication('u-123', dummyDb, 'valid-token'),
     ).rejects.toThrow('REAUTH_REQUIRED: Re-authentication required for sensitive operation.');

@@ -8,7 +8,6 @@ import * as authGuards from '@/server/auth/guards';
 import * as reauthModule from '@/server/auth/reauth';
 import * as exportService from '@/server/privacy/export/service';
 import { UnauthorizedError, ForbiddenError, type AuthContext } from '@/server/auth/guards';
-import type { DbClient } from '@/server/db/client';
 
 describe('TASK-0015: DSAR export route branches and edge cases', () => {
   beforeEach(() => {
@@ -17,6 +16,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
 
   const validOwnerAuth: AuthContext = {
     authType: 'session',
+    scopes: ['*'],
     user: {
       id: '01912345-6789-7abc-8def-012345678000',
       email: 'owner@example.com',
@@ -40,6 +40,12 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
     },
   };
 
+  interface ApiErrorBody {
+    message?: string;
+    code?: string;
+    error?: string;
+  }
+
   it('rejects origin mismatch with 403 Forbidden', async () => {
     const req = new NextRequest('http://localhost:3000/api/privacy/exports', {
       method: 'POST',
@@ -52,7 +58,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
 
     const res = await POST(req);
     expect(res.status).toBe(403);
-    const body = await res.json();
+    const body = (await res.json()) as ApiErrorBody;
     expect(body.message).toBe('Forbidden origin');
   });
 
@@ -87,7 +93,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
 
     const res = await POST(req);
     expect(res.status).toBe(403);
-    const body = await res.json();
+    const body = (await res.json()) as ApiErrorBody;
     expect(body.message).toBe('API keys are not permitted for data exports');
   });
 
@@ -104,7 +110,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
 
     const res = await POST(req);
     expect(res.status).toBe(403);
-    const body = await res.json();
+    const body = (await res.json()) as ApiErrorBody;
     expect(body.message).toBe('Owner role required');
   });
 
@@ -121,13 +127,14 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
 
     const res = await POST(req);
     expect(res.status).toBe(401);
-    const body = await res.json();
+    const body = (await res.json()) as ApiErrorBody;
     expect(body.message).toBe('Authentication required');
   });
 
   it('returns 403 Forbidden when authType is not session', async () => {
     vi.spyOn(authGuards, 'requireOwner').mockResolvedValueOnce({
       authType: 'apiKey',
+      scopes: ['*'],
       user: validOwnerAuth.user,
       apiKey: {
         id: 'k1',
@@ -152,7 +159,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
 
     const res = await POST(req);
     expect(res.status).toBe(403);
-    const body = await res.json();
+    const body = (await res.json()) as ApiErrorBody;
     expect(body.message).toBe('Web session required');
   });
 
@@ -170,7 +177,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
 
     const res = await POST(req);
     expect(res.status).toBe(403);
-    const body = await res.json();
+    const body = (await res.json()) as ApiErrorBody;
     expect(body.code).toBe('REAUTH_REQUIRED');
   });
 
@@ -186,7 +193,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
 
     const res = await POST(req);
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as ApiErrorBody;
     expect(body.message).toBe('Invalid JSON payload');
   });
 
@@ -202,7 +209,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
 
     const res = await POST(req);
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as ApiErrorBody;
     expect(body.code).toBe('BAD_REQUEST');
   });
 
@@ -223,7 +230,7 @@ describe('TASK-0015: DSAR export route branches and edge cases', () => {
 
     const res = await POST(req);
     expect(res.status).toBe(404);
-    const body = await res.json();
+    const body = (await res.json()) as ApiErrorBody;
     expect(body.code).toBe('NOT_FOUND');
   });
 });

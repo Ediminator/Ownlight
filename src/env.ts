@@ -177,6 +177,7 @@ export const serverSchema = z.object({
 
   // Retention framework configuration
   RETENTION_PERIOD_MONTHS: z.coerce.number().int().positive().default(24),
+  CONSENT_PROOF_RETENTION_MONTHS: z.coerce.number().int().positive().default(36),
   DATABASE_RETENTION_URL: z
     .string()
     .regex(/^postgres(ql)?:\/\/.+/, {
@@ -308,6 +309,7 @@ export function resetEnvCache(): void {
 const NUMERIC_ENV_DEFAULTS: Record<string, number> = {
   PORT: 3000,
   RETENTION_PERIOD_MONTHS: 24,
+  CONSENT_PROOF_RETENTION_MONTHS: 36,
   DB_MAX_CONNECTIONS: 10,
   DB_STATEMENT_TIMEOUT: 30,
 };

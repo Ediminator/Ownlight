@@ -21,6 +21,13 @@ export const CLIENT_PII_COLUMNS = [
   'client_addresses.country_code',
   'tags.name',
   'client_notes.body',
+  'consent_records.purpose',
+  'consent_records.status',
+  'consent_records.effective_on',
+  'consent_records.method',
+  'consent_records.scope',
+  'consent_records.evidence_note',
+  'consent_records.recorded_by_actor_id',
 ] as const;
 
 export type ClientPiiColumn = (typeof CLIENT_PII_COLUMNS)[number];

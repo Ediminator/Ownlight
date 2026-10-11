@@ -108,4 +108,23 @@ describe('AC-3: Audit metadata allowlist enforcement across environments', () =>
     expect(validateAndSanitizeMetadata('auth.sign_in.success', 'owner', undefined)).toBeNull();
     expect(validateAndSanitizeMetadata('auth.sign_in.success', 'owner', {})).toBeNull();
   });
+
+  it('AC-9: permits contact_id, purpose, method for consent.granted and consent.withdrawn', () => {
+    const meta = {
+      contact_id: '018f0000-0000-7000-8000-000000000001',
+      purpose: 'marketing',
+      method: 'in_person',
+    };
+
+    expect(validateAndSanitizeMetadata('consent.granted', 'owner', meta)).toEqual(meta);
+    expect(validateAndSanitizeMetadata('consent.withdrawn', 'owner', meta)).toEqual(meta);
+
+    // Rejects forbidden PII like scope or evidence_note or name
+    expect(() =>
+      validateAndSanitizeMetadata('consent.granted', 'owner', {
+        ...meta,
+        scope: 'forbidden scope',
+      }),
+    ).toThrow(AuditMetadataValidationError);
+  });
 });

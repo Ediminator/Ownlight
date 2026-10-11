@@ -35,3 +35,6 @@ Use these terms consistently in code, UI strings and docs. The UX reviewer check
 | Tag                  | Tag                   | Schlagwort                     | `tag`                | Studio-defined label for categorizing and filtering clients                |
 | Timeline             | Timeline              | Verlauf                        | `timeline`           | Unified chronological event log of interactions, changes and notes         |
 | Note                 | Note                  | Notiz                          | `note`               | Free-text annotation attached to a client profile                          |
+| Marketing consent    | Marketing consent     | Werbeeinwilligung              | `marketingConsent`   | Explicit permission to send direct marketing communications (Art. 7 GDPR)  |
+| Image usage consent  | Image usage consent   | Einwilligung zur Bildnutzung   | `imageUsageConsent`  | Specific permission to publish or exhibit portrait images (KUG §22)        |
+| Withdrawal           | Withdrawal            | Widerruf                       | `withdrawal`         | Revocation of previously granted consent, terminating lawful basis         |

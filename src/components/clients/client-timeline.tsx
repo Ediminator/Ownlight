@@ -13,6 +13,8 @@ import {
   UserCheck,
   UserMinus,
   FileText,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react';
 import type { ResolvedTimelineItem } from '@/server/timeline/repo';
 import { formatDateTime } from '@/lib/formatters';
@@ -38,6 +40,13 @@ export function ClientTimeline({
 }: ClientTimelineProps) {
   const t = useTranslations('clients.timeline');
   const tErrors = useTranslations('clients.errors');
+  const tConsent = useTranslations('clients.consent');
+
+  const getLocalizedPurpose = (purpose: unknown): string => {
+    if (purpose === 'marketing') return tConsent('purposes.marketing');
+    if (purpose === 'image_usage') return tConsent('purposes.image_usage');
+    return typeof purpose === 'string' ? purpose : '';
+  };
 
   // Timeline events & pagination state
   const [items, setItems] = React.useState<ResolvedTimelineItem[]>(initialItems);
@@ -327,6 +336,12 @@ export function ClientTimeline({
                       {event.type === 'client.contact.removed' && (
                         <UserMinus className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                       )}
+                      {event.type === 'consent.granted' && (
+                        <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      )}
+                      {event.type === 'consent.withdrawn' && (
+                        <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      )}
                       {isNote && <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
                     </span>
 
@@ -344,6 +359,28 @@ export function ClientTimeline({
                         )}
                         {event.type === 'client.contact.removed' && (
                           <span>{t('events.client_contact_removed')}</span>
+                        )}
+                        {event.type === 'consent.granted' && (
+                          <span>
+                            {event.contactName
+                              ? `${event.contactName}: ${t('events.consent_granted', {
+                                  purpose: getLocalizedPurpose(event.data.purpose),
+                                })}`
+                              : t('events.consent_granted', {
+                                  purpose: getLocalizedPurpose(event.data.purpose),
+                                })}
+                          </span>
+                        )}
+                        {event.type === 'consent.withdrawn' && (
+                          <span>
+                            {event.contactName
+                              ? `${event.contactName}: ${t('events.consent_withdrawn', {
+                                  purpose: getLocalizedPurpose(event.data.purpose),
+                                })}`
+                              : t('events.consent_withdrawn', {
+                                  purpose: getLocalizedPurpose(event.data.purpose),
+                                })}
+                          </span>
                         )}
                         {isNote && (
                           <>

@@ -40,13 +40,16 @@ import { AddressDialog } from './address-dialog';
 import { TagsDialog } from './tags-dialog';
 import { ConfirmDialog } from './confirm-dialog';
 import { ClientTimeline } from './client-timeline';
+import { ConsentSection } from './consent-section';
 import type { ListTimelineResult } from '@/server/timeline/repo';
+import type { ClientConsentsResult } from '@/server/consents/repo';
 
 export interface ClientProfileProps {
   clientData: ClientWithRelations;
   locale: string;
   studioTimezone: string;
   initialTimeline?: ListTimelineResult;
+  initialConsents?: ClientConsentsResult;
 }
 
 export function ClientProfile({
@@ -54,6 +57,7 @@ export function ClientProfile({
   locale,
   studioTimezone,
   initialTimeline,
+  initialConsents,
 }: ClientProfileProps) {
   const t = useTranslations('clients.profile');
   const tForm = useTranslations('clients.form');
@@ -579,6 +583,22 @@ export function ClientProfile({
           )}
         </section>
       </div>
+
+      {/* Consent Section (TASK-0014) */}
+      <ConsentSection
+        clientId={client.id}
+        locale={locale}
+        studioTimezone={studioTimezone}
+        initialConsents={initialConsents}
+        contacts={contacts.map((c) => ({
+          id: c.id,
+          name: [c.givenName, c.familyName].filter(Boolean).join(' ') || 'Unnamed Contact',
+          isPrimary: c.isPrimary,
+        }))}
+        onConsentRecorded={(msg) => {
+          announceAndFocus(msg);
+        }}
+      />
 
       {/* Timeline & Notes Section (TASK-0013) */}
       <ClientTimeline

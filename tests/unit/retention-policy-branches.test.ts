@@ -80,21 +80,26 @@ describe('Retention policy utility and definition branches', () => {
 
   it('createDefaultPolicies constructs policies that exercise getCandidates and deleteBatch branches', async () => {
     const policies = createDefaultPolicies();
-    expect(policies).toHaveLength(3);
+    expect(policies).toHaveLength(4);
 
-    const [auditPolicy, sessionPolicy, rateLimitPolicy] = policies;
+    const [auditPolicy, sessionPolicy, rateLimitPolicy, consentProofPolicy] = policies;
     expect(auditPolicy).toBeDefined();
     expect(sessionPolicy).toBeDefined();
     expect(rateLimitPolicy).toBeDefined();
+    expect(consentProofPolicy).toBeDefined();
 
     // Mock DB client
     let deletedCount = 0;
     const mockClient = {
+      execute: () => Promise.resolve([{ id: 'row-1' }]),
       select: () => ({
         from: () => ({
-          where: () => ({
-            limit: (lim: number) => Promise.resolve([{ id: 'row-1' }].slice(0, lim)),
-          }),
+          where: () => {
+            const p = Promise.resolve([{ id: 'row-1' }]);
+            return Object.assign(p, {
+              limit: (lim: number) => Promise.resolve([{ id: 'row-1' }].slice(0, lim)),
+            });
+          },
         }),
       }),
       delete: () => ({
@@ -145,6 +150,20 @@ describe('Retention policy utility and definition branches', () => {
       await rateLimitPolicy.deleteBatch(mockClient, []);
       await rateLimitPolicy.deleteBatch(mockClient, ['row-1']);
       expect(deletedCount).toBe(3);
+    }
+
+    if (consentProofPolicy) {
+      // getCandidates with excludedIds and without
+      const c1 = await consentProofPolicy.getCandidates(mockClient, now, 10, ['ex-1']);
+      expect(c1).toHaveLength(1);
+      const c2 = await consentProofPolicy.getCandidates(mockClient, now, 10, []);
+      expect(c2).toHaveLength(1);
+
+      // deleteBatch with ids and without
+      await consentProofPolicy.deleteBatch(mockClient, []);
+      await consentProofPolicy.deleteBatch(mockClient, ['row-1']);
+      // Deletes timeline events and consent records (2 calls)
+      expect(deletedCount).toBe(5);
     }
   });
 

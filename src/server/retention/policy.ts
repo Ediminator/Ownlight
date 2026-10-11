@@ -1,7 +1,9 @@
-import { lt, notInArray, inArray, and } from 'drizzle-orm';
+import { lt, notInArray, inArray, and, sql } from 'drizzle-orm';
 import type { DbClient } from '@/server/db/client';
 import { auditEvents, type AuditEvent } from '@/server/db/schema/audit';
 import { session, rateLimits, type Session, type RateLimit } from '@/server/db/schema/auth';
+import { consentRecords, type ConsentRecord } from '@/server/db/schema/consents';
+import { clientTimelineEvents } from '@/server/db/schema/timeline';
 import { env } from '@/env';
 
 export interface RetentionEntity {
@@ -187,10 +189,90 @@ export function createDefaultPolicies(): RetentionPolicy[] {
     },
   });
 
+  // 4. Withdrawn consent records chain older than retention period (default 36 months, GDPR Art. 7(1) proof)
+  let consentProofMonths = 36;
+  try {
+    const val = env.CONSENT_PROOF_RETENTION_MONTHS;
+    if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+      consentProofMonths = val;
+    }
+  } catch {
+    consentProofMonths = 36;
+  }
+
+  const withdrawnConsentProofPolicy = defineRetentionPolicy<ConsentRecord>({
+    id: 'withdrawn-consent-proof',
+    entity: 'consent_records',
+    description:
+      'Purges historical withdrawn consent record chains older than retention period together with associated timeline events',
+    after: { months: consentProofMonths },
+    action: 'delete',
+    batchSize: 500,
+    getCandidates: async (client, cutoff, limit, excludedIds) => {
+      const cutoffStr = cutoff.toISOString().slice(0, 10);
+      const excludedCondition =
+        excludedIds.length > 0 ? sql`AND cr.id NOT IN ${excludedIds}` : sql``;
+
+      const query = sql`
+        WITH latest_records AS (
+          SELECT
+            id,
+            contact_id,
+            purpose,
+            status,
+            effective_on,
+            ROW_NUMBER() OVER (
+              PARTITION BY contact_id, purpose
+              ORDER BY effective_on DESC, created_at DESC, id DESC
+            ) as rn
+          FROM consent_records
+        ),
+        eligible_chains AS (
+          SELECT contact_id, purpose
+          FROM latest_records
+          WHERE rn = 1
+            AND status = 'withdrawn'
+            AND effective_on < ${cutoffStr}::date
+        )
+        SELECT cr.id
+        FROM consent_records cr
+        INNER JOIN eligible_chains ec
+          ON cr.contact_id = ec.contact_id
+          AND cr.purpose = ec.purpose
+        WHERE 1=1 ${excludedCondition}
+        ORDER BY cr.effective_on ASC, cr.created_at ASC
+        LIMIT ${limit}
+      `;
+
+      const res = await client.execute(query);
+      const rawRows = (Array.isArray(res) ? res : ((res as { rows?: unknown[] }).rows ?? [])) as {
+        id: string;
+      }[];
+      if (rawRows.length === 0) return [];
+      const ids = rawRows.map((r) => r.id);
+      return await client.select().from(consentRecords).where(inArray(consentRecords.id, ids));
+    },
+    deleteBatch: async (client, ids) => {
+      if (ids.length === 0) return;
+      // 1. Delete associated timeline events (subjectType = 'consent_record' AND subjectId IN (ids))
+      await client
+        .delete(clientTimelineEvents)
+        .where(
+          and(
+            sql`${clientTimelineEvents.subjectType} = 'consent_record'`,
+            inArray(clientTimelineEvents.subjectId, ids),
+          ),
+        );
+      // 2. Delete consent records
+      await client.delete(consentRecords).where(inArray(consentRecords.id, ids));
+    },
+  });
+
   return [
     auditEventsPolicy as unknown as RetentionPolicy,
     expiredSessionsPolicy as unknown as RetentionPolicy,
     expiredRateLimitsPolicy as unknown as RetentionPolicy,
+    withdrawnConsentProofPolicy as unknown as RetentionPolicy,
   ];
 }
 

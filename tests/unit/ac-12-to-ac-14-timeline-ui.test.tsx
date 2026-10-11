@@ -162,6 +162,67 @@ describe('AC-12, AC-13, AC-14, AC-9: Timeline UI rendering, i18n, a11y, and XSS 
     expect(html).toContain('Kund:in angelegt');
   });
 
+  it('I1-U06: renders localized consent purposes for consent.granted and consent.withdrawn events', () => {
+    const consentItems = [
+      {
+        id: '018f0000-0000-7000-8000-000000000030',
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        type: 'consent.granted' as const,
+        occurredAt: new Date('2026-06-15T15:00:00Z'),
+        actorType: 'owner' as const,
+        actorId: null,
+        subjectType: 'contact' as const,
+        subjectId: '018f0000-0000-7000-8000-000000000020',
+        data: { purpose: 'marketing' },
+        createdAt: new Date('2026-06-15T15:00:00Z'),
+        contactName: 'Sophie Müller',
+      },
+      {
+        id: '018f0000-0000-7000-8000-000000000031',
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        type: 'consent.withdrawn' as const,
+        occurredAt: new Date('2026-06-15T16:00:00Z'),
+        actorType: 'owner' as const,
+        actorId: null,
+        subjectType: 'contact' as const,
+        subjectId: '018f0000-0000-7000-8000-000000000020',
+        data: { purpose: 'image_usage' },
+        createdAt: new Date('2026-06-15T16:00:00Z'),
+        contactName: 'Sophie Müller',
+      },
+    ];
+
+    // English
+    currentLocale = 'en';
+    const enHtml = renderToStaticMarkup(
+      <ClientTimeline
+        clientId="018f0000-0000-7000-8000-000000000001"
+        locale="en"
+        studioTimezone="UTC"
+        initialItems={consentItems}
+      />,
+    );
+    expect(enHtml).toContain('Consent granted: Marketing consent');
+    expect(enHtml).toContain('Consent withdrawn: Image usage consent');
+    expect(enHtml).not.toContain('Consent granted: marketing');
+    expect(enHtml).not.toContain('Consent withdrawn: image_usage');
+
+    // German
+    currentLocale = 'de';
+    const deHtml = renderToStaticMarkup(
+      <ClientTimeline
+        clientId="018f0000-0000-7000-8000-000000000001"
+        locale="de"
+        studioTimezone="Europe/Berlin"
+        initialItems={consentItems}
+      />,
+    );
+    expect(deHtml).toContain('Einwilligung erteilt: Werbeeinwilligung');
+    expect(deHtml).toContain('Einwilligung widerrufen: Einwilligung zur Bildnutzung');
+    expect(deHtml).not.toContain('Einwilligung erteilt: marketing');
+    expect(deHtml).not.toContain('Einwilligung widerrufen: image_usage');
+  });
+
   it('AC-13: enforces semantic ordered list <ol> and accessible form association', () => {
     currentLocale = 'en';
 

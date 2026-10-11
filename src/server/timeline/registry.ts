@@ -36,6 +36,16 @@ const INITIAL_EVENT_TYPES: TimelineEventTypeDefinition[] = [
     dataKeys: [],
     messageKey: 'clients.timeline.events.note_created',
   },
+  {
+    type: 'consent.granted',
+    dataKeys: ['purpose'],
+    messageKey: 'clients.timeline.events.consent_granted',
+  },
+  {
+    type: 'consent.withdrawn',
+    dataKeys: ['purpose'],
+    messageKey: 'clients.timeline.events.consent_withdrawn',
+  },
 ];
 
 const registry = new Map<string, TimelineEventTypeDefinition>();

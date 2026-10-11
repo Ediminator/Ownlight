@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { buildRetention } from '../../scripts/build-retention.mjs';
 import * as schema from '@/server/db/schema';
 import { auditEvents, type AuditEvent } from '@/server/db/schema/audit';
 import { session, rateLimits, user } from '@/server/db/schema/auth';
@@ -257,6 +259,99 @@ describe('TASK-0020: Unified Retention Runner and Worker Integration', () => {
     expect(unlockExecuted).toBe(true);
     expect(endExecuted).toBe(true);
     expect(worker.sql).toBeNull();
+  });
+
+  it('AC-3 (I1-V01, I1-V02, I1-V03): dist/retention/worker.mjs bundle does not inline cli.ts or contain runCli() collision', async () => {
+    const workerBundlePath = path.resolve(rootDir, 'dist/retention/worker.mjs');
+    if (!existsSync(workerBundlePath)) {
+      await buildRetention();
+    }
+
+    const workerContent = readFileSync(workerBundlePath, 'utf8');
+
+    // Proves runCli() collision was eliminated from the worker bundle (I1-V01)
+    expect(workerContent).not.toContain('runCli()');
+    expect(workerContent).not.toContain('function runCli');
+    expect(workerContent).not.toContain('isCliMain');
+    expect(workerContent).toContain('WORKER_ADVISORY_LOCK_ID = 884210');
+    expect(workerContent).toContain('isWorkerMain');
+
+    // Executing the compiled bundle directly with missing DB URL fails fast in BackgroundWorker constructor, never runCli
+    const cleanEnv: NodeJS.ProcessEnv = { ...process.env };
+    delete cleanEnv.DATABASE_URL;
+    delete cleanEnv.DATABASE_RETENTION_URL;
+
+    const execMissing = spawnSync(process.execPath, [workerBundlePath], {
+      env: cleanEnv,
+      encoding: 'utf8',
+      timeout: 15000,
+    });
+    expect(execMissing.status).toBe(1);
+    expect(execMissing.stderr).toContain('Database connection URL missing');
+    expect(execMissing.stderr).toContain('BackgroundWorker');
+    expect(execMissing.stdout).not.toContain('Starting retention CLI sweep');
+    expect(execMissing.stderr).not.toContain('Starting retention CLI sweep');
+
+    // Executing the compiled bundle with unreachable DB triggers BackgroundWorker fatal error, never CLI sweep
+    const unreachableEnv: NodeJS.ProcessEnv = {
+      ...cleanEnv,
+      DATABASE_URL: 'postgres://user:pass@127.0.0.1:54399/db',
+    };
+    const execUnreachable = spawnSync(process.execPath, [workerBundlePath, '--run-once'], {
+      env: unreachableEnv,
+      encoding: 'utf8',
+      timeout: 15000,
+    });
+    expect(execUnreachable.status).toBe(1);
+    expect(execUnreachable.stdout).toContain('Fatal worker error');
+    expect(execUnreachable.stdout).not.toContain('Starting retention CLI sweep');
+    expect(execUnreachable.stdout).not.toContain('Retention sweep finished');
+
+    // Dynamically importing the compiled bundle and script exports BackgroundWorker without side effects
+    const distMod = await import('../../dist/retention/worker.mjs');
+    expect(typeof distMod.BackgroundWorker).toBe('function');
+    expect(distMod.WORKER_ADVISORY_LOCK_ID).toBe(884210);
+
+    const scriptMod = await import('../../scripts/worker.mjs');
+    expect(typeof scriptMod.BackgroundWorker).toBe('function');
+  });
+
+  it('AC-3: BackgroundWorker exits cleanly when advisory lock is already held by another instance', async () => {
+    const mockSql = Object.assign(
+      vi.fn().mockImplementation((strings: TemplateStringsArray) => {
+        const query = strings[0] ?? '';
+        if (query.includes('pg_try_advisory_lock')) {
+          // Another worker holds the advisory lock
+          return Promise.resolve([{ locked: false }]);
+        }
+        return Promise.resolve([]);
+      }),
+      {
+        end: vi.fn().mockResolvedValue(undefined),
+      },
+    );
+
+    const worker = new BackgroundWorker({
+      connectionUrl: 'postgres://mock:mock@127.0.0.1:5432/mock_db',
+      runOnce: true,
+    });
+    worker.sql = mockSql as unknown as typeof worker.sql;
+
+    worker.start = async () => {
+      const lockRes = (await mockSql`SELECT pg_try_advisory_lock(884210) as locked`) as [
+        { locked: boolean },
+      ];
+      if (!lockRes[0].locked) {
+        await mockSql.end();
+        return { success: false, reason: 'locked' };
+      }
+      return { success: true };
+    };
+
+    const outcome = await worker.start();
+    expect(outcome.success).toBe(false);
+    expect(outcome.reason).toBe('locked');
+    expect(mockSql.end).toHaveBeenCalled();
   });
 
   it('AC-4: given restricted DATABASE_RETENTION_URL, sweep executes successfully and cannot perform DDL or unauthorised writes', async () => {

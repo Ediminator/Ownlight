@@ -1,23 +1,9 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import postgres from 'postgres';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import * as schema from '@/server/db/schema';
 import { logger } from '@/server/log';
-import { runRetentionSweep, type SweepOptions, type SweepSummary } from './sweep';
-import type { DbClient } from '@/server/db/client';
+import { executeRetentionSweep, type CliOptions, type CliExecutionResult } from './runner';
 
-export interface CliOptions extends SweepOptions {
-  connectionUrl?: string;
-  dbClient?: DbClient;
-  retentionMonths?: number;
-}
-
-export interface CliExecutionResult extends SweepSummary {
-  auditEvents: { scanned: number; deleted: number; held: number };
-  sessions: { scanned: number; deleted: number; held: number };
-  rateLimits: { scanned: number; deleted: number; held: number };
-}
+export { executeRetentionSweep, type CliOptions, type CliExecutionResult };
 
 export function parseCliArgs(argv: string[]): {
   dryRun: boolean;
@@ -70,89 +56,6 @@ export function parseCliArgs(argv: string[]): {
   };
 }
 
-/**
- * Executes retention sweep against the database and returns structured results.
- * Supports legacy executeRetentionSweep signature for backwards compatibility.
- */
-export async function executeRetentionSweep(options: CliOptions = {}): Promise<CliExecutionResult> {
-  const isCliInvocation = typeof process !== 'undefined' && Array.isArray(process.argv);
-  const cliArgs = isCliInvocation ? parseCliArgs(process.argv.slice(2)) : { dryRun: false };
-
-  const dryRun =
-    options.dryRun ?? (cliArgs.dryRun || (isCliInvocation && process.argv.includes('--dry-run')));
-  const policyIds = options.policyIds ?? cliArgs.policyIds;
-  const batchSize = options.batchSize ?? cliArgs.batchSize;
-  const connectionUrl =
-    options.connectionUrl ??
-    cliArgs.connectionUrl ??
-    process.env.DATABASE_RETENTION_URL ??
-    process.env.DATABASE_URL;
-
-  let client = options.dbClient ?? options.client;
-  let rawClient: postgres.Sql | null = null;
-
-  if (!client) {
-    if (!connectionUrl) {
-      throw new Error(
-        'Database connection URL missing. Set DATABASE_RETENTION_URL or DATABASE_URL in environment.',
-      );
-    }
-
-    rawClient = postgres(connectionUrl, {
-      max: 1,
-      onnotice: () => undefined,
-    });
-    client = drizzle(rawClient, { schema });
-  }
-
-  try {
-    const summary = await runRetentionSweep({
-      client,
-      dryRun,
-      policyIds,
-      batchSize,
-      now: options.now,
-      signal: options.signal,
-      onBatchStart: options.onBatchStart,
-      onBatchComplete: options.onBatchComplete,
-      beforeBatchCommit: options.beforeBatchCommit,
-    });
-
-    const auditPolicy = summary.policies.find(
-      (p) => p.policyId === 'audit-events-retention' || p.entity === 'audit_events',
-    );
-    const sessionPolicy = summary.policies.find(
-      (p) => p.policyId === 'expired-sessions' || p.entity === 'session',
-    );
-    const rateLimitPolicy = summary.policies.find(
-      (p) => p.policyId === 'expired-rate-limits' || p.entity === 'rate_limits',
-    );
-
-    return {
-      ...summary,
-      auditEvents: {
-        scanned: auditPolicy?.scannedCount ?? 0,
-        deleted: auditPolicy?.deletedCount ?? 0,
-        held: auditPolicy?.heldCount ?? 0,
-      },
-      sessions: {
-        scanned: sessionPolicy?.scannedCount ?? 0,
-        deleted: sessionPolicy?.deletedCount ?? 0,
-        held: sessionPolicy?.heldCount ?? 0,
-      },
-      rateLimits: {
-        scanned: rateLimitPolicy?.scannedCount ?? 0,
-        deleted: rateLimitPolicy?.deletedCount ?? 0,
-        held: rateLimitPolicy?.heldCount ?? 0,
-      },
-    };
-  } finally {
-    if (rawClient) {
-      await rawClient.end();
-    }
-  }
-}
-
 export async function runCli(): Promise<void> {
   const cliArgs = parseCliArgs(process.argv.slice(2));
   logger.info(
@@ -161,7 +64,12 @@ export async function runCli(): Promise<void> {
   );
 
   try {
-    const results = await executeRetentionSweep();
+    const results = await executeRetentionSweep({
+      dryRun: cliArgs.dryRun,
+      policyIds: cliArgs.policyIds,
+      batchSize: cliArgs.batchSize,
+      connectionUrl: cliArgs.connectionUrl,
+    });
     logger.info(
       {
         totalScanned: results.totalScanned,
@@ -182,10 +90,22 @@ export async function runCli(): Promise<void> {
   }
 }
 
-// Auto-run if executed directly as a script
-if (
-  process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
-) {
+/**
+ * Auto-run if executed directly as the CLI / retention-sweep script.
+ * Strictly checks process.argv[1] filename to prevent collision when bundled into worker.
+ */
+function isCliMain(): boolean {
+  const argv1 = typeof process !== 'undefined' ? process.argv[1] : undefined;
+  if (!argv1) return false;
+  const scriptName = path.basename(argv1);
+  if (!/^(?:cli|retention-sweep)\.(?:mjs|ts|js)$/i.test(scriptName)) return false;
+  try {
+    return path.resolve(argv1) === path.resolve(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isCliMain()) {
   void runCli();
 }

@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import postgres from 'postgres';
 import { logger } from '@/server/log';
-import { executeRetentionSweep, type CliExecutionResult } from './cli';
+import { executeRetentionSweep, type CliExecutionResult } from './runner';
 
 export const WORKER_ADVISORY_LOCK_ID = 884210;
 export const DEFAULT_SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours (daily)
@@ -144,11 +144,23 @@ export class BackgroundWorker {
   }
 }
 
-// Auto-run if executed directly as a script
-if (
-  process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
-) {
+/**
+ * Auto-run if executed directly as the worker script.
+ * Strictly checks process.argv[1] filename to prevent false triggers.
+ */
+function isWorkerMain(): boolean {
+  const argv1 = typeof process !== 'undefined' ? process.argv[1] : undefined;
+  if (!argv1) return false;
+  const scriptName = path.basename(argv1);
+  if (!/^worker\.(?:mjs|ts|js)$/i.test(scriptName)) return false;
+  try {
+    return path.resolve(argv1) === path.resolve(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isWorkerMain()) {
   const worker = new BackgroundWorker();
 
   const handleSignal = async (signal: string) => {

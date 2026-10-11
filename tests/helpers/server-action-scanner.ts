@@ -75,13 +75,20 @@ export function bodyCallsGuard(body: ts.Node): boolean {
 
     if (ts.isCallExpression(node)) {
       const expr = node.expression;
-      if (ts.isIdentifier(expr) && (expr.text === 'requireOwner' || expr.text === 'requireAuth')) {
+      if (
+        ts.isIdentifier(expr) &&
+        (expr.text === 'requireOwner' ||
+          expr.text === 'requireAuth' ||
+          expr.text === 'requireOwnerSession')
+      ) {
         hasGuard = true;
         return;
       }
       if (
         ts.isPropertyAccessExpression(expr) &&
-        (expr.name.text === 'requireOwner' || expr.name.text === 'requireAuth')
+        (expr.name.text === 'requireOwner' ||
+          expr.name.text === 'requireAuth' ||
+          expr.name.text === 'requireOwnerSession')
       ) {
         hasGuard = true;
         return;

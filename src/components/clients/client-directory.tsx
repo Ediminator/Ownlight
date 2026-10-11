@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Search, X, Loader2, AlertCircle, Users, Plus } from 'lucide-react';
+import { Search, X, Loader2, AlertCircle, Users, Plus, CheckCircle2 } from 'lucide-react';
 import { listClientsAction } from '@/server/clients/actions';
 import type { ListClientsResult, TagSummaryItem } from '@/server/clients/repo';
 
@@ -26,6 +26,7 @@ export function ClientDirectory({
   initialError = null,
 }: ClientDirectoryProps) {
   const t = useTranslations('clients.list');
+  const tErasure = useTranslations('privacy.erasure');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -35,7 +36,21 @@ export function ClientDirectory({
   const [clientsResult, setClientsResult] = React.useState<ListClientsResult>(initialClients);
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(initialError);
-  const [liveAnnouncement, setLiveAnnouncement] = React.useState<string>('');
+  // Client deletion banner (AC-10)
+  const deletedParam = searchParams.get('deleted');
+  const [deletedBanner, setDeletedBanner] = React.useState<string | null>(() =>
+    deletedParam === '1' ? tErasure('successClient') : null,
+  );
+  const [liveAnnouncement, setLiveAnnouncement] = React.useState<string>(() =>
+    deletedParam === '1' ? tErasure('successClient') : '',
+  );
+  const bannerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (deletedParam === '1') {
+      bannerRef.current?.focus();
+    }
+  }, [deletedParam]);
 
   // Derive tagId and page directly from URL search params (or fallback to initial props)
   const urlTagParam = searchParams.get('tagId');
@@ -141,6 +156,32 @@ export function ClientDirectory({
       >
         {liveAnnouncement}
       </div>
+
+      {/* Localized success banner on deletion (AC-10) */}
+      {deletedBanner && (
+        <div
+          ref={bannerRef}
+          tabIndex={-1}
+          role="status"
+          className="rounded-md bg-green-500/10 border border-green-500/20 p-4 text-sm text-foreground flex items-center justify-between focus:outline-none"
+          data-testid="client-deleted-banner"
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" aria-hidden="true" />
+            <span>{deletedBanner}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setDeletedBanner(null);
+            }}
+            className="text-muted-foreground hover:text-foreground text-xs p-1 min-h-[24px] min-w-[24px] inline-flex items-center justify-center rounded"
+            aria-label={tErasure('dismissBanner')}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Page Title, Subtitle & Action */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

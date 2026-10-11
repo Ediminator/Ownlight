@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
   ArrowLeft,
@@ -17,8 +17,10 @@ import {
   Trash2,
   CheckCircle2,
   Download,
+  UserX,
 } from 'lucide-react';
 import type { ClientWithRelations, ClientTagItem } from '@/server/clients/repo';
+import type { ErasureSubject } from '@/server/privacy/erasure/types';
 import type {
   Client,
   ClientContact,
@@ -43,6 +45,7 @@ import { ConfirmDialog } from './confirm-dialog';
 import { ClientTimeline } from './client-timeline';
 import { ConsentSection } from './consent-section';
 import { ExportDataDialog } from './export-data-dialog';
+import { ErasureDialog } from './erasure-dialog';
 import type { ListTimelineResult } from '@/server/timeline/repo';
 import type { ClientConsentsResult } from '@/server/consents/repo';
 
@@ -64,7 +67,10 @@ export function ClientProfile({
   const t = useTranslations('clients.profile');
   const tForm = useTranslations('clients.form');
   const tErrors = useTranslations('clients.errors');
+  const tDanger = useTranslations('clients.dangerZone');
+  const tErasure = useTranslations('privacy.erasure');
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Component state
   const [client, setClient] = React.useState<Client>(clientData.client);
@@ -90,6 +96,8 @@ export function ClientProfile({
   const addressTriggerRef = React.useRef<HTMLElement | null>(null);
   const tagsTriggerRef = React.useRef<HTMLElement | null>(null);
   const confirmTriggerRef = React.useRef<HTMLElement | null>(null);
+  const deleteClientTriggerRef = React.useRef<HTMLButtonElement>(null);
+  const erasureTriggerRef = React.useRef<HTMLElement | null>(null);
 
   // Dialog open states
   const [editDetailsOpen, setEditDetailsOpen] = React.useState(false);
@@ -111,6 +119,11 @@ export function ClientProfile({
   // DSAR personal data export dialog states (TASK-0015)
   const [exportContactTarget, setExportContactTarget] = React.useState<ClientContact | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
+
+  // Erasure dialog states (TASK-0016)
+  const [erasureSubject, setErasureSubject] = React.useState<ErasureSubject | null>(null);
+  const [erasureDialogOpen, setErasureDialogOpen] = React.useState(false);
+  const [erasureContactName, setErasureContactName] = React.useState<string | undefined>(undefined);
 
   // Focus announcement on mount if created (AC-1)
   React.useEffect(() => {
@@ -469,6 +482,25 @@ export function ClientProfile({
                         >
                           <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                         </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            erasureTriggerRef.current = e.currentTarget;
+                            setErasureSubject({
+                              kind: 'contact',
+                              clientId: client.id,
+                              contactId: contact.id,
+                            });
+                            setErasureContactName(fullName);
+                            setErasureDialogOpen(true);
+                          }}
+                          className="rounded p-1.5 text-red-700 dark:text-red-400 hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
+                          data-testid={`erase-contact-btn-${contact.id}`}
+                          aria-label={`${t('erasePerson')}: ${fullName}`}
+                          title={t('erasePerson')}
+                        >
+                          <UserX className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
                       </div>
                     </div>
 
@@ -662,6 +694,49 @@ export function ClientProfile({
         </div>
       </section>
 
+      {/* Danger Zone Section (AC-10) */}
+      <section
+        aria-labelledby="danger-zone-heading"
+        className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-card-foreground shadow-sm space-y-4"
+        data-testid="danger-zone-section"
+      >
+        <div className="border-b border-destructive/20 pb-3">
+          <h2
+            id="danger-zone-heading"
+            className="text-lg font-semibold text-red-700 dark:text-red-400"
+          >
+            {tDanger('title')}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">{tDanger('description')}</p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              {tDanger('deleteClientTitle')}
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {tDanger('deleteClientDescription')}
+            </p>
+          </div>
+          <button
+            type="button"
+            ref={deleteClientTriggerRef}
+            onClick={() => {
+              erasureTriggerRef.current = deleteClientTriggerRef.current;
+              setErasureSubject({ kind: 'client', clientId: client.id });
+              setErasureContactName(undefined);
+              setErasureDialogOpen(true);
+            }}
+            className="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground shadow-sm hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 min-h-[44px] shrink-0"
+            data-testid="delete-client-btn"
+          >
+            <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />
+            <span>{tDanger('deleteClientButton')}</span>
+          </button>
+        </div>
+      </section>
+
       {/* Dialogs */}
       <EditDetailsDialog
         client={client}
@@ -752,6 +827,30 @@ export function ClientProfile({
         triggerRef={contactTriggerRef}
         onDownloadStarted={() => {
           announceAndFocus(t('exportDataDescription'), contactTriggerRef);
+        }}
+      />
+
+      {/* Erasure Dialog (AC-10, TASK-0016) */}
+      <ErasureDialog
+        subject={erasureSubject}
+        clientDisplayName={client.displayName}
+        contactName={erasureContactName}
+        open={erasureDialogOpen}
+        onOpenChange={(open) => {
+          setErasureDialogOpen(open);
+          if (!open) {
+            setErasureSubject(null);
+            setErasureContactName(undefined);
+          }
+        }}
+        triggerRef={erasureTriggerRef}
+        onSuccess={(subjectKind) => {
+          if (subjectKind === 'client') {
+            router.push(`/${locale}/clients?deleted=1`);
+          } else {
+            void refreshClientData();
+            announceAndFocus(tErasure('successContact'), contactsHeadingRef);
+          }
         }}
       />
     </div>

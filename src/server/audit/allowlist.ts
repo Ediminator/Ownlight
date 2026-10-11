@@ -60,6 +60,8 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
   ['consent.granted', ['contact_id', 'purpose', 'method']],
   ['consent.withdrawn', ['contact_id', 'purpose', 'method']],
   ['privacy.export.generated', ['contact_id', 'format', 'locale', 'category_count']],
+  ['privacy.erasure.completed', ['subject_kind', 'category_counts']],
+  ['privacy.erasure.blocked', ['subject_kind', 'hold_count']],
 ]);
 
 /**

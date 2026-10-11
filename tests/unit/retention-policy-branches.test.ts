@@ -181,10 +181,120 @@ describe('Retention policy utility and definition branches', () => {
 
         const holdWithTx = await inactiveClientsPolicy.legalHold({ id: 'c-1' }, mockClient);
         expect(typeof holdWithTx).toBe('boolean');
+
+        const { registerErasureHoldProvider, resetErasureHoldProviders } =
+          await import('@/server/privacy/erasure/registry');
+        registerErasureHoldProvider({
+          id: 'test-unit-mock-hold',
+          holds: () =>
+            Promise.resolve([
+              {
+                providerId: 'test-unit-mock-hold',
+                reason: 'manual.dispute',
+                retainUntil: null,
+              },
+            ]),
+        });
+        const holdWithProvider = await inactiveClientsPolicy.legalHold({ id: 'c-1' }, mockClient);
+        expect(holdWithProvider).toBe(true);
+        resetErasureHoldProviders();
       }
 
-      await inactiveClientsPolicy.deleteBatch(mockClient, []);
-      await inactiveClientsPolicy.deleteBatch(mockClient, ['c-1']);
+      if (inactiveClientsPolicy.eraseCandidate) {
+        const eraseModule = await import('@/server/privacy/erasure/service');
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: true,
+          plan: {
+            subject: { kind: 'client', clientId: 'c-1' },
+            holds: [],
+            categoryCounts: { client: 1 },
+          },
+          categoryCounts: { client: 1 },
+        });
+        const res1 = await inactiveClientsPolicy.eraseCandidate(mockClient, 'c-1');
+        expect(res1.outcome).toBe('deleted');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'ERASURE_BLOCKED',
+          error: 'Hold active',
+        });
+        const res2 = await inactiveClientsPolicy.eraseCandidate(mockClient, 'c-1');
+        expect(res2.outcome).toBe('held');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'INTERNAL_ERROR',
+          error: 'Database lock timeout',
+        });
+        const res3 = await inactiveClientsPolicy.eraseCandidate(mockClient, 'c-1');
+        expect(res3.outcome).toBe('failed');
+        expect(res3.error).toBe('Database lock timeout');
+      }
+
+      if (inactiveClientsPolicy.getCandidates) {
+        // 1. With rows empty
+        const mockEmptyClient = {
+          select: vi.fn().mockReturnValue({
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockReturnValue({
+                  limit: vi.fn().mockResolvedValue([]),
+                }),
+              }),
+            }),
+          }),
+        } as unknown as DbClient;
+        const emptyCandidates = await inactiveClientsPolicy.getCandidates(
+          mockEmptyClient,
+          now,
+          10,
+          [],
+        );
+        expect(emptyCandidates).toEqual([]);
+
+        // 2. With rows and excludedIds
+        const mockRowsClient = {
+          select: vi.fn().mockReturnValue({
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockReturnValue({
+                  limit: vi.fn().mockResolvedValue([
+                    { id: 'c-1', lastActivityAt: now },
+                    { id: 'c-2', lastActivityAt: now },
+                  ]),
+                }),
+              }),
+            }),
+          }),
+          selectDistinct: vi.fn().mockReturnValue({
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([]),
+              innerJoin: vi.fn().mockReturnValue({
+                where: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        } as unknown as DbClient;
+        const candidates = await inactiveClientsPolicy.getCandidates(mockRowsClient, now, 10, [
+          'ex-1',
+        ]);
+        expect(Array.isArray(candidates)).toBe(true);
+
+        // 3. With rows and no excludedIds
+        const candidatesNoEx = await inactiveClientsPolicy.getCandidates(
+          mockRowsClient,
+          now,
+          10,
+          [],
+        );
+        expect(Array.isArray(candidatesNoEx)).toBe(true);
+      }
+
+      if (inactiveClientsPolicy.deleteBatch) {
+        await inactiveClientsPolicy.deleteBatch(mockClient, []);
+        await inactiveClientsPolicy.deleteBatch(mockClient, ['c-1', 'c-2']);
+      }
     }
   });
 

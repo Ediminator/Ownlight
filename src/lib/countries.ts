@@ -278,12 +278,7 @@ export function getLocalizedCountries(locale: string): LocalizedCountry[] {
   }
 
   const countries = ISO_3166_1_ALPHA_2_CODES.map((code) => {
-    let name = code as string;
-    try {
-      name = displayNames.of(code) ?? code;
-    } catch {
-      name = code;
-    }
+    const name = displayNames.of(code) ?? code;
     return { code, name };
   });
 

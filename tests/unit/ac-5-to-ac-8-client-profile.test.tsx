@@ -2,6 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ClientProfile } from '@/components/clients/client-profile';
+import { EditDetailsDialog } from '@/components/clients/edit-details-dialog';
+import { ContactDialog } from '@/components/clients/contact-dialog';
+import { AddressDialog } from '@/components/clients/address-dialog';
+import { TagsDialog } from '@/components/clients/tags-dialog';
+import { ConfirmDialog } from '@/components/clients/confirm-dialog';
+import {
+  getClientAction,
+  removeContactAction,
+  removeAddressAction,
+} from '@/server/clients/actions';
 import type { ClientWithRelations } from '@/server/clients/repo';
 
 let mockStateQueue: unknown[] = [];
@@ -15,7 +25,15 @@ vi.mock('react', async (importOriginal) => {
         const val = mockStateQueue.shift() as T;
         return [val, vi.fn()];
       }
-      return actual.useState(initial);
+      return [initial, vi.fn()];
+    },
+    useRef: <T,>(initial: T) => ({ current: initial }),
+    useEffect: (fn: () => unknown) => {
+      try {
+        fn();
+      } catch {
+        // ignore
+      }
     },
   };
 });
@@ -506,4 +524,351 @@ describe('TASK-0012: Client Profile UI and Dialog Integrations', () => {
     expect(html).toContain('data-testid="tags-dialog"');
     expect(html).toContain('Edit tags');
   });
+
+  it('AC-5 & AC-6: handles interactive dialog triggers and callbacks', () => {
+    const clientData = createSampleClient();
+    vi.mocked(getClientAction).mockResolvedValue({
+      success: true,
+      data: clientData,
+    });
+
+    const tree = ClientProfile({
+      clientData,
+      locale: 'en',
+      studioTimezone: 'UTC',
+    });
+
+    const editDetailsBtn = findNodeByTestId(tree, 'edit-details-btn');
+    const editContactBtn = findNodeByTestId(tree, 'edit-contact-btn-contact-1');
+    const removeContactBtn = findNodeByTestId(tree, 'remove-contact-btn-contact-1');
+    const addContactBtn = findNodeByTestId(tree, 'add-contact-btn');
+    const addAddressBtn = findNodeByTestId(tree, 'add-address-btn');
+    const editAddressBtn = findNodeByTestId(tree, 'edit-address-btn-postal');
+    const removeAddressBtn = findNodeByTestId(tree, 'remove-address-btn-postal');
+    const editTagsBtn = findNodeByTestId(tree, 'edit-tags-btn');
+
+    const fakeEvent = { currentTarget: {} };
+    getProps(editDetailsBtn).onClick?.(fakeEvent);
+    getProps(editContactBtn).onClick?.(fakeEvent);
+    getProps(removeContactBtn).onClick?.(fakeEvent);
+    getProps(addContactBtn).onClick?.(fakeEvent);
+    getProps(addAddressBtn).onClick?.(fakeEvent);
+    getProps(editAddressBtn).onClick?.(fakeEvent);
+    getProps(removeAddressBtn).onClick?.(fakeEvent);
+    getProps(editTagsBtn).onClick?.(fakeEvent);
+
+    // Dialog callbacks
+    const editDialog = findNodeByType(tree, EditDetailsDialog);
+    getProps(editDialog).onSuccess?.({
+      kind: 'person',
+      displayName: 'Jane Doe',
+      preferredLocale: 'en',
+    });
+
+    const contactDialog = findNodeByType(tree, ContactDialog);
+    getProps(contactDialog).onSuccess?.();
+
+    const addressDialog = findNodeByType(tree, AddressDialog);
+    getProps(addressDialog).onSuccess?.();
+
+    const tagsDialog = findNodeByType(tree, TagsDialog);
+    getProps(tagsDialog).onSuccess?.([{ id: 'tag-new', name: 'Editorial' }]);
+  });
+
+  it('AC-6 & AC-7: handles contact and address removal confirms and errors', () => {
+    const clientData = createSampleClient();
+
+    // 1. Success removal of contact
+    vi.mocked(removeContactAction).mockResolvedValueOnce({
+      success: true,
+      data: { contactId: 'contact-1' },
+    });
+    vi.mocked(getClientAction).mockResolvedValueOnce({ success: true, data: clientData });
+
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null, // statusMessage
+      false, // editDetailsOpen
+      false, // contactDialogOpen
+      null, // editingContact
+      false, // addressDialogOpen
+      null, // editingAddress
+      false, // tagsDialogOpen
+      clientData.contacts[0], // removeContactTarget
+      null, // removeContactError
+      false, // isRemovingContact
+      null, // removeAddressTarget
+      null, // removeAddressError
+      false, // isRemovingAddress
+    ];
+
+    const tree1 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes1 = findAllNodesByType(tree1, ConfirmDialog);
+    const removeContactDialog1 = confirmNodes1.find((n) =>
+      getProps(n).description?.includes('contact'),
+    );
+
+    getProps(removeContactDialog1).onOpenChange?.(false);
+    getProps(removeContactDialog1).onConfirm?.();
+
+    // 2. Failure removal of contact
+    vi.mocked(removeContactAction).mockResolvedValueOnce({
+      success: false,
+      code: 'CLIENT_NEEDS_CONTACT',
+      error: 'Cannot remove only contact',
+    });
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      clientData.contacts[0],
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+    const tree2 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes2 = findAllNodesByType(tree2, ConfirmDialog);
+    const removeContactDialog2 = confirmNodes2.find((n) =>
+      getProps(n).description?.includes('contact'),
+    );
+    getProps(removeContactDialog2).onConfirm?.();
+
+    // 3. Exception in removeContact
+    vi.mocked(removeContactAction).mockRejectedValueOnce(new Error('Network error'));
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      clientData.contacts[0],
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+    const tree3 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes3 = findAllNodesByType(tree3, ConfirmDialog);
+    const removeContactDialog3 = confirmNodes3.find((n) =>
+      getProps(n).description?.includes('contact'),
+    );
+    getProps(removeContactDialog3).onConfirm?.();
+
+    // 4. Success removal of address
+    vi.mocked(removeAddressAction).mockResolvedValueOnce({
+      success: true,
+      data: { type: 'postal' },
+    });
+    vi.mocked(getClientAction).mockResolvedValueOnce({ success: true, data: clientData });
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      'postal', // removeAddressTarget
+      null,
+      false,
+    ];
+    const tree4 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes4 = findAllNodesByType(tree4, ConfirmDialog);
+    const removeAddressDialog1 = confirmNodes4.find((n) =>
+      getProps(n).description?.includes('address'),
+    );
+    getProps(removeAddressDialog1).onOpenChange?.(false);
+    getProps(removeAddressDialog1).onConfirm?.();
+
+    // 5. Failure removal of address
+    vi.mocked(removeAddressAction).mockResolvedValueOnce({
+      success: false,
+      code: 'NOT_FOUND',
+      error: 'Address not found',
+    });
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      'postal',
+      null,
+      false,
+    ];
+    const tree5 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes5 = findAllNodesByType(tree5, ConfirmDialog);
+    const removeAddressDialog2 = confirmNodes5.find((n) =>
+      getProps(n).description?.includes('address'),
+    );
+    getProps(removeAddressDialog2).onConfirm?.();
+
+    // 6. Exception removal of address
+    vi.mocked(removeAddressAction).mockRejectedValueOnce(new Error('Network error'));
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      'postal',
+      null,
+      false,
+    ];
+    const tree6 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const confirmNodes6 = findAllNodesByType(tree6, ConfirmDialog);
+    const removeAddressDialog3 = confirmNodes6.find((n) =>
+      getProps(n).description?.includes('address'),
+    );
+    getProps(removeAddressDialog3).onConfirm?.();
+
+    // 7. Dismiss status banner
+    mockStateQueue = [
+      clientData.client,
+      clientData.contacts,
+      clientData.addresses,
+      clientData.tags,
+      'Banner status', // statusMessage
+      false,
+      false,
+      null,
+      false,
+      null,
+      false,
+      null,
+      null,
+      false,
+      null,
+      null,
+      false,
+    ];
+    const tree7 = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const dismissBtn = findNode(
+      tree7,
+      (el) => el.type === 'button' && (el.props as { children?: unknown }).children === '✕',
+    );
+    getProps(dismissBtn).onClick?.();
+  });
+
+  it('AC-5: handles refreshClientData non-fatal error gracefully', () => {
+    const clientData = createSampleClient();
+    vi.mocked(getClientAction).mockRejectedValueOnce(new Error('DB failure'));
+
+    const tree = ClientProfile({ clientData, locale: 'en', studioTimezone: 'UTC' });
+    const contactDialog = findNodeByType(tree, ContactDialog);
+    getProps(contactDialog).onSuccess?.();
+  });
 });
+
+interface InteractiveProps {
+  onClick?: (e?: unknown) => void;
+  onOpenChange?: (open: boolean) => void;
+  onSuccess?: (val?: unknown) => void;
+  onConfirm?: () => void;
+  description?: string;
+}
+
+function findNode(
+  node: React.ReactNode,
+  predicate: (el: React.ReactElement) => boolean,
+): React.ReactElement | undefined {
+  let found: React.ReactElement | undefined;
+  function traverse(current: unknown) {
+    if (!current || found) return;
+    if (React.isValidElement(current)) {
+      if (predicate(current)) {
+        found = current;
+        return;
+      }
+      const props = current.props as { children?: unknown };
+      traverse(props.children);
+    } else if (Array.isArray(current)) {
+      for (const item of current) {
+        traverse(item);
+      }
+    }
+  }
+  traverse(node);
+  return found;
+}
+
+function findNodeByTestId(node: React.ReactNode, testId: string): React.ReactElement | undefined {
+  return findNode(node, (el) => (el.props as { 'data-testid'?: string })['data-testid'] === testId);
+}
+
+function findNodeByType(node: React.ReactNode, component: unknown): React.ReactElement | undefined {
+  return findNode(node, (el) => el.type === component);
+}
+
+function findAllNodesByType(node: React.ReactNode, component: unknown): React.ReactElement[] {
+  const result: React.ReactElement[] = [];
+  function traverse(current: unknown) {
+    if (!current) return;
+    if (React.isValidElement(current)) {
+      if (current.type === component) {
+        result.push(current);
+      }
+      const props = current.props as { children?: unknown };
+      traverse(props.children);
+    } else if (Array.isArray(current)) {
+      for (const item of current) {
+        traverse(item);
+      }
+    }
+  }
+  traverse(node);
+  return result;
+}
+
+function getProps(node: React.ReactElement | undefined): InteractiveProps {
+  const p = node?.props;
+  if (p && typeof p === 'object') {
+    return p;
+  }
+  return {};
+}

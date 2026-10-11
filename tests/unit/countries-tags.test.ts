@@ -48,6 +48,13 @@ describe('ISO 3166-1 alpha-2 country utilities', () => {
     expect(getLocalizedCountryName('FR', 'en')).toBe('France');
     expect(getLocalizedCountryName('FR', 'de')).toBe('Frankreich');
   });
+
+  it('AC-7: gracefully falls back on invalid locale or unknown country code', () => {
+    const list = getLocalizedCountries('invalid-locale-!!!');
+    expect(list.length).toBe(249);
+    expect(getLocalizedCountryName('DE', 'invalid-locale-!!!')).toBe('DE');
+    expect(getLocalizedCountryName('UNKNOWN', 'en')).toBe('UNKNOWN');
+  });
 });
 
 describe('Comma-separated tag parsing and serialization', () => {

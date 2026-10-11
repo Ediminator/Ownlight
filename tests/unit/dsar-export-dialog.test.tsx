@@ -22,9 +22,14 @@ vi.mock('react', async (importOriginal) => {
   };
 });
 
-const mockReauthenticateAction = vi.fn();
+const mockReauthenticateAction =
+  vi.fn<(args: { password: string }) => Promise<{ success: boolean; error?: string }>>();
 vi.mock('@/server/auth/mfa-actions', () => ({
-  reauthenticateAction: (...args: unknown[]) => mockReauthenticateAction(...args),
+  reauthenticateAction: async (args: {
+    password: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    return mockReauthenticateAction(args);
+  },
 }));
 
 vi.mock('@/components/ui/dialog', () => ({
@@ -124,12 +129,13 @@ interface ComponentProps {
   onSubmit?: (e?: { preventDefault: () => void }) => void | Promise<void>;
   disabled?: boolean;
   value?: unknown;
+  children?: React.ReactNode;
 }
 
 function getNodeProps(node: React.ReactElement | undefined): ComponentProps {
-  const props = node?.props;
+  const props = node?.props as ComponentProps | undefined;
   if (props && typeof props === 'object') {
-    return props as ComponentProps;
+    return props;
   }
   return {};
 }
@@ -475,7 +481,8 @@ describe('TASK-0015: ExportDataDialog component (AC-9, AC-10, AC-11, AC-12)', ()
     });
 
     const submitBtn = findNodeByTestId(tree, 'export-submit-btn');
-    await getNodeProps(submitBtn).onClick?.();
+    getNodeProps(submitBtn).onClick?.();
+    await new Promise((resolve) => setTimeout(resolve, 10));
   });
 
   it('handles 403 generic error and 500 error from export endpoint', async () => {
@@ -500,7 +507,8 @@ describe('TASK-0015: ExportDataDialog component (AC-9, AC-10, AC-11, AC-12)', ()
     });
 
     const submitBtn = findNodeByTestId(tree, 'export-submit-btn');
-    await getNodeProps(submitBtn).onClick?.();
+    getNodeProps(submitBtn).onClick?.();
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     // 500 server error
     global.fetch = vi.fn().mockResolvedValue({
@@ -508,11 +516,13 @@ describe('TASK-0015: ExportDataDialog component (AC-9, AC-10, AC-11, AC-12)', ()
       status: 500,
       json: vi.fn().mockResolvedValue({ code: 'INTERNAL_ERROR' }),
     });
-    await getNodeProps(submitBtn).onClick?.();
+    getNodeProps(submitBtn).onClick?.();
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     // Network error
     global.fetch = vi.fn().mockRejectedValue(new Error('Network offline'));
-    await getNodeProps(submitBtn).onClick?.();
+    getNodeProps(submitBtn).onClick?.();
+    await new Promise((resolve) => setTimeout(resolve, 10));
   });
 
   it('handles interactive reauth form submission and cancellation', async () => {
@@ -557,9 +567,9 @@ describe('TASK-0015: ExportDataDialog component (AC-9, AC-10, AC-11, AC-12)', ()
     function findFormNode(element: unknown): ComponentProps | undefined {
       if (!element || typeof element !== 'object') return undefined;
       if (React.isValidElement(element)) {
-        const props = element.props as Record<string, unknown>;
+        const props = element.props as ComponentProps;
         if (element.type === 'form' || typeof props.onSubmit === 'function') {
-          return props as ComponentProps;
+          return props;
         }
         if (props.children) {
           const res = findFormNode(props.children);

@@ -253,6 +253,12 @@ describe('TASK-0015: DSAR export provider registry', () => {
     // Register custom category definition
     registerCategoryDefinition({
       id: 'custom_files',
+      titleKey: 'privacy.export.categories.custom_files.title',
+      purposeKey: 'privacy.export.categories.custom_files.purpose',
+      lawfulBasisKey: 'privacy.export.categories.custom_files.lawful_basis',
+      retentionKey: 'privacy.export.categories.custom_files.retention',
+      recipientsKey: 'privacy.export.categories.custom_files.recipients',
+      sourceKey: 'privacy.export.categories.custom_files.source',
       title: { en: 'Files', de: 'Dateien' },
       purpose: { en: 'File storage', de: 'Dateispeicherung' },
       lawfulBasis: { en: 'Art. 6(1)(b) GDPR', de: 'Art. 6 Abs. 1 lit. b DSGVO' },

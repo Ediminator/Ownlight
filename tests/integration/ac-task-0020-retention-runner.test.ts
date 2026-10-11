@@ -5,6 +5,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { buildRetention } from '../../scripts/build-retention.mjs';
 import * as schema from '@/server/db/schema';
 import { auditEvents, type AuditEvent } from '@/server/db/schema/audit';
@@ -308,7 +309,9 @@ describe('TASK-0020: Unified Retention Runner and Worker Integration', () => {
     expect(execUnreachable.stdout).not.toContain('Retention sweep finished');
 
     // Dynamically importing the compiled bundle and script exports BackgroundWorker without side effects
-    const distMod = (await import('../../dist/retention/worker.mjs')) as unknown as {
+    const workerUrl = pathToFileURL(workerBundlePath).href;
+    // eslint-disable-next-line no-unsanitized/method -- Dynamic import of build artifact URL prevents TS2307 static resolution before build
+    const distMod = (await import(workerUrl)) as unknown as {
       BackgroundWorker: unknown;
       WORKER_ADVISORY_LOCK_ID: number;
     };

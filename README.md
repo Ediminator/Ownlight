@@ -102,6 +102,7 @@ All contributions must pass the deterministic quality gate:
 | `pnpm run db:migrate`      | Execute pending database migrations with privileged migration role             |
 | `pnpm run db:check`        | Verify migration sequence and detect schema-to-migration drift                 |
 | `pnpm run db:seed:demo`    | Seed deterministic synthetic demo data (with production safety guard)          |
+| `pnpm run retention:build` | Build standalone retention CLI and worker bundles with esbuild                 |
 | `pnpm run retention:sweep` | Run declarative retention sweep (`--dry-run` supported)                        |
 | `pnpm run worker`          | Run background maintenance worker with graceful shutdown                       |
 | `pnpm run services:up`     | Start local development services (PostgreSQL, Mailpit, MinIO)                  |

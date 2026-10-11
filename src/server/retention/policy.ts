@@ -110,6 +110,12 @@ export function createDefaultPolicies(): RetentionPolicy[] {
     after: { months: auditMonths },
     action: 'delete',
     batchSize: 500,
+    legalHold: (row: AuditEvent) => {
+      const meta = row.metadata;
+      return Boolean(
+        meta && typeof meta === 'object' && 'legal_hold' in meta && meta.legal_hold === true,
+      );
+    },
     getCandidates: async (client, cutoff, limit, excludedIds) => {
       if (excludedIds.length > 0) {
         return await client

@@ -185,7 +185,7 @@ export async function runRetentionSweep(options: SweepOptions = {}): Promise<Swe
     totalHeld += policyHeld;
 
     // Record audit event for actual retention sweep runs (counts only)
-    if (!dryRun && !aborted) {
+    if (!dryRun && !aborted && policyScanned > 0) {
       try {
         await audit(
           {

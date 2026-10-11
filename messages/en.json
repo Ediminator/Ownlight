@@ -317,7 +317,7 @@
       "emailLabel": "Email address",
       "emailPlaceholder": "client@example.com",
       "phoneLabel": "Phone number",
-      "phonePlaceholder": "+49 30 0000 0001",
+      "phonePlaceholder": "+49 151 23456789",
       "tagsLabel": "Tags",
       "tagsPlaceholder": "Wedding, 2026",
       "tagsHint": "Separate multiple tags with commas.",

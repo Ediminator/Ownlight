@@ -7,9 +7,10 @@ import { E2E_OWNER_EMAIL, E2E_OWNER_PASSWORD } from '../helpers/e2e-global-setup
 const VALID_SETUP_TOKEN =
   process.env.SETUP_TOKEN ?? 'c4d7e8f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9';
 
+const RUN_DIR_PARAM = process.env.RUN_DIR ?? 'iter-02';
 const UX_RUN_DIR = path.resolve(
   import.meta.dirname,
-  '../../../../control/ownlight/runs/TASK-0014/iter-01/ux',
+  `../../../../control/ownlight/runs/TASK-0014/${RUN_DIR_PARAM}/ux`,
 );
 
 async function ensureOwnerBootstrappedAndSignedIn(page: import('@playwright/test').Page) {
@@ -103,10 +104,11 @@ test.describe('TASK-0014: Consent Records & History E2E (AC-10 to AC-13)', () =>
     await expect(marketingStatus).toContainText('Granted on');
     await expect(marketingStatus).toContainText('In person');
 
-    // Reload page to verify persisted timeline consent event
+    // Reload page to verify persisted timeline consent event with localized purpose (I1-U06)
     await page.reload();
     const timelineEvent = page.locator('[data-event-type="consent.granted"]').first();
     await expect(timelineEvent).toBeVisible();
+    await expect(timelineEvent).toContainText('Consent granted: Marketing consent');
   });
 
   test('AC-11: German locale rendering for Consent section, dialog, and date formats', async ({
@@ -119,6 +121,10 @@ test.describe('TASK-0014: Consent Records & History E2E (AC-10 to AC-13)', () =>
     const heading = page.locator('#consent-heading');
     await expect(heading).toBeVisible();
     await expect(heading).toHaveText('Einwilligung');
+
+    // Verify German primary contact badge (I1-U05)
+    const primaryCard = page.locator('[data-testid^="consent-contact-card-"]').first();
+    await expect(primaryCard).toContainText('Hauptkontakt');
 
     // Verify German empty status
     const emptyStatus = page.locator('[data-testid$="-marketing"]').first();
@@ -157,6 +163,14 @@ test.describe('TASK-0014: Consent Records & History E2E (AC-10 to AC-13)', () =>
     await expect(imageUsageRow).toContainText('Erteilt am');
     await expect(imageUsageRow).toContainText('Schriftlich (Papier)');
     await expect(imageUsageRow).toContainText('Umfang: Studio-Website, Portfolio und Instagram');
+
+    // Verify German timeline event with localized purpose (I1-U06)
+    await page.reload();
+    const deTimelineEvent = page.locator('[data-event-type="consent.granted"]').first();
+    await expect(deTimelineEvent).toBeVisible();
+    await expect(deTimelineEvent).toContainText(
+      'Einwilligung erteilt: Einwilligung zur Bildnutzung',
+    );
   });
 
   test('AC-12: Accessibility scan with axe (wcag2a, wcag2aa, wcag21a, wcag21aa, wcag22aa) and non-color-alone status', async ({
@@ -190,6 +204,28 @@ test.describe('TASK-0014: Consent Records & History E2E (AC-10 to AC-13)', () =>
     const textContent = await statusTextEl.innerText();
     expect(textContent.length).toBeGreaterThan(0);
     expect(textContent).toMatch(/No consent recorded|Granted|Withdrawn/);
+
+    // 4. Test dark mode error alert and field error contrast with axe (I1-U02, I1-U03)
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.check('[data-testid="consent-purpose-image-usage"]');
+    await page.check('[data-testid="consent-status-granted"]');
+    await page.fill('[data-testid="consent-scope-input"]', '');
+    await page.click('[data-testid="consent-dialog-submit-btn"]');
+
+    const scopeError = page.locator('[data-testid="consent-scope-error"]');
+    await expect(scopeError).toBeVisible();
+    await expect(scopeError).toHaveText('Scope is required when granting image usage consent.');
+    expect(await scopeError.innerText()).not.toContain('clients.consent.errors');
+
+    const resultsDialogErrorDark = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .include('[data-testid="consent-dialog"]')
+      .analyze();
+    expect(resultsDialogErrorDark.violations).toEqual([]);
+
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.click('[data-testid="consent-dialog-cancel-btn"]');
+    await expect(dialog).not.toBeVisible();
   });
 
   test('AC-13: 320px viewport responsiveness, touch targets >= 24px, and UX screenshots', async ({
@@ -316,5 +352,12 @@ test.describe('TASK-0014: Consent Records & History E2E (AC-10 to AC-13)', () =>
     // Second item is previous (Granted)
     await expect(historyItems.last()).toContainText('Granted');
     await expect(historyItems.last()).toContainText('Email');
+
+    // 3. Scan expanded history with Axe to verify SC 1.4.3 contrast minimum (I1-U01)
+    const resultsHistory = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .include('[data-testid^="consent-history-list-"]')
+      .analyze();
+    expect(resultsHistory.violations).toEqual([]);
   });
 });

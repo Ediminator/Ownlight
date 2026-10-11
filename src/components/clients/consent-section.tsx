@@ -34,6 +34,7 @@ export function ConsentSection({
   onConsentRecorded,
 }: ConsentSectionProps) {
   const t = useTranslations('clients.consent');
+  const tProfile = useTranslations('clients.profile');
 
   const [consentsData, setConsentsData] = React.useState<ClientConsentsResult>(() => {
     if (initialConsents) return initialConsents;
@@ -122,7 +123,7 @@ export function ConsentSection({
       }
       icon = (
         <CheckCircle2
-          className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0"
+          className="h-4 w-4 text-emerald-800 dark:text-emerald-400 shrink-0"
           aria-hidden="true"
         />
       );
@@ -137,7 +138,7 @@ export function ConsentSection({
       statusText = `${t('withdrawnOn', { date: formattedDate })} · ${methodLabel}`;
       icon = (
         <XCircle
-          className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0"
+          className="h-4 w-4 text-amber-800 dark:text-amber-400 shrink-0"
           aria-hidden="true"
         />
       );
@@ -145,16 +146,16 @@ export function ConsentSection({
 
     return (
       <div
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-sm py-1.5"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-sm py-1.5 min-w-0"
         data-testid={`consent-row-${contactId}-${purposeKey}`}
       >
-        <span className="font-medium text-foreground min-w-[140px]">{title}</span>
-        <div className="flex items-center gap-2 flex-1 sm:justify-end text-muted-foreground">
+        <span className="font-medium text-foreground min-w-[140px] shrink-0">{title}</span>
+        <div className="flex items-center gap-2 flex-1 sm:justify-end text-muted-foreground min-w-0">
           {icon}
           <span
-            className={
+            className={`break-words [overflow-wrap:anywhere] min-w-0 ${
               record?.status === 'granted' ? 'text-foreground font-medium' : 'text-muted-foreground'
-            }
+            }`}
             data-testid={`consent-status-${contactId}-${purposeKey}`}
           >
             {statusText}
@@ -169,9 +170,9 @@ export function ConsentSection({
       aria-labelledby="consent-heading"
       className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4"
     >
-      <div className="flex items-center justify-between border-b pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+          <ShieldCheck className="h-5 w-5 text-primary shrink-0" aria-hidden="true" />
           <h2
             id="consent-heading"
             tabIndex={-1}
@@ -189,7 +190,7 @@ export function ConsentSection({
           className="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[36px]"
           data-testid="record-consent-btn"
         >
-          <Plus className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+          <Plus className="h-3.5 w-3.5 mr-1 shrink-0" aria-hidden="true" />
           <span>{t('recordChange')}</span>
         </button>
       </div>
@@ -222,7 +223,7 @@ export function ConsentSection({
                     <span className="font-semibold text-sm text-foreground">{contact.name}</span>
                     {contact.isPrimary && (
                       <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
-                        Primary
+                        {tProfile('primaryBadge')}
                       </span>
                     )}
                   </div>
@@ -305,33 +306,36 @@ export function ConsentSection({
                           return (
                             <div
                               key={item.id}
-                              className="text-xs text-foreground bg-muted/20 p-2.5 rounded border border-border/40 space-y-1"
+                              className="text-xs text-foreground bg-muted/20 p-2.5 rounded border border-border/40 space-y-1 min-w-0"
                               data-testid={`consent-history-item-${item.id}`}
                             >
-                              <div className="flex flex-wrap items-center justify-between gap-1">
-                                <span className="font-semibold text-foreground">
+                              <div className="flex flex-wrap items-center justify-between gap-1 min-w-0">
+                                <span className="font-semibold text-foreground break-words [overflow-wrap:anywhere] min-w-0">
                                   {purposeLabel} ·{' '}
                                   <span
                                     className={
                                       item.status === 'granted'
-                                        ? 'text-emerald-600 dark:text-emerald-400'
-                                        : 'text-amber-600 dark:text-amber-400'
+                                        ? 'text-emerald-800 dark:text-emerald-400 font-medium'
+                                        : 'text-amber-800 dark:text-amber-400 font-medium'
                                     }
                                   >
                                     {statusLabel}
                                   </span>
                                 </span>
-                                <time dateTime={item.effectiveOn} className="text-muted-foreground">
+                                <time
+                                  dateTime={item.effectiveOn}
+                                  className="text-muted-foreground shrink-0"
+                                >
                                   {itemDate} · {methodLabel}
                                 </time>
                               </div>
                               {item.scope && (
-                                <p className="text-muted-foreground">
+                                <p className="text-muted-foreground break-words [overflow-wrap:anywhere]">
                                   {t('scopePrefix', { scope: item.scope })}
                                 </p>
                               )}
                               {item.evidenceNote && (
-                                <p className="text-muted-foreground italic">
+                                <p className="text-muted-foreground italic break-words [overflow-wrap:anywhere]">
                                   {t('evidencePrefix', { note: item.evidenceNote })}
                                 </p>
                               )}

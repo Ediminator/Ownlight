@@ -194,7 +194,7 @@ describe('TASK-0014: Consent UI components (AC-10 to AC-13)', () => {
 
       // Primary badge on Alice
       expect(html).toContain('Alice Cooper');
-      expect(html).toContain('Primary');
+      expect(html).toContain('Primary contact');
 
       // Bob Cooper present
       expect(html).toContain('Bob Cooper');
@@ -348,6 +348,9 @@ describe('TASK-0014: Consent UI components (AC-10 to AC-13)', () => {
 
       // Empty consent in German
       expect(html).toContain('Keine Einwilligung erfasst');
+
+      // Primary contact badge in German (I1-U05)
+      expect(html).toContain('Hauptkontakt');
 
       // History button in German
       expect(html).toContain('Verlauf anzeigen (3)');
@@ -583,6 +586,107 @@ describe('TASK-0014: Consent UI components (AC-10 to AC-13)', () => {
 
       expect(preventDefault).toHaveBeenCalled();
       expect(triggerButton.focus).toHaveBeenCalled();
+    });
+  });
+
+  describe('Iteration 1 review defects remediation (I1-U01, I1-U02, I1-U03, I1-U04, I1-U05)', () => {
+    it('I1-U01: status icons and status text use text-emerald-800 and text-amber-800 for >= 4.5:1 contrast in light mode', () => {
+      const html = renderToStaticMarkup(
+        <ConsentSection
+          clientId={sampleConsents.clientId}
+          locale="en"
+          studioTimezone="Europe/Berlin"
+          initialConsents={sampleConsents}
+          contacts={sampleContacts}
+        />,
+      );
+
+      // Verify status icons use high contrast text-emerald-800 and text-amber-800
+      expect(html).toContain('text-emerald-800');
+      expect(html).toContain('text-amber-800');
+      expect(html).not.toContain('text-emerald-600');
+      expect(html).not.toContain('text-amber-600');
+    });
+
+    it('I1-U02: general error alert and field error paragraphs include dark:text-red-300 for dark mode contrast', () => {
+      const html = renderToStaticMarkup(
+        <ConsentDialog
+          clientId={sampleConsents.clientId}
+          contacts={sampleContacts}
+          studioTimezone="Europe/Berlin"
+          isOpen={true}
+          onOpenChange={vi.fn()}
+          onSuccess={vi.fn()}
+        />,
+      );
+
+      // Required field asterisks use dark:text-red-300
+      expect(html).toContain('text-destructive dark:text-red-300');
+    });
+
+    it('I1-U03: validation error messages are localized from clients.errors without raw namespace mismatch', () => {
+      currentLocale = 'de';
+      // In German, clients.errors.scopeRequired is:
+      // "Der Umfang ist bei Erteilung der Einwilligung zur Bildnutzung erforderlich."
+      const deScopeMsg = deMessages.clients.errors.scopeRequired;
+      const deFutureMsg = deMessages.clients.errors.futureDate;
+      const deNotGrantedMsg = deMessages.clients.errors.CONSENT_NOT_GRANTED;
+
+      expect(deScopeMsg).toBe(
+        'Der Umfang ist bei Erteilung der Einwilligung zur Bildnutzung erforderlich.',
+      );
+      expect(deFutureMsg).toBe('Das Gültigkeitsdatum darf nicht in der Zukunft liegen.');
+      expect(deNotGrantedMsg).toBe(
+        'Einwilligung kann nicht widerrufen werden, da aktuell keine aktive Einwilligung vorliegt.',
+      );
+
+      // English messages
+      const enScopeMsg = enMessages.clients.errors.scopeRequired;
+      expect(enScopeMsg).toBe('Scope is required when granting image usage consent.');
+    });
+
+    it('I1-U04: card header has flex-wrap and status row containers have break-words [overflow-wrap:anywhere] min-w-0', () => {
+      const html = renderToStaticMarkup(
+        <ConsentSection
+          clientId={sampleConsents.clientId}
+          locale="en"
+          studioTimezone="Europe/Berlin"
+          initialConsents={sampleConsents}
+          contacts={sampleContacts}
+        />,
+      );
+
+      // Card header flex-wrap
+      expect(html).toContain('flex flex-wrap items-center justify-between gap-2 border-b pb-3');
+
+      // Status row reflow container classes
+      expect(html).toContain('break-words [overflow-wrap:anywhere] min-w-0');
+    });
+
+    it('I1-U05: primary contact badge renders localized string (Hauptkontakt in German, Primary contact in English)', () => {
+      currentLocale = 'de';
+      const deHtml = renderToStaticMarkup(
+        <ConsentSection
+          clientId={sampleConsents.clientId}
+          locale="de"
+          studioTimezone="Europe/Berlin"
+          initialConsents={sampleConsents}
+          contacts={sampleContacts}
+        />,
+      );
+      expect(deHtml).toContain('Hauptkontakt');
+
+      currentLocale = 'en';
+      const enHtml = renderToStaticMarkup(
+        <ConsentSection
+          clientId={sampleConsents.clientId}
+          locale="en"
+          studioTimezone="Europe/Berlin"
+          initialConsents={sampleConsents}
+          contacts={sampleContacts}
+        />,
+      );
+      expect(enHtml).toContain('Primary contact');
     });
   });
 });

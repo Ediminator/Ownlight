@@ -83,13 +83,13 @@ export function ConsentForm({
     if (!effectiveOn) {
       errors.effectiveOn = tErrors('VALIDATION_FAILED');
     } else if (effectiveOn > todayStr) {
-      errors.effectiveOn = t('errors.futureDate');
+      errors.effectiveOn = tErrors('futureDate');
     }
 
     if (purpose === 'image_usage' && status === 'granted') {
       const trimmedScope = scope.trim();
       if (trimmedScope.length === 0) {
-        errors.scope = t('errors.scopeRequired');
+        errors.scope = tErrors('scopeRequired');
       } else if (trimmedScope.length > 500) {
         errors.scope = tErrors('VALIDATION_FAILED');
       }
@@ -127,15 +127,15 @@ export function ConsentForm({
       } else {
         switch (res.code) {
           case 'CONSENT_NOT_GRANTED':
-            setErrorMessage(t('errors.CONSENT_NOT_GRANTED'));
+            setErrorMessage(tErrors('CONSENT_NOT_GRANTED'));
             break;
           case 'VALIDATION_FAILED': {
             setErrorMessage(tErrors('VALIDATION_FAILED'));
             if (res.fields) {
               const mapped: Record<string, string> = {};
               for (const f of res.fields) {
-                if (f === 'scope') mapped.scope = t('errors.scopeRequired');
-                else if (f === 'effectiveOn') mapped.effectiveOn = t('errors.futureDate');
+                if (f === 'scope') mapped.scope = tErrors('scopeRequired');
+                else if (f === 'effectiveOn') mapped.effectiveOn = tErrors('futureDate');
                 else if (f === 'contactId') mapped.contactId = tErrors('nameRequired');
                 else if (f === 'purpose') mapped.purpose = tErrors('VALIDATION_FAILED');
                 else if (f === 'status') mapped.status = tErrors('VALIDATION_FAILED');
@@ -170,6 +170,7 @@ export function ConsentForm({
 
   return (
     <form
+      noValidate
       onSubmit={(e) => {
         void handleSubmit(e);
       }}
@@ -180,10 +181,13 @@ export function ConsentForm({
       {errorMessage && (
         <div
           role="alert"
-          className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive flex items-start gap-2"
+          className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive dark:text-red-300 flex items-start gap-2"
           data-testid="consent-dialog-error"
         >
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertCircle
+            className="h-4 w-4 shrink-0 mt-0.5 text-destructive dark:text-red-300"
+            aria-hidden="true"
+          />
           <span>{errorMessage}</span>
         </div>
       )}
@@ -211,7 +215,7 @@ export function ConsentForm({
             ))}
           </select>
           {fieldErrors.contactId && (
-            <p className="text-xs text-destructive">{fieldErrors.contactId}</p>
+            <p className="text-xs text-destructive dark:text-red-300">{fieldErrors.contactId}</p>
           )}
         </div>
       ) : contacts[0] ? (
@@ -341,7 +345,7 @@ export function ConsentForm({
       {/* Effective Date Input */}
       <div className="space-y-1">
         <label htmlFor="consent-effective-on" className="text-sm font-medium text-foreground">
-          {t('dialog.dateLabel')} <span className="text-destructive">*</span>
+          {t('dialog.dateLabel')} <span className="text-destructive dark:text-red-300">*</span>
         </label>
         <input
           id="consent-effective-on"
@@ -357,7 +361,10 @@ export function ConsentForm({
           data-testid="consent-effective-on-input"
         />
         {fieldErrors.effectiveOn && (
-          <p className="text-xs text-destructive" data-testid="consent-date-error">
+          <p
+            className="text-xs text-destructive dark:text-red-300"
+            data-testid="consent-date-error"
+          >
             {fieldErrors.effectiveOn}
           </p>
         )}
@@ -366,7 +373,7 @@ export function ConsentForm({
       {/* Method Selector */}
       <div className="space-y-1">
         <label htmlFor="consent-method-select" className="text-sm font-medium text-foreground">
-          {t('dialog.methodLabel')} <span className="text-destructive">*</span>
+          {t('dialog.methodLabel')} <span className="text-destructive dark:text-red-300">*</span>
         </label>
         <select
           id="consent-method-select"
@@ -395,7 +402,7 @@ export function ConsentForm({
         >
           <span>
             {t('dialog.scopeLabel')}{' '}
-            {isScopeRequired && <span className="text-destructive">*</span>}
+            {isScopeRequired && <span className="text-destructive dark:text-red-300">*</span>}
           </span>
           <span className="text-xs text-muted-foreground">{scope.length}/500</span>
         </label>
@@ -415,7 +422,10 @@ export function ConsentForm({
         />
         <p className="text-xs text-muted-foreground">{t('dialog.scopeHint')}</p>
         {fieldErrors.scope && (
-          <p className="text-xs text-destructive" data-testid="consent-scope-error">
+          <p
+            className="text-xs text-destructive dark:text-red-300"
+            data-testid="consent-scope-error"
+          >
             {fieldErrors.scope}
           </p>
         )}
@@ -445,7 +455,7 @@ export function ConsentForm({
         />
         <p className="text-xs text-muted-foreground">{t('dialog.evidenceNoteHint')}</p>
         {fieldErrors.evidenceNote && (
-          <p className="text-xs text-destructive">{fieldErrors.evidenceNote}</p>
+          <p className="text-xs text-destructive dark:text-red-300">{fieldErrors.evidenceNote}</p>
         )}
       </div>
 

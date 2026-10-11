@@ -40,6 +40,13 @@ export function ClientTimeline({
 }: ClientTimelineProps) {
   const t = useTranslations('clients.timeline');
   const tErrors = useTranslations('clients.errors');
+  const tConsent = useTranslations('clients.consent');
+
+  const getLocalizedPurpose = (purpose: unknown): string => {
+    if (purpose === 'marketing') return tConsent('purposes.marketing');
+    if (purpose === 'image_usage') return tConsent('purposes.image_usage');
+    return typeof purpose === 'string' ? purpose : '';
+  };
 
   // Timeline events & pagination state
   const [items, setItems] = React.useState<ResolvedTimelineItem[]>(initialItems);
@@ -357,16 +364,10 @@ export function ClientTimeline({
                           <span>
                             {event.contactName
                               ? `${event.contactName}: ${t('events.consent_granted', {
-                                  purpose:
-                                    typeof event.data.purpose === 'string'
-                                      ? event.data.purpose
-                                      : '',
+                                  purpose: getLocalizedPurpose(event.data.purpose),
                                 })}`
                               : t('events.consent_granted', {
-                                  purpose:
-                                    typeof event.data.purpose === 'string'
-                                      ? event.data.purpose
-                                      : '',
+                                  purpose: getLocalizedPurpose(event.data.purpose),
                                 })}
                           </span>
                         )}
@@ -374,16 +375,10 @@ export function ClientTimeline({
                           <span>
                             {event.contactName
                               ? `${event.contactName}: ${t('events.consent_withdrawn', {
-                                  purpose:
-                                    typeof event.data.purpose === 'string'
-                                      ? event.data.purpose
-                                      : '',
+                                  purpose: getLocalizedPurpose(event.data.purpose),
                                 })}`
                               : t('events.consent_withdrawn', {
-                                  purpose:
-                                    typeof event.data.purpose === 'string'
-                                      ? event.data.purpose
-                                      : '',
+                                  purpose: getLocalizedPurpose(event.data.purpose),
                                 })}
                           </span>
                         )}

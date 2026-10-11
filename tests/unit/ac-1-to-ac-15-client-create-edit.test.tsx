@@ -852,4 +852,164 @@ describe('TASK-0012: Unit tests for Client creation & editing UI', () => {
     expect(getClientErrorMessage('UNKNOWN_CODE', mockT)).toBe('[GENERIC_ERROR]');
     expect(getClientErrorMessage(undefined, mockT)).toBe('[GENERIC_ERROR]');
   });
+
+  it('I1-U01: Error summary, inline errors, and dialog error banners use high-contrast text classes satisfying WCAG 2.2 AA (>= 4.5:1)', () => {
+    // 1. Error summary and inline field errors on ClientCreateForm
+    mockStateQueue = [
+      'person',
+      '',
+      'en',
+      '',
+      '',
+      'bad-email',
+      '',
+      '',
+      false,
+      {
+        displayName: 'Display name is required.',
+      },
+      [{ fieldId: 'displayName', message: 'Display name is required.' }],
+      'Top-level failure',
+      null,
+    ];
+
+    const formHtml = renderToStaticMarkup(<ClientCreateForm locale="en" />);
+    // Error summary uses high-contrast red-900 / red-200 and red-50 background, NOT low-contrast text-destructive on bg-destructive/10
+    expect(formHtml).toContain('text-red-900');
+    expect(formHtml).toContain('dark:text-red-200');
+    expect(formHtml).toContain('bg-red-50');
+    // Error summary links use high-contrast text and underline
+    expect(formHtml).toContain('underline text-red-900 dark:text-red-200');
+    // Inline field error uses red-700 / dark:text-red-400
+    expect(formHtml).toContain('text-red-700 dark:text-red-400 font-medium');
+    // Required asterisk uses high contrast
+    expect(formHtml).toContain('text-red-700 dark:text-red-400 font-semibold');
+
+    // 2. Dialog error banners and inline field errors in ContactDialog
+    mockStateQueue = ['', '', '', '', false, false, 'Contact error', { name: 'Name error' }, null];
+    const contactHtml = renderToStaticMarkup(
+      <ContactDialog
+        clientId="c1"
+        locale="en"
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+    expect(contactHtml).toContain('text-red-900 dark:text-red-200');
+    expect(contactHtml).toContain('text-red-700 dark:text-red-400');
+
+    // 3. Dialog error banners in AddressDialog
+    mockStateQueue = [
+      'billing',
+      '',
+      '',
+      '',
+      '',
+      '',
+      'DE',
+      false,
+      'Address error',
+      { line1: 'Line 1 error' },
+    ];
+    const addressHtml = renderToStaticMarkup(
+      <AddressDialog
+        clientId="c1"
+        locale="en"
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+    expect(addressHtml).toContain('text-red-900 dark:text-red-200');
+    expect(addressHtml).toContain('text-red-700 dark:text-red-400');
+  });
+
+  it('I1-U02: Duplicate warning "Create anyway" buttons use high-contrast amber-950 on amber-500 (> 4.5:1) instead of amber-600 on white', () => {
+    // 1. ClientCreateForm duplicate warning
+    mockStateQueue = [
+      'person',
+      'Test Company',
+      'en',
+      'Test',
+      'User',
+      'existing@example.com',
+      '',
+      '',
+      false,
+      {},
+      [],
+      null,
+      [{ clientId: 'c1', displayName: 'Existing Company' }],
+    ];
+    const formHtml = renderToStaticMarkup(<ClientCreateForm locale="en" />);
+    // Must NOT have bg-amber-600 text-white (which failed at 3.18:1)
+    expect(formHtml).not.toContain('bg-amber-600 text-white');
+    // Must have bg-amber-500 text-amber-950 (> 9:1 contrast)
+    expect(formHtml).toContain('bg-amber-500 text-amber-950');
+    expect(formHtml).toContain('dark:bg-amber-400 dark:text-amber-950');
+
+    // 2. ContactDialog duplicate warning
+    mockStateQueue = [
+      'Existing',
+      'Contact',
+      'existing@example.com',
+      '',
+      false,
+      false,
+      null,
+      {},
+      [{ clientId: 'c1', displayName: 'Existing Contact' }],
+    ];
+    const contactHtml = renderToStaticMarkup(
+      <ContactDialog
+        clientId="c1"
+        locale="en"
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+    expect(contactHtml).not.toContain('bg-amber-600 text-white');
+    expect(contactHtml).toContain('bg-amber-500 text-amber-950');
+    expect(contactHtml).toContain('dark:bg-amber-400 dark:text-amber-950');
+  });
+
+  it('I1-U03: Dialog footers use sticky positioning on mobile so action buttons never scroll below fold', () => {
+    // 1. AddressDialog
+    const addressHtml = renderToStaticMarkup(
+      <AddressDialog
+        clientId="c1"
+        locale="en"
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+    expect(addressHtml).toContain('sticky bottom-0');
+
+    // 2. ContactDialog
+    const contactHtml = renderToStaticMarkup(
+      <ContactDialog
+        clientId="c1"
+        locale="en"
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+    expect(contactHtml).toContain('sticky bottom-0');
+
+    // 3. EditDetailsDialog
+    const sample = sampleClientWithRelations();
+    const editDetailsHtml = renderToStaticMarkup(
+      <EditDetailsDialog
+        client={sample.client}
+        isOpen={true}
+        onOpenChange={vi.fn()}
+        onSuccess={vi.fn()}
+      />,
+    );
+    expect(editDetailsHtml).toContain('sticky bottom-0');
+  });
 });

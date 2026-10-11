@@ -431,7 +431,7 @@ export function ClientProfile({ clientData, locale, studioTimezone }: ClientProf
                             setRemoveContactTarget(contact);
                             setRemoveContactError(null);
                           }}
-                          className="rounded p-1.5 text-destructive hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
+                          className="rounded p-1.5 text-red-700 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
                           data-testid={`remove-contact-btn-${contact.id}`}
                           aria-label={`${t('removeContact')}: ${fullName}`}
                         >
@@ -547,7 +547,7 @@ export function ClientProfile({ clientData, locale, studioTimezone }: ClientProf
                           setRemoveAddressTarget(addr.type);
                           setRemoveAddressError(null);
                         }}
-                        className="rounded p-1.5 text-destructive hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
+                        className="rounded p-1.5 text-red-700 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
                         data-testid={`remove-address-btn-${addr.type}`}
                         aria-label={`${t('removeAddress')}: ${addr.type}`}
                       >

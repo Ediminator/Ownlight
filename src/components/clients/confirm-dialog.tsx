@@ -64,10 +64,13 @@ export function ConfirmDialog({
         {errorMessage && (
           <div
             role="alert"
-            className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-destructive text-sm font-medium flex items-center gap-2"
+            className="rounded-md border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/40 p-3 text-red-900 dark:text-red-200 text-sm font-medium flex items-center gap-2"
             data-testid="confirm-dialog-error"
           >
-            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <AlertCircle
+              className="h-4 w-4 shrink-0 text-red-700 dark:text-red-400"
+              aria-hidden="true"
+            />
             <span>{errorMessage}</span>
           </div>
         )}

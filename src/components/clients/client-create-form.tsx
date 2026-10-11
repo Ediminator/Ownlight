@@ -246,14 +246,17 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
           tabIndex={-1}
           role="alert"
           aria-labelledby="error-summary-title"
-          className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive focus:outline-none focus:ring-2 focus:ring-destructive"
+          className="rounded-lg border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/40 p-4 text-red-900 dark:text-red-200 focus:outline-none focus:ring-2 focus:ring-red-600"
           data-testid="error-summary"
         >
           <div
-            className="flex items-center gap-2 font-semibold text-sm mb-2"
+            className="flex items-center gap-2 font-semibold text-sm mb-2 text-red-900 dark:text-red-200"
             id="error-summary-title"
           >
-            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <AlertCircle
+              className="h-4 w-4 shrink-0 text-red-700 dark:text-red-400"
+              aria-hidden="true"
+            />
             <span>{t('errorSummaryTitle')}</span>
           </div>
           <ul className="list-disc list-inside space-y-1 text-sm">
@@ -261,7 +264,7 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
               <li key={idx}>
                 <a
                   href={`#${err.fieldId}`}
-                  className="underline hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded min-h-[24px] inline-flex items-center"
+                  className="underline text-red-900 dark:text-red-200 hover:text-red-950 dark:hover:text-red-100 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded min-h-[24px] inline-flex items-center"
                   onClick={(e) => {
                     e.preventDefault();
                     const el = document.getElementById(err.fieldId);
@@ -319,7 +322,7 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
               type="button"
               onClick={handleCreateAnyway}
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[44px]"
+              className="inline-flex items-center justify-center rounded-md bg-amber-500 text-amber-950 font-semibold px-4 py-2 text-sm shadow hover:bg-amber-400 dark:bg-amber-400 dark:text-amber-950 dark:hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[44px]"
               data-testid="create-anyway-btn"
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -342,10 +345,13 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
       {serverErrorMessage && (
         <div
           role="alert"
-          className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive text-sm font-medium flex items-start gap-2"
+          className="rounded-lg border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/40 p-4 text-red-900 dark:text-red-200 text-sm font-medium flex items-start gap-2"
           data-testid="server-error-message"
         >
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertCircle
+            className="h-5 w-5 shrink-0 mt-0.5 text-red-700 dark:text-red-400"
+            aria-hidden="true"
+          />
           <span>{serverErrorMessage}</span>
         </div>
       )}
@@ -396,7 +402,8 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
         {/* Display Name */}
         <div className="space-y-1.5">
           <label htmlFor="displayName" className="block text-sm font-medium text-foreground">
-            {t('displayNameLabel')} <span className="text-destructive">*</span>
+            {t('displayNameLabel')}{' '}
+            <span className="text-red-700 dark:text-red-400 font-semibold">*</span>
           </label>
           <input
             id="displayName"
@@ -416,7 +423,7 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
           {fieldErrors.displayName && (
             <p
               id="displayName-error"
-              className="text-sm text-destructive font-medium"
+              className="text-sm text-red-700 dark:text-red-400 font-medium"
               data-testid="display-name-error"
             >
               {fieldErrors.displayName}
@@ -474,7 +481,7 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
               {fieldErrors.givenName && (
                 <p
                   id="givenName-error"
-                  className="text-sm text-destructive font-medium"
+                  className="text-sm text-red-700 dark:text-red-400 font-medium"
                   data-testid="given-name-error"
                 >
                   {fieldErrors.givenName}
@@ -527,7 +534,7 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
               {fieldErrors.email && (
                 <p
                   id="email-error"
-                  className="text-sm text-destructive font-medium"
+                  className="text-sm text-red-700 dark:text-red-400 font-medium"
                   data-testid="email-error"
                 >
                   {fieldErrors.email}
@@ -558,7 +565,7 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
               {fieldErrors.phone && (
                 <p
                   id="phone-error"
-                  className="text-sm text-destructive font-medium"
+                  className="text-sm text-red-700 dark:text-red-400 font-medium"
                   data-testid="phone-error"
                 >
                   {fieldErrors.phone}

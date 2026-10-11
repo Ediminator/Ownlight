@@ -9,7 +9,7 @@ const VALID_SETUP_TOKEN =
 
 const UX_RUN_DIR = path.resolve(
   import.meta.dirname,
-  '../../../../control/ownlight/runs/TASK-0012/iter-01/ux',
+  '../../../../control/ownlight/runs/TASK-0012/iter-02/ux',
 );
 
 async function ensureOwnerBootstrappedAndSignedIn(page: import('@playwright/test').Page) {
@@ -468,6 +468,42 @@ test.describe('TASK-0012: Create & Edit Clients UI E2E', () => {
     expect(axeAddress.violations).toEqual([]);
     await page.keyboard.press('Escape');
     await expect(addressDialog).toBeHidden();
+  });
+
+  test('I1-U01, I1-U02, I1-U04: zero axe contrast violations on error summary, inline errors, and duplicate warning states', async ({
+    page,
+  }) => {
+    // 1. Validation error state (error summary, links, and inline field errors visible)
+    await page.goto('/en/clients/new');
+    await page.fill('[data-testid="display-name-input"]', '');
+    await page.fill('[data-testid="given-name-input"]', 'Johannes');
+    await page.fill('[data-testid="email-input"]', 'not-an-email');
+    await page.fill('[data-testid="phone-input"]', 'not-a-phone');
+    await page.click('[data-testid="submit-client-btn"]');
+
+    await expect(page.locator('[data-testid="error-summary"]')).toBeVisible();
+    await expect(page.locator('[data-testid="display-name-error"]')).toBeVisible();
+    await expect(page.locator('[data-testid="email-error"]')).toBeVisible();
+
+    const axeErrorState = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+    expect(axeErrorState.violations).toEqual([]);
+
+    // 2. Duplicate warning state ("Create anyway" button visible)
+    await page.goto('/en/clients/new');
+    await page.fill('[data-testid="display-name-input"]', 'Anna Duplicate Studio');
+    await page.fill('[data-testid="given-name-input"]', 'Anna');
+    await page.fill('[data-testid="email-input"]', 'anna@example.com');
+    await page.click('[data-testid="submit-client-btn"]');
+
+    await expect(page.locator('[data-testid="duplicate-warning"]')).toBeVisible();
+    await expect(page.locator('[data-testid="create-anyway-btn"]')).toBeVisible();
+
+    const axeDuplicateState = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+    expect(axeDuplicateState.violations).toEqual([]);
   });
 
   test('AC-12: 320px viewport has zero horizontal scroll, visible labels, and targets >= 24px', async ({

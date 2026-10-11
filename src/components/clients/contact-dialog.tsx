@@ -151,10 +151,13 @@ export function ContactForm({
       {errorMessage && (
         <div
           role="alert"
-          className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-destructive text-sm font-medium flex items-center gap-2"
+          className="rounded-md border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/40 p-3 text-red-900 dark:text-red-200 text-sm font-medium flex items-center gap-2"
           data-testid="contact-error"
         >
-          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <AlertCircle
+            className="h-4 w-4 shrink-0 text-red-700 dark:text-red-400"
+            aria-hidden="true"
+          />
           <span>{errorMessage}</span>
         </div>
       )}
@@ -198,7 +201,7 @@ export function ContactForm({
                 void handleSubmit(undefined, true);
               }}
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow hover:bg-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[36px]"
+              className="inline-flex items-center justify-center rounded-md bg-amber-500 text-amber-950 font-semibold px-3 py-1.5 text-xs shadow hover:bg-amber-400 dark:bg-amber-400 dark:text-amber-950 dark:hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[36px]"
               data-testid="contact-create-anyway-btn"
             >
               {t('createAnyway')}
@@ -279,7 +282,7 @@ export function ContactForm({
         {fieldErrors.name && (
           <p
             id="contact-name-error"
-            className="text-sm text-destructive font-medium"
+            className="text-sm text-red-700 dark:text-red-400 font-medium"
             data-testid="contact-name-error"
           >
             {fieldErrors.name}
@@ -309,7 +312,7 @@ export function ContactForm({
           {fieldErrors.email && (
             <p
               id="contact-email-error"
-              className="text-sm text-destructive font-medium"
+              className="text-sm text-red-700 dark:text-red-400 font-medium"
               data-testid="contact-email-error"
             >
               {fieldErrors.email}
@@ -340,7 +343,7 @@ export function ContactForm({
           {fieldErrors.phone && (
             <p
               id="contact-phone-error"
-              className="text-sm text-destructive font-medium"
+              className="text-sm text-red-700 dark:text-red-400 font-medium"
               data-testid="contact-phone-error"
             >
               {fieldErrors.phone}
@@ -364,7 +367,7 @@ export function ContactForm({
           </label>
         </div>
 
-        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+        <DialogFooter className="sticky bottom-0 bg-background/95 backdrop-blur-sm pt-3 pb-1 border-t mt-4 gap-2 flex flex-col-reverse sm:flex-row sm:justify-end z-10">
           <button
             type="button"
             onClick={onClose}

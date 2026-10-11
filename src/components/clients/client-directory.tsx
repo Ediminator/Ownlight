@@ -240,10 +240,10 @@ export function ClientDirectory({
       {errorMessage && (
         <div
           role="alert"
-          className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive flex items-start gap-3"
+          className="rounded-lg border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/40 p-4 text-red-900 dark:text-red-200 flex items-start gap-3"
           data-testid="client-directory-error"
         >
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-red-700 dark:text-red-400" />
           <div className="flex-1 text-sm font-medium">{errorMessage}</div>
         </div>
       )}

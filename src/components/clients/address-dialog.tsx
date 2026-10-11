@@ -131,10 +131,13 @@ export function AddressForm({
       {errorMessage && (
         <div
           role="alert"
-          className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-destructive text-sm font-medium flex items-center gap-2"
+          className="rounded-md border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/40 p-3 text-red-900 dark:text-red-200 text-sm font-medium flex items-center gap-2"
           data-testid="address-error"
         >
-          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <AlertCircle
+            className="h-4 w-4 shrink-0 text-red-700 dark:text-red-400"
+            aria-hidden="true"
+          />
           <span>{errorMessage}</span>
         </div>
       )}
@@ -163,7 +166,7 @@ export function AddressForm({
       {/* Line 1 */}
       <div className="space-y-1.5">
         <label htmlFor="address-line1" className="block text-sm font-medium text-foreground">
-          {t('line1Label')} <span className="text-destructive">*</span>
+          {t('line1Label')} <span className="text-red-700 dark:text-red-400 font-semibold">*</span>
         </label>
         <input
           id="address-line1"
@@ -183,7 +186,7 @@ export function AddressForm({
         {fieldErrors.line1 && (
           <p
             id="address-line1-error"
-            className="text-sm text-destructive font-medium"
+            className="text-sm text-red-700 dark:text-red-400 font-medium"
             data-testid="address-line1-error"
           >
             {fieldErrors.line1}
@@ -214,7 +217,8 @@ export function AddressForm({
         {/* Postal Code */}
         <div className="space-y-1.5">
           <label htmlFor="address-postalCode" className="block text-sm font-medium text-foreground">
-            {t('postalCodeLabel')} <span className="text-destructive">*</span>
+            {t('postalCodeLabel')}{' '}
+            <span className="text-red-700 dark:text-red-400 font-semibold">*</span>
           </label>
           <input
             id="address-postalCode"
@@ -234,7 +238,7 @@ export function AddressForm({
           {fieldErrors.postalCode && (
             <p
               id="address-postal-error"
-              className="text-sm text-destructive font-medium"
+              className="text-sm text-red-700 dark:text-red-400 font-medium"
               data-testid="address-postal-error"
             >
               {fieldErrors.postalCode}
@@ -245,7 +249,7 @@ export function AddressForm({
         {/* City */}
         <div className="space-y-1.5">
           <label htmlFor="address-city" className="block text-sm font-medium text-foreground">
-            {t('cityLabel')} <span className="text-destructive">*</span>
+            {t('cityLabel')} <span className="text-red-700 dark:text-red-400 font-semibold">*</span>
           </label>
           <input
             id="address-city"
@@ -265,7 +269,7 @@ export function AddressForm({
           {fieldErrors.city && (
             <p
               id="address-city-error"
-              className="text-sm text-destructive font-medium"
+              className="text-sm text-red-700 dark:text-red-400 font-medium"
               data-testid="address-city-error"
             >
               {fieldErrors.city}
@@ -300,7 +304,8 @@ export function AddressForm({
             htmlFor="address-countryCode"
             className="block text-sm font-medium text-foreground"
           >
-            {t('countryLabel')} <span className="text-destructive">*</span>
+            {t('countryLabel')}{' '}
+            <span className="text-red-700 dark:text-red-400 font-semibold">*</span>
           </label>
           <select
             id="address-countryCode"
@@ -324,7 +329,7 @@ export function AddressForm({
           {fieldErrors.country && (
             <p
               id="address-country-error"
-              className="text-sm text-destructive font-medium"
+              className="text-sm text-red-700 dark:text-red-400 font-medium"
               data-testid="address-country-error"
             >
               {fieldErrors.country}
@@ -333,7 +338,7 @@ export function AddressForm({
         </div>
       </div>
 
-      <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+      <DialogFooter className="sticky bottom-0 bg-background/95 backdrop-blur-sm pt-3 pb-1 border-t mt-4 gap-2 flex flex-col-reverse sm:flex-row sm:justify-end z-10">
         <button
           type="button"
           onClick={onClose}

@@ -308,11 +308,16 @@ describe('TASK-0020: Unified Retention Runner and Worker Integration', () => {
     expect(execUnreachable.stdout).not.toContain('Retention sweep finished');
 
     // Dynamically importing the compiled bundle and script exports BackgroundWorker without side effects
-    const distMod = await import('../../dist/retention/worker.mjs');
+    const distMod = (await import('../../dist/retention/worker.mjs')) as unknown as {
+      BackgroundWorker: unknown;
+      WORKER_ADVISORY_LOCK_ID: number;
+    };
     expect(typeof distMod.BackgroundWorker).toBe('function');
     expect(distMod.WORKER_ADVISORY_LOCK_ID).toBe(884210);
 
-    const scriptMod = await import('../../scripts/worker.mjs');
+    const scriptMod = (await import('../../scripts/worker.mjs')) as unknown as {
+      BackgroundWorker: unknown;
+    };
     expect(typeof scriptMod.BackgroundWorker).toBe('function');
   });
 

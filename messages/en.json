@@ -493,6 +493,53 @@
       "deleteClientTitle": "Delete this client",
       "deleteClientDescription": "Permanently erase this client, all contacts, addresses, notes, tags, timeline, and consent records.",
       "deleteClientButton": "Delete client"
+    },
+    "retentionIndicator": {
+      "title": "Data retention",
+      "scheduledAutomaticErasure": "Scheduled for automatic erasure on {date} without further activity.",
+      "pausedByHold": "Automatic erasure is paused by an active legal hold.",
+      "pendingErasure": "Pending automatic erasure on next sweep.",
+      "policyInfo": "Clients inactive for 36 months are erased automatically."
+    },
+    "legalHold": {
+      "title": "Legal hold",
+      "description": "Temporarily or indefinitely suspend automatic and manual erasure for this client.",
+      "switchLabel": "Legal hold",
+      "activeBadge": "Active",
+      "expiredBadge": "Expired",
+      "dialogTitle": "Set legal hold",
+      "editDialogTitle": "Edit legal hold",
+      "dialogDescription": "Specify the reason and optional duration for holding client data from erasure.",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "Select reason...",
+      "reasons": {
+        "dispute": "Dispute resolution",
+        "statutory": "Statutory requirement",
+        "other": "Other legal grounds"
+      },
+      "noteLabel": "Note (optional)",
+      "noteHint": "Do not record special-category personal data (such as health or biometric details).",
+      "notePlaceholder": "Describe the legal context or reference...",
+      "untilLabel": "Hold until (optional)",
+      "untilHint": "Leave empty for an indefinite hold.",
+      "save": "Save legal hold",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "edit": "Edit hold",
+      "release": "Release hold",
+      "releaseConfirmTitle": "Release legal hold?",
+      "releaseConfirmDescription": "Releasing the legal hold will re-enable automatic retention sweeps and allow manual erasure of this client.",
+      "confirmRelease": "Release hold",
+      "releasing": "Releasing...",
+      "sinceLabel": "Active since",
+      "untilDateLabel": "Expires on",
+      "indefinite": "Indefinite / until manual release",
+      "noteDisplayLabel": "Note",
+      "statusActiveAnnounce": "Legal hold active",
+      "statusUpdatedAnnounce": "Legal hold updated",
+      "statusReleasedAnnounce": "Legal hold released",
+      "errorGeneric": "An error occurred while updating legal hold.",
+      "errorPastDate": "Expiration date must be today or later."
     }
   },
   "privacy": {
@@ -533,9 +580,11 @@
       "categoryNotes": "Notes",
       "categoryTimeline": "Timeline events",
       "categoryConsents": "Consent records",
+      "categoryLegalHold": "Legal hold records",
       "holdsTitle": "Erasure blocked by active retention hold",
       "holdsDescription": "This subject cannot be deleted because statutory or legal retention requirements forbid erasure:",
       "retainUntil": "Retain until: {date}",
+      "retainIndefinite": "Indefinite / until manual release",
       "warningNotesTitle": "Review client notes",
       "warningNotesMayMention": "Other free-text notes for this client may mention this person. Please review client notes manually after erasure.",
       "reauthTitle": "Re-authentication required",
@@ -561,6 +610,13 @@
       "errorBlocked": "Erasure was blocked because active retention holds exist.",
       "errorNotFound": "Client or person not found.",
       "dismissBanner": "Dismiss"
+    },
+    "holds": {
+      "manual": {
+        "dispute": "Dispute resolution",
+        "statutory": "Statutory requirement",
+        "other": "Other legal grounds"
+      }
     }
   }
 }

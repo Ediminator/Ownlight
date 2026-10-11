@@ -7,6 +7,7 @@ import enMessages from '@/../messages/en.json';
 import deMessages from '@/../messages/de.json';
 
 let mockStateQueue: unknown[] = [];
+let capturedEffects: (() => unknown)[] = [];
 
 vi.mock('react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react')>();
@@ -18,6 +19,9 @@ vi.mock('react', async (importOriginal) => {
         return [val, vi.fn()];
       }
       return actual.useState(initial);
+    },
+    useEffect: (cb: () => unknown) => {
+      capturedEffects.push(cb);
     },
   };
 });
@@ -174,6 +178,7 @@ import { ErasureDialog, ErasureDialogInner } from '@/components/clients/erasure-
 describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC-12, AC-13)', () => {
   beforeEach(() => {
     mockStateQueue = [];
+    capturedEffects = [];
     currentLocale = 'en';
     vi.clearAllMocks();
   });
@@ -900,5 +905,348 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
     // Error banner shown
     expect(html).toContain('Sample error banner');
     expect(html).toContain('data-testid="erasure-error"');
+  });
+
+  it('AC-1: handles loadPlan branches (success with display name, success without display name, NOT_FOUND, generic error, throw, and cancellation)', async () => {
+    function renderInner(props: Parameters<typeof ErasureDialogInner>[0]) {
+      function Wrapper() {
+        return ErasureDialogInner(props);
+      }
+      renderToStaticMarkup(<Wrapper />);
+    }
+
+    // 1. Success with clientDisplayName
+    mockPlanErasureAction.mockResolvedValueOnce({
+      success: true,
+      plan: {
+        categoryCounts: { client: 1, contacts: 2 },
+        holds: [{ reason: 'manual.tax_audit', retainUntil: null }],
+        notesMayMentionPerson: true,
+        clientDisplayName: 'Alice Updated',
+      },
+    });
+    renderInner({
+      subject: { kind: 'client', clientId: 'c1' },
+      clientDisplayName: 'Alice',
+      onOpenChange: vi.fn(),
+    });
+    let effect = capturedEffects.shift();
+    expect(effect).toBeDefined();
+    effect?.();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(mockPlanErasureAction).toHaveBeenCalled();
+
+    // 2. Success without clientDisplayName
+    mockPlanErasureAction.mockResolvedValueOnce({
+      success: true,
+      plan: {
+        categoryCounts: { client: 1 },
+        holds: [],
+        notesMayMentionPerson: false,
+        clientDisplayName: undefined,
+      },
+    });
+    renderInner({
+      subject: { kind: 'client', clientId: 'c1' },
+      clientDisplayName: 'Alice',
+      onOpenChange: vi.fn(),
+    });
+    effect = capturedEffects.shift();
+    effect?.();
+    await new Promise((r) => setTimeout(r, 10));
+
+    // 3. Error code NOT_FOUND
+    mockPlanErasureAction.mockResolvedValueOnce({
+      success: false,
+      code: 'NOT_FOUND',
+    });
+    renderInner({
+      subject: { kind: 'client', clientId: 'c1' },
+      clientDisplayName: 'Alice',
+      onOpenChange: vi.fn(),
+    });
+    effect = capturedEffects.shift();
+    effect?.();
+    await new Promise((r) => setTimeout(r, 10));
+
+    // 4. Generic error code
+    mockPlanErasureAction.mockResolvedValueOnce({
+      success: false,
+      code: 'UNAUTHORIZED',
+    });
+    renderInner({
+      subject: { kind: 'client', clientId: 'c1' },
+      clientDisplayName: 'Alice',
+      onOpenChange: vi.fn(),
+    });
+    effect = capturedEffects.shift();
+    effect?.();
+    await new Promise((r) => setTimeout(r, 10));
+
+    // 5. Thrown exception (network error)
+    mockPlanErasureAction.mockRejectedValueOnce(new Error('Network offline'));
+    renderInner({
+      subject: { kind: 'client', clientId: 'c1' },
+      clientDisplayName: 'Alice',
+      onOpenChange: vi.fn(),
+    });
+    effect = capturedEffects.shift();
+    effect?.();
+    await new Promise((r) => setTimeout(r, 10));
+
+    // 6. Cancellation before resolution
+    mockPlanErasureAction.mockReturnValueOnce(
+      new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            success: true,
+            plan: { categoryCounts: {}, holds: [], notesMayMentionPerson: false },
+          });
+        }, 50);
+      }),
+    );
+    renderInner({
+      subject: { kind: 'client', clientId: 'c1' },
+      clientDisplayName: 'Alice',
+      onOpenChange: vi.fn(),
+    });
+    effect = capturedEffects.shift();
+    const cleanup6 = effect?.() as (() => void) | undefined;
+    cleanup6?.();
+    await new Promise((r) => setTimeout(r, 70));
+
+    // 7. Cancellation before rejection
+    mockPlanErasureAction.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Delayed crash'));
+        }, 50);
+      }),
+    );
+    renderInner({
+      subject: { kind: 'client', clientId: 'c1' },
+      clientDisplayName: 'Alice',
+      onOpenChange: vi.fn(),
+    });
+    effect = capturedEffects.shift();
+    const cleanup7 = effect?.() as (() => void) | undefined;
+    cleanup7?.();
+    await new Promise((r) => setTimeout(r, 70));
+  });
+
+  it('handles onCloseAutoFocus with and without triggerRef', () => {
+    // 1. With triggerRef and active current
+    const focusMock = vi.fn();
+    const triggerRef = { current: { focus: focusMock } as unknown as HTMLElement };
+    let tree: React.ReactElement | undefined;
+    function Wrapper1() {
+      const rendered = ErasureDialogInner({
+        subject: { kind: 'client', clientId: 'c1' },
+        clientDisplayName: 'Acme Studio',
+        onOpenChange: vi.fn(),
+        triggerRef,
+      });
+      tree = rendered;
+      return <div>{rendered}</div>;
+    }
+    renderToStaticMarkup(<Wrapper1 />);
+    const contentNode1 = findNodeByTestId(tree, 'erasure-dialog');
+    const preventDefault1 = vi.fn();
+    const props1 = contentNode1?.props as
+      { onCloseAutoFocus?: (e: { preventDefault: () => void }) => void } | undefined;
+    props1?.onCloseAutoFocus?.({
+      preventDefault: preventDefault1,
+    });
+    expect(preventDefault1).toHaveBeenCalled();
+    expect(focusMock).toHaveBeenCalled();
+
+    // 2. With triggerRef having current null
+    const triggerRefNull = { current: null };
+    function Wrapper2() {
+      const rendered = ErasureDialogInner({
+        subject: { kind: 'client', clientId: 'c1' },
+        clientDisplayName: 'Acme Studio',
+        onOpenChange: vi.fn(),
+        triggerRef: triggerRefNull,
+      });
+      tree = rendered;
+      return <div>{rendered}</div>;
+    }
+    renderToStaticMarkup(<Wrapper2 />);
+    const contentNode2 = findNodeByTestId(tree, 'erasure-dialog');
+    const preventDefault2 = vi.fn();
+    const props2 = contentNode2?.props as
+      { onCloseAutoFocus?: (e: { preventDefault: () => void }) => void } | undefined;
+    props2?.onCloseAutoFocus?.({
+      preventDefault: preventDefault2,
+    });
+    expect(preventDefault2).not.toHaveBeenCalled();
+
+    // 3. Without triggerRef
+    function Wrapper3() {
+      const rendered = ErasureDialogInner({
+        subject: { kind: 'client', clientId: 'c1' },
+        clientDisplayName: 'Acme Studio',
+        onOpenChange: vi.fn(),
+      });
+      tree = rendered;
+      return <div>{rendered}</div>;
+    }
+    renderToStaticMarkup(<Wrapper3 />);
+    const contentNode3 = findNodeByTestId(tree, 'erasure-dialog');
+    const preventDefault3 = vi.fn();
+    const props3 = contentNode3?.props as
+      { onCloseAutoFocus?: (e: { preventDefault: () => void }) => void } | undefined;
+    props3?.onCloseAutoFocus?.({
+      preventDefault: preventDefault3,
+    });
+    expect(preventDefault3).not.toHaveBeenCalled();
+  });
+
+  it('AC-7: handleReauthSubmit early returns on empty or whitespace password or already reauthenticating', async () => {
+    // 1. Empty password
+    mockStateQueue = [
+      false, // isLoadingPlan
+      { client: 1 }, // categoryCounts
+      [], // holds
+      false, // notesMayMentionPerson
+      'Acme Studio', // targetDisplayName
+      'Acme Studio', // confirmation
+      false, // isSubmitting
+      null, // error
+      true, // reauthRequired
+      '', // password (empty)
+      false, // isReauthenticating
+    ];
+    let tree: React.ReactElement | undefined;
+    function WrapperEmpty() {
+      const rendered = ErasureDialogInner({
+        subject: { kind: 'client', clientId: 'c1' },
+        clientDisplayName: 'Acme Studio',
+        onOpenChange: vi.fn(),
+      });
+      tree = rendered;
+      return <div>{rendered}</div>;
+    }
+    renderToStaticMarkup(<WrapperEmpty />);
+    let formNode = findFormNode(tree);
+    const preventDefault = vi.fn();
+    await formNode?.onSubmit?.({ preventDefault });
+    expect(mockReauthenticateAction).not.toHaveBeenCalled();
+
+    // 2. Whitespace-only password
+    mockStateQueue = [
+      false,
+      { client: 1 },
+      [],
+      false,
+      'Acme Studio',
+      'Acme Studio',
+      false,
+      null,
+      true,
+      '    ', // whitespace only
+      false,
+    ];
+    renderToStaticMarkup(<WrapperEmpty />);
+    formNode = findFormNode(tree);
+    await formNode?.onSubmit?.({ preventDefault });
+    expect(mockReauthenticateAction).not.toHaveBeenCalled();
+
+    // 3. Already isReauthenticating
+    mockStateQueue = [
+      false,
+      { client: 1 },
+      [],
+      false,
+      'Acme Studio',
+      'Acme Studio',
+      false,
+      null,
+      true,
+      'my-pass',
+      true, // isReauthenticating
+    ];
+    renderToStaticMarkup(<WrapperEmpty />);
+    formNode = findFormNode(tree);
+    await formNode?.onSubmit?.({ preventDefault });
+    expect(mockReauthenticateAction).not.toHaveBeenCalled();
+  });
+
+  it('handles contact erasure descriptions, submit button states and hold display formats', () => {
+    // Contact erasure with fallback to targetDisplayName when contactName is omitted
+    mockStateQueue = [
+      false,
+      { contact: 1 },
+      [],
+      false,
+      'Jane Fallback',
+      '',
+      false,
+      null,
+      false,
+      '',
+      false,
+    ];
+    const htmlFallback = renderToStaticMarkup(
+      <ErasureDialogInner
+        subject={{ kind: 'contact', clientId: 'c1', contactId: 'ct1' }}
+        clientDisplayName="Jane Fallback"
+        onOpenChange={vi.fn()}
+      />,
+    );
+    expect(htmlFallback).toContain('Jane Fallback');
+    expect(htmlFallback).toContain('Erase person');
+
+    // Submitting state renders spinner and erasing message
+    mockStateQueue = [
+      false,
+      { client: 1 },
+      [],
+      false,
+      'Acme Studio',
+      'Acme Studio',
+      true, // isSubmitting
+      null,
+      false,
+      '',
+      false,
+    ];
+    const htmlSubmitting = renderToStaticMarkup(
+      <ErasureDialogInner
+        subject={{ kind: 'client', clientId: 'c1' }}
+        clientDisplayName="Acme Studio"
+        onOpenChange={vi.fn()}
+      />,
+    );
+    expect(htmlSubmitting).toContain('Erasing...');
+
+    // Holds with manual prefix and indefinite retainUntil
+    mockStateQueue = [
+      false,
+      {},
+      [
+        { reason: 'manual.dispute', retainUntil: null },
+        { reason: 'gobd.statutory', retainUntil: '2030-01-01' },
+      ],
+      false,
+      'Acme Studio',
+      '',
+      false,
+      null,
+      false,
+      '',
+      false,
+    ];
+    const htmlHolds = renderToStaticMarkup(
+      <ErasureDialogInner
+        subject={{ kind: 'client', clientId: 'c1' }}
+        clientDisplayName="Acme Studio"
+        onOpenChange={vi.fn()}
+      />,
+    );
+    expect(htmlHolds).toContain('Indefinite / until manual release');
+    expect(htmlHolds).toContain('Dispute resolution');
+    expect(htmlHolds).toContain('gobd.statutory');
   });
 });

@@ -50,9 +50,9 @@ describe('ISO 3166-1 alpha-2 country utilities', () => {
   });
 
   it('AC-7: gracefully falls back on invalid locale or unknown country code', () => {
-    const list = getLocalizedCountries('invalid-locale-!!!');
+    const list = getLocalizedCountries('!@#$%^');
     expect(list.length).toBe(249);
-    expect(getLocalizedCountryName('DE', 'invalid-locale-!!!')).toBe('DE');
+    expect(getLocalizedCountryName('DE', '!@#$%^')).toBe('DE');
     expect(getLocalizedCountryName('UNKNOWN', 'en')).toBe('UNKNOWN');
   });
 });

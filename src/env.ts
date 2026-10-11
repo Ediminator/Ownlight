@@ -178,6 +178,15 @@ export const serverSchema = z.object({
   // Retention framework configuration
   RETENTION_PERIOD_MONTHS: z.coerce.number().int().positive().default(24),
   CONSENT_PROOF_RETENTION_MONTHS: z.coerce.number().int().positive().default(36),
+  CLIENT_RETENTION_MONTHS: z.preprocess(
+    (val) => (val === undefined || val === '' ? 36 : val),
+    z.coerce
+      .number({
+        invalid_type_error: 'CLIENT_RETENTION_MONTHS must be an integer >= 1',
+      })
+      .int({ message: 'CLIENT_RETENTION_MONTHS must be an integer >= 1' })
+      .min(1, { message: 'CLIENT_RETENTION_MONTHS must be an integer >= 1' }),
+  ),
   DATABASE_RETENTION_URL: z
     .string()
     .regex(/^postgres(ql)?:\/\/.+/, {

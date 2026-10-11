@@ -28,6 +28,10 @@ export const CLIENT_PII_COLUMNS = [
   'consent_records.scope',
   'consent_records.evidence_note',
   'consent_records.recorded_by_actor_id',
+  'client_legal_holds.reason',
+  'client_legal_holds.note',
+  'client_legal_holds.until',
+  'client_legal_holds.set_by_actor_id',
 ] as const;
 
 export type ClientPiiColumn = (typeof CLIENT_PII_COLUMNS)[number];

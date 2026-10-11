@@ -1,4 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+vi.mock('@/server/privacy/erasure/service', () => ({
+  eraseSubject: vi.fn().mockResolvedValue({ success: true }),
+}));
 import {
   computeCutoff,
   defineRetentionPolicy,
@@ -6,6 +11,7 @@ import {
   registerPolicy,
   getPolicies,
   resetPolicies,
+  getClientRetentionMonths,
 } from '@/server/retention/policy';
 import type { DbClient } from '@/server/db/client';
 
@@ -80,13 +86,15 @@ describe('Retention policy utility and definition branches', () => {
 
   it('createDefaultPolicies constructs policies that exercise getCandidates and deleteBatch branches', async () => {
     const policies = createDefaultPolicies();
-    expect(policies).toHaveLength(4);
+    expect(policies).toHaveLength(5);
 
-    const [auditPolicy, sessionPolicy, rateLimitPolicy, consentProofPolicy] = policies;
+    const [auditPolicy, sessionPolicy, rateLimitPolicy, consentProofPolicy, inactiveClientsPolicy] =
+      policies;
     expect(auditPolicy).toBeDefined();
     expect(sessionPolicy).toBeDefined();
     expect(rateLimitPolicy).toBeDefined();
     expect(consentProofPolicy).toBeDefined();
+    expect(inactiveClientsPolicy).toBeDefined();
 
     // Mock DB client
     let deletedCount = 0;
@@ -165,6 +173,116 @@ describe('Retention policy utility and definition branches', () => {
       // Deletes timeline events and consent records (2 calls)
       expect(deletedCount).toBe(5);
     }
+
+    if (inactiveClientsPolicy) {
+      if (inactiveClientsPolicy.legalHold) {
+        const holdNoTx = await inactiveClientsPolicy.legalHold({ id: 'c-1' }, undefined);
+        expect(holdNoTx).toBe(false);
+
+        const holdWithTx = await inactiveClientsPolicy.legalHold({ id: 'c-1' }, mockClient);
+        expect(typeof holdWithTx).toBe('boolean');
+
+        const { registerErasureHoldProvider, resetErasureHoldProviders } =
+          await import('@/server/privacy/erasure/registry');
+        registerErasureHoldProvider({
+          id: 'test-unit-mock-hold',
+          holds: () =>
+            Promise.resolve([
+              {
+                providerId: 'test-unit-mock-hold',
+                reason: 'manual.dispute',
+                retainUntil: null,
+              },
+            ]),
+        });
+        const holdWithProvider = await inactiveClientsPolicy.legalHold({ id: 'c-1' }, mockClient);
+        expect(holdWithProvider).toBe(true);
+        resetErasureHoldProviders();
+      }
+
+      if (inactiveClientsPolicy.eraseCandidate) {
+        const eraseModule = await import('@/server/privacy/erasure/service');
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: true,
+          subjectKind: 'client',
+          categoryCounts: { client: 1 },
+        });
+        const res1 = await inactiveClientsPolicy.eraseCandidate(mockClient, 'c-1');
+        expect(res1.outcome).toBe('deleted');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'ERASURE_BLOCKED',
+          holds: [{ reason: 'legal_hold', retainUntil: null }],
+        });
+        const res2 = await inactiveClientsPolicy.eraseCandidate(mockClient, 'c-1');
+        expect(res2.outcome).toBe('held');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'INTERNAL_ERROR',
+          error: 'Database lock timeout',
+        });
+        const res3 = await inactiveClientsPolicy.eraseCandidate(mockClient, 'c-1');
+        expect(res3.outcome).toBe('failed');
+        expect(res3.error).toBe('Database lock timeout');
+      }
+
+      // 1. With rows empty
+      const mockEmptyClient = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        }),
+      } as unknown as DbClient;
+      const emptyCandidates = await inactiveClientsPolicy.getCandidates(
+        mockEmptyClient,
+        now,
+        10,
+        [],
+      );
+      expect(emptyCandidates).toEqual([]);
+
+      // 2. With rows and excludedIds
+      const mockRowsClient = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([
+                  { id: 'c-1', lastActivityAt: now },
+                  { id: 'c-2', lastActivityAt: now },
+                ]),
+              }),
+            }),
+          }),
+        }),
+        selectDistinct: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([]),
+            innerJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([]),
+            }),
+          }),
+        }),
+      } as unknown as DbClient;
+      const candidates = await inactiveClientsPolicy.getCandidates(mockRowsClient, now, 10, [
+        'ex-1',
+      ]);
+      expect(Array.isArray(candidates)).toBe(true);
+
+      // 3. With rows and no excludedIds
+      const candidatesNoEx = await inactiveClientsPolicy.getCandidates(mockRowsClient, now, 10, []);
+      expect(Array.isArray(candidatesNoEx)).toBe(true);
+
+      await inactiveClientsPolicy.deleteBatch(mockClient, []);
+      await inactiveClientsPolicy.deleteBatch(mockClient, ['c-1', 'c-2']);
+    }
   });
 
   it('manages policy registry via registerPolicy, getPolicies, and resetPolicies', () => {
@@ -195,5 +313,11 @@ describe('Retention policy utility and definition branches', () => {
     const auditPolicy = policies.find((p) => p.id === 'audit-events-retention');
     expect(auditPolicy).toBeDefined();
     expect(auditPolicy?.after?.months).toBe(24);
+  });
+
+  it('getClientRetentionMonths returns positive integer (default 36 or env value)', () => {
+    const months = getClientRetentionMonths();
+    expect(typeof months).toBe('number');
+    expect(months).toBeGreaterThan(0);
   });
 });

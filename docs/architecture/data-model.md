@@ -242,3 +242,55 @@ Follow these steps whenever a new domain capability (e.g. project booking, contr
    In your domain service or repository transaction, call `recordTimelineEvent(tx, input)` inside the exact same database transaction that persists the state change. If the domain operation fails, the event rolls back atomically.
 5. **Verify with Tests:**
    Add test assertions verifying event registration, transactional rollback on error, and absence of PII in the database `data` column.
+
+---
+
+## 10. Client Legal Holds & Activity Provider Registry (TASK-0019)
+
+### `client_legal_holds` Table
+
+| Column              | Type           | Constraints                                                     | Description                                                            |
+| ------------------- | -------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `id`                | `uuid`         | `PRIMARY KEY`                                                   | UUIDv7 primary key                                                     |
+| `client_id`         | `uuid`         | `NOT NULL, UNIQUE, REFERENCES clients(id) ON DELETE RESTRICT`   | Owning client ID (foreign key restricts client deletion while present) |
+| `reason`            | `varchar(50)`  | `NOT NULL, CHECK (reason IN ('dispute', 'statutory', 'other'))` | Legal justification category                                           |
+| `note`              | `varchar(500)` | `NULL`                                                          | Optional reference or case context (max 500 chars; never PII/special)  |
+| `until`             | `date`         | `NULL`                                                          | End date (inclusive); `NULL` designates an indefinite hold             |
+| `set_by_actor_type` | `varchar(20)`  | `NOT NULL, CHECK (set_by_actor_type IN (...))`                  | Actor type (`owner`, `client`, `system`, `agent`, `token`)             |
+| `set_by_actor_id`   | `varchar(100)` | `NULL`                                                          | Actor user or token ID                                                 |
+| `created_at`        | `timestamptz`  | `NOT NULL, DEFAULT now()`                                       | UTC creation timestamp                                                 |
+| `updated_at`        | `timestamptz`  | `NOT NULL, DEFAULT now()`                                       | UTC last update timestamp                                              |
+
+### Activity Provider Registry (`src/server/clients/activity.ts`)
+
+The `inactive-clients` retention policy determines candidate eligibility by checking `clients.last_activity_at < cutoff` against an extensible provider registry. Providers return the subset of candidate client IDs that have had qualifying activity at or after `since`.
+
+Built-in providers registered in E1:
+
+1. `timeline`: Non-system timeline events (`subject_type != 'system'` with `occurred_at >= since`).
+2. `notes`: Client notes created or updated on or after `since`.
+3. `consents`: Consent records created on or after `since` linked to client contacts.
+
+### How E3 (Projects) Registers Project Activity
+
+When Epic 3 (Projects & Shoots) is introduced, it registers a project activity provider in its domain bootstrap:
+
+```typescript
+import { registerActivityProvider } from '@/server/clients/activity';
+import { projects } from '@/server/db/schema/projects';
+import { inArray, gte, and } from 'drizzle-orm';
+
+registerActivityProvider({
+  id: 'projects',
+  activeClientIds: async (tx, since, candidateIds) => {
+    if (candidateIds.length === 0) return [];
+    const rows = await tx
+      .select({ clientId: projects.clientId })
+      .from(projects)
+      .where(and(inArray(projects.clientId, candidateIds), gte(projects.updatedAt, since)));
+    return rows.map((r) => r.clientId);
+  },
+});
+```
+
+Clients returned by any registered activity provider are exempted from automatic erasure during the sweep.

@@ -118,7 +118,9 @@ export async function planErasure(
 
   for (const provider of providers) {
     const count = await provider.plan(effectiveSubject, client);
-    categoryCounts[provider.category] = (categoryCounts[provider.category] ?? 0) + count;
+    if (count > 0 || provider.category !== 'legal_hold') {
+      categoryCounts[provider.category] = (categoryCounts[provider.category] ?? 0) + count;
+    }
   }
 
   logger.info(
@@ -218,7 +220,9 @@ export async function eraseSubject(
 
     for (const provider of providers) {
       const deletedCount = await provider.erase(effectiveSubject, tx);
-      categoryCounts[provider.category] = (categoryCounts[provider.category] ?? 0) + deletedCount;
+      if (deletedCount > 0 || provider.category !== 'legal_hold') {
+        categoryCounts[provider.category] = (categoryCounts[provider.category] ?? 0) + deletedCount;
+      }
     }
 
     // 4. Record audit event for completed erasure (AC-2, AC-14, AC-15)

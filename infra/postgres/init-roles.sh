@@ -46,7 +46,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     \$\$;
 
     -- 3. Grant connection privileges to the database
-    GRANT CONNECT ON DATABASE "${POSTGRES_DB}" TO "${POSTGRES_MIGRATOR_USER}";
+    GRANT CONNECT, CREATE ON DATABASE "${POSTGRES_DB}" TO "${POSTGRES_MIGRATOR_USER}";
     GRANT CONNECT ON DATABASE "${POSTGRES_DB}" TO "${POSTGRES_APP_USER}";
 
     -- 4. Assign schema ownership & DDL privileges to migration role

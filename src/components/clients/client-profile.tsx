@@ -46,6 +46,8 @@ import { ClientTimeline } from './client-timeline';
 import { ConsentSection } from './consent-section';
 import { ExportDataDialog } from './export-data-dialog';
 import { ErasureDialog } from './erasure-dialog';
+import { LegalHoldSection, type ClientLegalHoldData, isHoldActiveDate } from './legal-hold-section';
+import { RetentionIndicator } from './retention-indicator';
 import type { ListTimelineResult } from '@/server/timeline/repo';
 import type { ClientConsentsResult } from '@/server/consents/repo';
 
@@ -55,6 +57,8 @@ export interface ClientProfileProps {
   studioTimezone: string;
   initialTimeline?: ListTimelineResult;
   initialConsents?: ClientConsentsResult;
+  initialLegalHold?: ClientLegalHoldData | null;
+  retentionMonths?: number;
 }
 
 export function ClientProfile({
@@ -63,6 +67,8 @@ export function ClientProfile({
   studioTimezone,
   initialTimeline,
   initialConsents,
+  initialLegalHold,
+  retentionMonths,
 }: ClientProfileProps) {
   const t = useTranslations('clients.profile');
   const tForm = useTranslations('clients.form');
@@ -124,6 +130,12 @@ export function ClientProfile({
   const [erasureSubject, setErasureSubject] = React.useState<ErasureSubject | null>(null);
   const [erasureDialogOpen, setErasureDialogOpen] = React.useState(false);
   const [erasureContactName, setErasureContactName] = React.useState<string | undefined>(undefined);
+
+  // Legal hold state (TASK-0019)
+  const [currentHold, setCurrentHold] = React.useState<ClientLegalHoldData | null>(
+    initialLegalHold ?? null,
+  );
+  const isHoldActive = currentHold ? isHoldActiveDate(currentHold.until, studioTimezone) : false;
 
   // Focus announcement on mount if created (AC-1)
   React.useEffect(() => {
@@ -693,6 +705,25 @@ export function ClientProfile({
           </div>
         </div>
       </section>
+
+      {/* Retention & Erasure Indicator (AC-20) */}
+      <RetentionIndicator
+        lastActivityAt={client.lastActivityAt}
+        hasActiveHold={isHoldActive}
+        retentionMonths={retentionMonths}
+        locale={locale}
+      />
+
+      {/* Legal Hold Section (AC-16, AC-17) */}
+      <LegalHoldSection
+        clientId={client.id}
+        initialHold={initialLegalHold}
+        studioTimezone={studioTimezone}
+        locale={locale}
+        onHoldChange={(newHold) => {
+          setCurrentHold(newHold);
+        }}
+      />
 
       {/* Danger Zone Section (AC-10) */}
       <section

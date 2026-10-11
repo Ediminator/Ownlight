@@ -5,3 +5,4 @@ export * from './clients';
 export * from './tags';
 export * from './timeline';
 export * from './consents';
+export * from './client-legal-holds';

@@ -291,6 +291,39 @@ export const INITIAL_CATEGORIES: readonly CategoryDefinition[] = [
       de: 'Automatisch durch das Sicherheitssubsystem erfasst.',
     },
   },
+  {
+    id: 'legal_hold',
+    titleKey: 'privacy.export.categories.legal_hold.title',
+    purposeKey: 'privacy.export.categories.legal_hold.purpose',
+    lawfulBasisKey: 'privacy.export.categories.legal_hold.lawful_basis',
+    retentionKey: 'privacy.export.categories.legal_hold.retention',
+    recipientsKey: 'privacy.export.categories.legal_hold.recipients',
+    sourceKey: 'privacy.export.categories.legal_hold.source',
+    title: {
+      en: 'Legal Hold',
+      de: 'Gesetzliche / rechtliche Aufbewahrungssperre',
+    },
+    purpose: {
+      en: 'Preservation of records for statutory compliance or defense of legal claims.',
+      de: 'Aufbewahrung von Daten zur Erf\u00fcllung gesetzlicher Pflichten oder zur Abwehr von Rechtsanspr\u00fcchen.',
+    },
+    lawfulBasis: {
+      en: 'Art. 6(1)(c) & Art. 6(1)(f) GDPR (Legal obligation and legitimate interests).',
+      de: 'Art. 6 Abs. 1 lit. c und lit. f DSGVO (Rechtliche Verpflichtung und berechtigte Interessen).',
+    },
+    retention: {
+      en: 'Until release of legal hold or expiry of statutory retention period.',
+      de: 'Bis zur Aufhebung der Sperre oder Ablauf der gesetzlichen Aufbewahrungsfrist.',
+    },
+    recipients: {
+      en: 'None (stored locally on the self-hosted studio instance).',
+      de: 'Keine (ausschlie\u00dflich lokale Speicherung auf der selbst gehosteten Studio-Instanz).',
+    },
+    source: {
+      en: 'Recorded by the studio owner.',
+      de: 'Vom Studio-Inhaber erfasst.',
+    },
+  },
 ];
 
 const categoryRegistry = new Map<string, CategoryDefinition>();

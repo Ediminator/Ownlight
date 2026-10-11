@@ -300,7 +300,8 @@
       "notFoundDescription": "Die angeforderte Kund:in existiert nicht oder wurde möglicherweise gelöscht.",
       "errorMessage": "Beim Laden des Kundenprofils ist ein Fehler aufgetreten.",
       "exportData": "Personenbezogene Daten exportieren",
-      "exportDataDescription": "Datenauskunft (DSAR) für diesen Kontakt erstellen und herunterladen."
+      "exportDataDescription": "Datenauskunft (DSAR) für diesen Kontakt erstellen und herunterladen.",
+      "erasePerson": "Person löschen"
     },
     "timeline": {
       "title": "Verlauf",
@@ -485,6 +486,13 @@
       "CONSENT_NOT_GRANTED": "Einwilligung kann nicht widerrufen werden, da aktuell keine aktive Einwilligung vorliegt.",
       "scopeRequired": "Der Umfang ist bei Erteilung der Einwilligung zur Bildnutzung erforderlich.",
       "futureDate": "Das Gültigkeitsdatum darf nicht in der Zukunft liegen."
+    },
+    "dangerZone": {
+      "title": "Gefahrenbereich",
+      "description": "Destruktive Aktionen, die Daten unwiderruflich löschen.",
+      "deleteClientTitle": "Diesen Kunden löschen",
+      "deleteClientDescription": "Löscht diesen Kunden, alle Kontakte, Adressen, Notizen, Tags, Timeline- und Einwilligungseinträge dauerhaft.",
+      "deleteClientButton": "Kunden löschen"
     }
   },
   "privacy": {
@@ -511,6 +519,47 @@
       "downloadStarted": "Download gestartet.",
       "errorGeneric": "Export konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
       "errorReauth": "Ungültiges Passwort. Bitte versuchen Sie es erneut."
+    },
+    "erasure": {
+      "titleClient": "Kunden löschen",
+      "titleContact": "Person löschen",
+      "descriptionClient": "Überprüfen Sie die Daten, die für diesen Kunden unwiderruflich gelöscht werden.",
+      "descriptionContact": "Überprüfen Sie die Daten, die für {name} unwiderruflich gelöscht werden.",
+      "planTitle": "Zu löschende Daten",
+      "categoryClient": "Kundenprofil",
+      "categoryContacts": "Kontakte",
+      "categoryAddresses": "Adressen",
+      "categoryTags": "Tag-Zuweisungen",
+      "categoryNotes": "Notizen",
+      "categoryTimeline": "Timeline-Ereignisse",
+      "categoryConsents": "Einwilligungsnachweise",
+      "holdsTitle": "Löschung durch aktive Aufbewahrungsfrist blockiert",
+      "holdsDescription": "Diese Daten dürfen nicht gelöscht werden, da gesetzliche oder rechtliche Aufbewahrungspflichten bestehen:",
+      "retainUntil": "Aufbewahrung bis: {date}",
+      "warningNotesTitle": "Kundennotizen prüfen",
+      "warningNotesMayMention": "Freitext-Notizen dieses Kunden erwähnen diese Person möglicherweise weiterhin. Bitte prüfen Sie die Notizen nach der Löschung manuell.",
+      "reauthTitle": "Erneute Authentifizierung erforderlich",
+      "reauthDescription": "Die dauerhafte Löschung erfordert die Bestätigung Ihres Passworts (innerhalb der letzten 5 Minuten).",
+      "passwordLabel": "Passwort",
+      "passwordPlaceholder": "Passwort eingeben",
+      "confirmPassword": "Bestätigen und fortfahren",
+      "confirmationPrompt": "Geben Sie {name} ein, um das Löschen zu bestätigen",
+      "confirmationLabel": "Bestätigung",
+      "confirmationPlaceholder": "Kundennamen zur Bestätigung eingeben",
+      "confirmDeleteClient": "Kunden löschen",
+      "confirmEraseContact": "Person löschen",
+      "cancel": "Abbrechen",
+      "close": "Schließen",
+      "loading": "Löschplan wird geladen...",
+      "erasing": "Wird gelöscht...",
+      "reauthenticating": "Wird überprüft...",
+      "successClient": "Kunde und alle zugehörigen Daten wurden gelöscht.",
+      "successContact": "Person und zugehörige Daten wurden gelöscht.",
+      "errorGeneric": "Löschung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+      "errorConfirmationMismatch": "Der eingegebene Bestätigungstext stimmt nicht mit dem Kundennamen überein.",
+      "errorReauth": "Falsches Passwort. Bitte versuchen Sie es erneut.",
+      "errorBlocked": "Löschung wurde blockiert, da aktive Aufbewahrungsfristen bestehen.",
+      "errorNotFound": "Kunde oder Person wurde nicht gefunden."
     }
   }
 }

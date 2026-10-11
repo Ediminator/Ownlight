@@ -37,10 +37,20 @@ The system provides built-in mechanisms to handle data subject access requests (
 
 - Clients can review and update their contact details directly via the authenticated client portal.
 
-### Right to Erasure / "To Be Forgotten" (Art. 17)
+### Right to Erasure / "To Be Forgotten" (Art. 17, CCPA/CPRA Right to Delete)
 
-- **Automated Anonymisation or Hard Deletion:** When an erasure request is executed, all non-legally-retained personal data is purged or pseudonymised.
-- **Conflict with Legal Retention:** If financial vouchers or signed contracts are subject to statutory retention (e.g. German GoBD / §147 AO), those specific records are locked under a `legalHold`, isolated from regular operational search, and flagged for deletion once the retention period lapses.
+- **Hard Deletion by Default:** Deleting a client or erasing a person performs an atomic, all-or-nothing hard delete of personal data in a single database transaction. No soft-delete flags or shadow copies are retained in the application database.
+- **Retention-Lock (Legal Hold) Awareness:** Before any records are purged, the system queries registered hold providers (`src/server/privacy/erasure/registry.ts`). If any statutory (e.g. §147 AO, §257 HGB) or legal hold exists, erasure is blocked entirely (`ERASURE_BLOCKED`), zero data is deleted, a non-PII `privacy.erasure.blocked` audit event is emitted, and the UI presents the active holds with their justification and expiry date without offering a deletion confirmation button.
+- **TOCTOU Defense:** Holds are re-evaluated within the transactional boundary immediately before deletion queries execute, ensuring concurrency safety against late-arriving holds.
+- **Extensible Domain Registries:** Domains register data erasure providers (`registerErasureProvider`) and hold providers (`registerErasureHoldProvider`). A strict schema coverage test ensures every table containing personal data is covered.
+- **Single-Contact Promotion & Scoped Erasure:** Erasing a single contact deletes that contact's profile, its consent records, and matching timeline events. Erasing the last remaining contact of a client is automatically promoted to client-level erasure. When erasing one person of a multi-contact client, the UI warns the owner that client-level notes may reference that person and require manual inspection.
+- **Consent Records Deletion & Pseudonymous Audit Retention:** Under maintainer decision (ADR-0012 §4.1), consent records are deleted with the subject; pseudonymous audit logs (`consent.granted`, `consent.withdrawn`) remain for 24 months with no PII.
+- **Security & Authorization Controls:**
+  - **Owner Web Session Only:** API keys and external agent tokens are denied (`FORBIDDEN`).
+  - **Step-Up Re-Authentication:** Re-authentication with the master account password is required within 5 minutes (`assertFreshReauthentication`).
+  - **Explicit Typed Confirmation:** The owner must type the client's current display name to confirm deletion.
+  - **Accountability Logging:** Erasure completions emit `privacy.erasure.completed` recording subject UUID, kind, and per-category counts without personal data.
+- **Reference:** See [`docs/privacy/erasure.md`](./erasure.md) for complete technical architecture and domain registration guides.
 
 ---
 

@@ -300,7 +300,8 @@
       "notFoundDescription": "The requested client does not exist or may have been deleted.",
       "errorMessage": "An error occurred while loading the client profile.",
       "exportData": "Export personal data",
-      "exportDataDescription": "Generate and download a personal data export (DSAR) for this contact."
+      "exportDataDescription": "Generate and download a personal data export (DSAR) for this contact.",
+      "erasePerson": "Erase person"
     },
     "timeline": {
       "title": "Timeline",
@@ -485,6 +486,13 @@
       "CONSENT_NOT_GRANTED": "Consent cannot be withdrawn because no active grant is currently recorded.",
       "scopeRequired": "Scope is required when granting image usage consent.",
       "futureDate": "Effective date cannot be in the future."
+    },
+    "dangerZone": {
+      "title": "Danger zone",
+      "description": "Destructive actions that permanently remove data.",
+      "deleteClientTitle": "Delete this client",
+      "deleteClientDescription": "Permanently erase this client, all contacts, addresses, notes, tags, timeline, and consent records.",
+      "deleteClientButton": "Delete client"
     }
   },
   "privacy": {
@@ -511,6 +519,47 @@
       "downloadStarted": "Download started.",
       "errorGeneric": "Export generation failed. Please try again.",
       "errorReauth": "Incorrect password. Please try again."
+    },
+    "erasure": {
+      "titleClient": "Delete client",
+      "titleContact": "Erase person",
+      "descriptionClient": "Review the data that will be permanently erased for this client.",
+      "descriptionContact": "Review the data that will be permanently erased for {name}.",
+      "planTitle": "Data to be erased",
+      "categoryClient": "Client profile",
+      "categoryContacts": "Contacts",
+      "categoryAddresses": "Addresses",
+      "categoryTags": "Tag assignments",
+      "categoryNotes": "Notes",
+      "categoryTimeline": "Timeline events",
+      "categoryConsents": "Consent records",
+      "holdsTitle": "Erasure blocked by active retention hold",
+      "holdsDescription": "This subject cannot be deleted because statutory or legal retention requirements forbid erasure:",
+      "retainUntil": "Retain until: {date}",
+      "warningNotesTitle": "Review client notes",
+      "warningNotesMayMention": "Other free-text notes for this client may mention this person. Please review client notes manually after erasure.",
+      "reauthTitle": "Re-authentication required",
+      "reauthDescription": "Destructive erasure requires confirming your account password (recent within 5 minutes).",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "confirmPassword": "Confirm and proceed",
+      "confirmationPrompt": "Type {name} to confirm deletion",
+      "confirmationLabel": "Confirmation",
+      "confirmationPlaceholder": "Type client name to confirm",
+      "confirmDeleteClient": "Delete client",
+      "confirmEraseContact": "Erase person",
+      "cancel": "Cancel",
+      "close": "Close",
+      "loading": "Loading erasure plan...",
+      "erasing": "Erasing...",
+      "reauthenticating": "Verifying...",
+      "successClient": "Client and all associated records have been erased.",
+      "successContact": "Person and associated records have been erased.",
+      "errorGeneric": "Erasure failed. Please try again.",
+      "errorConfirmationMismatch": "The entered confirmation text does not match the client name.",
+      "errorReauth": "Incorrect password. Please try again.",
+      "errorBlocked": "Erasure was blocked because active retention holds exist.",
+      "errorNotFound": "Client or person not found."
     }
   }
 }

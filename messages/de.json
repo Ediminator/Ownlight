@@ -318,6 +318,8 @@
         "client_contact_added_deleted": "Kontakt hinzugefügt",
         "client_contact_removed": "Kontakt entfernt",
         "note_created": "Notiz hinzugefügt",
+        "consent_granted": "Einwilligung erteilt: {purpose}",
+        "consent_withdrawn": "Einwilligung widerrufen: {purpose}",
         "deleted_item": "Gelöschter Eintrag"
       },
       "note": {
@@ -335,6 +337,60 @@
         "loadMore": "Mehr laden",
         "loading": "Wird geladen...",
         "allLoaded": "Alle Ereignisse geladen"
+      }
+    },
+    "consent": {
+      "title": "Einwilligung",
+      "recordChange": "Einwilligung erfassen",
+      "recordChangeFor": "Einwilligung für {name} erfassen",
+      "noConsent": "Keine Einwilligung erfasst",
+      "marketing": "Werbung",
+      "imageUsage": "Bildnutzung",
+      "grantedOn": "Erteilt am {date}",
+      "withdrawnOn": "Widerrufen am {date}",
+      "scopePrefix": "Umfang: {scope}",
+      "evidencePrefix": "Nachweis: {note}",
+      "purposes": {
+        "marketing": "Werbeeinwilligung",
+        "image_usage": "Einwilligung zur Bildnutzung"
+      },
+      "statuses": {
+        "granted": "Erteilt",
+        "withdrawn": "Widerrufen"
+      },
+      "methods": {
+        "in_person": "Persönlich",
+        "paper_form": "Schriftlich (Papier)",
+        "email": "E-Mail",
+        "phone": "Telefonisch",
+        "other": "Sonstiges"
+      },
+      "dialog": {
+        "title": "Einwilligung erfassen",
+        "description": "Erfassen Sie eine erteilte oder widerrufene Einwilligung eines Kontakts.",
+        "contactLabel": "Kontakt",
+        "purposeLegend": "Zweck",
+        "statusLegend": "Status",
+        "dateLabel": "Gültigkeitsdatum",
+        "methodLabel": "Art der Einholung",
+        "selectMethod": "Art auswählen",
+        "scopeLabel": "Umfang der Vereinbarung",
+        "scopePlaceholder": "z. B. Studio-Website, Portfolio und Instagram",
+        "scopeHint": "Erforderlich für Bildnutzung. Geben Sie an, wo und wie Bilder genutzt werden dürfen.",
+        "evidenceNoteLabel": "Nachweis-Notiz",
+        "evidenceNotePlaceholder": "z. B. Unterzeichneter Model-Release-Vertrag in Ordner B, Seite 12",
+        "evidenceNoteHint": "Verweis darauf, wo der Nachweis archiviert ist.",
+        "save": "Eintrag speichern",
+        "saving": "Wird gespeichert...",
+        "cancel": "Abbrechen",
+        "successAnnounce": "Einwilligungsänderung erfolgreich gespeichert."
+      },
+      "history": {
+        "title": "Einwilligungsverlauf",
+        "toggleShow": "Verlauf anzeigen ({count})",
+        "toggleHide": "Verlauf ausblenden",
+        "empty": "Kein Einwilligungsverlauf vorhanden.",
+        "itemSummary": "{purpose} · {status} am {date} · {method}"
       }
     },
     "form": {
@@ -423,7 +479,10 @@
       "postalCodeRequired": "Postleitzahl ist erforderlich.",
       "cityRequired": "Stadt ist erforderlich.",
       "line1Required": "Adresszeile 1 ist erforderlich.",
-      "tagLimitExceeded": "Ein Kunde kann maximal 20 Tags haben."
+      "tagLimitExceeded": "Ein Kunde kann maximal 20 Tags haben.",
+      "CONSENT_NOT_GRANTED": "Einwilligung kann nicht widerrufen werden, da aktuell keine aktive Einwilligung vorliegt.",
+      "scopeRequired": "Der Umfang ist bei Erteilung der Einwilligung zur Bildnutzung erforderlich.",
+      "futureDate": "Das Gültigkeitsdatum darf nicht in der Zukunft liegen."
     }
   }
 }

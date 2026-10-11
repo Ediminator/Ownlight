@@ -7,6 +7,7 @@ import {
   type ClientNote,
 } from '@/server/db/schema/timeline';
 import { clientContacts } from '@/server/db/schema/clients';
+import { consentRecords } from '@/server/db/schema/consents';
 import type { ActorType } from '@/server/db/schema/audit';
 import { encodeTimelineCursor, type TimelineCursorData } from './cursor';
 import { generateUuidV7 } from '@/lib/id';
@@ -190,6 +191,52 @@ export async function getClientTimelineEvents(
     }
   }
 
+  // 3. Resolve contact names for consent events (consent.granted / consent.withdrawn)
+  const consentRecordIds = pageRows
+    .filter((r) => r.type === 'consent.granted' || r.type === 'consent.withdrawn')
+    .map((r) => r.subjectId)
+    .filter(isString);
+
+  const consentContactsMap = new Map<string, string>();
+  if (consentRecordIds.length > 0) {
+    const consentRows = await client
+      .select({
+        id: consentRecords.id,
+        contactId: consentRecords.contactId,
+      })
+      .from(consentRecords)
+      .where(inArray(consentRecords.id, consentRecordIds));
+
+    const consentContactIds = Array.from(new Set(consentRows.map((r) => r.contactId)));
+    if (consentContactIds.length > 0) {
+      const contactRows = await client
+        .select({
+          id: clientContacts.id,
+          givenName: clientContacts.givenName,
+          familyName: clientContacts.familyName,
+        })
+        .from(clientContacts)
+        .where(
+          and(eq(clientContacts.clientId, clientId), inArray(clientContacts.id, consentContactIds)),
+        );
+
+      const nameByContactId = new Map<string, string>();
+      for (const c of contactRows) {
+        const name = [c.givenName, c.familyName].filter(Boolean).join(' ') || null;
+        if (name) {
+          nameByContactId.set(c.id, name);
+        }
+      }
+
+      for (const cr of consentRows) {
+        const name = nameByContactId.get(cr.contactId);
+        if (name) {
+          consentContactsMap.set(cr.id, name);
+        }
+      }
+    }
+  }
+
   // Build resolved items
   const items: ResolvedTimelineItem[] = pageRows.map((r) => {
     const item: ResolvedTimelineItem = {
@@ -220,6 +267,10 @@ export async function getClientTimelineEvents(
     if ((r.type === 'client.contact.added' || r.type === 'client.contact.removed') && r.subjectId) {
       // While the contact exists in client_contacts, resolve contactName; after removal neither contains name
       item.contactName = contactsMap.get(r.subjectId) ?? null;
+    }
+
+    if ((r.type === 'consent.granted' || r.type === 'consent.withdrawn') && r.subjectId) {
+      item.contactName = consentContactsMap.get(r.subjectId) ?? null;
     }
 
     return item;

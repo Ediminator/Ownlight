@@ -25,11 +25,12 @@ export interface RetentionPolicyDef<T = any> {
 
 ### Registered Built-In Policies
 
-| Policy ID                | Target Entity  | Rule / Cutoff                                   | Action   | Default Retention                    |
-| ------------------------ | -------------- | ----------------------------------------------- | -------- | ------------------------------------ |
-| `audit-events-retention` | `audit_events` | `occurred_at < NOW() - RETENTION_PERIOD_MONTHS` | `delete` | 24 months (configurable)             |
-| `expired-sessions`       | `session`      | `expires_at < NOW()`                            | `delete` | Immediate upon expiry (max 30 days)  |
-| `expired-rate-limits`    | `rate_limits`  | `expires_at < NOW()`                            | `delete` | Immediate upon expiry (max 24 hours) |
+| Policy ID                 | Target Entity     | Rule / Cutoff                                                                           | Action   | Default Retention                    |
+| ------------------------- | ----------------- | --------------------------------------------------------------------------------------- | -------- | ------------------------------------ |
+| `audit-events-retention`  | `audit_events`    | `occurred_at < NOW() - RETENTION_PERIOD_MONTHS`                                         | `delete` | 24 months (configurable)             |
+| `expired-sessions`        | `session`         | `expires_at < NOW()`                                                                    | `delete` | Immediate upon expiry (max 30 days)  |
+| `expired-rate-limits`     | `rate_limits`     | `expires_at < NOW()`                                                                    | `delete` | Immediate upon expiry (max 24 hours) |
+| `withdrawn-consent-proof` | `consent_records` | `latest status = 'withdrawn' AND effective_on < NOW() - CONSENT_PROOF_RETENTION_MONTHS` | `delete` | 36 months (configurable)             |
 
 ---
 

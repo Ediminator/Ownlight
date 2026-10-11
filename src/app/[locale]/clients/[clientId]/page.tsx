@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireOwner } from '@/server/auth/guards';
 import { getClient } from '@/server/clients/service';
 import { listTimeline } from '@/server/timeline/service';
+import { listConsentsForClient } from '@/server/consents/repo';
 import { getStudioSettings } from '@/server/settings/repo';
 import { ClientProfile } from '@/components/clients/client-profile';
 
@@ -51,9 +52,10 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
     return null;
   }
 
-  const [clientRes, timelineRes, settings] = await Promise.all([
+  const [clientRes, timelineRes, consentsData, settings] = await Promise.all([
     getClient(clientId),
     listTimeline(clientId).catch(() => null),
+    listConsentsForClient(clientId).catch(() => null),
     getStudioSettings().catch(() => null),
   ]);
 
@@ -71,6 +73,7 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
         locale={locale}
         studioTimezone={studioTimezone}
         initialTimeline={timelineRes?.success ? timelineRes.data : undefined}
+        initialConsents={consentsData ?? undefined}
       />
     </div>
   );

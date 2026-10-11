@@ -318,6 +318,8 @@
         "client_contact_added_deleted": "Contact added",
         "client_contact_removed": "Contact removed",
         "note_created": "Note added",
+        "consent_granted": "Consent granted: {purpose}",
+        "consent_withdrawn": "Consent withdrawn: {purpose}",
         "deleted_item": "Deleted item"
       },
       "note": {
@@ -335,6 +337,60 @@
         "loadMore": "Load more",
         "loading": "Loading...",
         "allLoaded": "All events loaded"
+      }
+    },
+    "consent": {
+      "title": "Consent",
+      "recordChange": "Record consent change",
+      "recordChangeFor": "Record consent change for {name}",
+      "noConsent": "No consent recorded",
+      "marketing": "Marketing",
+      "imageUsage": "Image usage",
+      "grantedOn": "Granted on {date}",
+      "withdrawnOn": "Withdrawn on {date}",
+      "scopePrefix": "Scope: {scope}",
+      "evidencePrefix": "Evidence: {note}",
+      "purposes": {
+        "marketing": "Marketing consent",
+        "image_usage": "Image usage consent"
+      },
+      "statuses": {
+        "granted": "Granted",
+        "withdrawn": "Withdrawn"
+      },
+      "methods": {
+        "in_person": "In person",
+        "paper_form": "Paper form",
+        "email": "Email",
+        "phone": "Phone",
+        "other": "Other"
+      },
+      "dialog": {
+        "title": "Record consent change",
+        "description": "Record offline consent granted or withdrawn for a contact.",
+        "contactLabel": "Contact",
+        "purposeLegend": "Purpose",
+        "statusLegend": "Status",
+        "dateLabel": "Effective date",
+        "methodLabel": "Method obtained",
+        "selectMethod": "Select method",
+        "scopeLabel": "Scope of agreement",
+        "scopePlaceholder": "e.g. Studio website, portfolio and Instagram",
+        "scopeHint": "Required for image usage grants. Specify where and how images may be used.",
+        "evidenceNoteLabel": "Evidence note",
+        "evidenceNotePlaceholder": "e.g. Signed model release form filed in binder B, page 12",
+        "evidenceNoteHint": "Reference to where offline proof is archived.",
+        "save": "Save record",
+        "saving": "Saving...",
+        "cancel": "Cancel",
+        "successAnnounce": "Consent change recorded successfully."
+      },
+      "history": {
+        "title": "Consent history",
+        "toggleShow": "Show history ({count})",
+        "toggleHide": "Hide history",
+        "empty": "No consent history recorded.",
+        "itemSummary": "{purpose} · {status} on {date} · {method}"
       }
     },
     "form": {
@@ -423,7 +479,10 @@
       "postalCodeRequired": "Postal code is required.",
       "cityRequired": "City is required.",
       "line1Required": "Address line 1 is required.",
-      "tagLimitExceeded": "A client can have at most 20 tags."
+      "tagLimitExceeded": "A client can have at most 20 tags.",
+      "CONSENT_NOT_GRANTED": "Consent cannot be withdrawn because no active grant is currently recorded.",
+      "scopeRequired": "Scope is required when granting image usage consent.",
+      "futureDate": "Effective date cannot be in the future."
     }
   }
 }

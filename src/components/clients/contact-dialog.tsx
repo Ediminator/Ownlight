@@ -34,7 +34,13 @@ interface ContactFormProps {
   onSuccess: () => void;
 }
 
-function ContactForm({ clientId, locale, contactToEdit, onClose, onSuccess }: ContactFormProps) {
+export function ContactForm({
+  clientId,
+  locale,
+  contactToEdit,
+  onClose,
+  onSuccess,
+}: ContactFormProps) {
   const isEditing = Boolean(contactToEdit);
   const t = useTranslations('clients.form');
   const tErrors = useTranslations('clients.errors');

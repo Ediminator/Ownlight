@@ -37,7 +37,7 @@ interface EditDetailsFormProps {
   }) => void;
 }
 
-function EditDetailsForm({ client, onClose, onSuccess }: EditDetailsFormProps) {
+export function EditDetailsForm({ client, onClose, onSuccess }: EditDetailsFormProps) {
   const t = useTranslations('clients.form');
   const tErrors = useTranslations('clients.errors');
 

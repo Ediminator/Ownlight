@@ -36,7 +36,7 @@ interface AddressFormProps {
   onSuccess: () => void;
 }
 
-function AddressForm({
+export function AddressForm({
   clientId,
   locale,
   addressToEdit,

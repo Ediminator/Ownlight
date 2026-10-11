@@ -32,7 +32,7 @@ interface TagsFormProps {
   onSuccess: (newTags: ClientTagItem[]) => void;
 }
 
-function TagsForm({ clientId, currentTags, onClose, onSuccess }: TagsFormProps) {
+export function TagsForm({ clientId, currentTags, onClose, onSuccess }: TagsFormProps) {
   const t = useTranslations('clients.form');
   const tErrors = useTranslations('clients.errors');
 

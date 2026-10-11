@@ -268,13 +268,14 @@ export interface LocalizedCountry {
  */
 export function getLocalizedCountries(locale: string): LocalizedCountry[] {
   let displayNames: Intl.DisplayNames;
+  let collator: Intl.Collator;
   try {
     displayNames = new Intl.DisplayNames([locale], { type: 'region' });
+    collator = new Intl.Collator(locale, { sensitivity: 'base' });
   } catch {
     displayNames = new Intl.DisplayNames(['en'], { type: 'region' });
+    collator = new Intl.Collator('en', { sensitivity: 'base' });
   }
-
-  const collator = new Intl.Collator(locale, { sensitivity: 'base' });
 
   const countries = ISO_3166_1_ALPHA_2_CODES.map((code) => {
     let name = code as string;

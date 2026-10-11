@@ -749,6 +749,7 @@ export function ClientProfile({
         preferredLocale={client.preferredLocale}
         open={exportDialogOpen}
         onOpenChange={setExportDialogOpen}
+        triggerRef={contactTriggerRef}
         onDownloadStarted={() => {
           announceAndFocus(t('exportDataDescription'), contactTriggerRef);
         }}

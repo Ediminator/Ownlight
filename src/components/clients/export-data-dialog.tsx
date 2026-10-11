@@ -20,6 +20,7 @@ export interface ExportDataDialogProps {
   preferredLocale?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  triggerRef?: React.RefObject<HTMLElement | null>;
   onDownloadStarted?: () => void;
 }
 
@@ -27,6 +28,7 @@ interface ExportDataDialogContentProps {
   contact: Partial<ClientContact> & { id: string };
   clientDisplayName: string;
   preferredLocale?: string;
+  triggerRef?: React.RefObject<HTMLElement | null>;
   onOpenChange: (open: boolean) => void;
   onDownloadStarted?: () => void;
 }
@@ -35,6 +37,7 @@ export function ExportDataDialogInner({
   contact,
   clientDisplayName,
   preferredLocale = 'en',
+  triggerRef,
   onOpenChange,
   onDownloadStarted,
 }: ExportDataDialogContentProps) {
@@ -144,7 +147,7 @@ export function ExportDataDialogInner({
       try {
         const res = await reauthenticateAction({ password });
         if (!res.success) {
-          setError(res.error || t('errorReauth'));
+          setError(t('errorReauth'));
           setIsReauthenticating(false);
           return;
         }
@@ -165,6 +168,12 @@ export function ExportDataDialogInner({
     <DialogContent
       className="w-full max-w-md sm:max-w-lg p-5 sm:p-6 overflow-y-auto max-h-[90vh]"
       data-testid="export-data-dialog"
+      onCloseAutoFocus={(e) => {
+        if (triggerRef?.current) {
+          e.preventDefault();
+          triggerRef.current.focus();
+        }
+      }}
     >
       <DialogHeader>
         <DialogTitle className="text-lg sm:text-xl font-semibold text-foreground flex items-center gap-2">
@@ -380,19 +389,22 @@ export function ExportDataDialog({
   preferredLocale = 'en',
   open,
   onOpenChange,
+  triggerRef,
   onDownloadStarted,
 }: ExportDataDialogProps) {
-  if (!open || !contact) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <ExportDataDialogInner
-        key={contact.id}
-        contact={contact}
-        clientDisplayName={clientDisplayName}
-        preferredLocale={preferredLocale}
-        onOpenChange={onOpenChange}
-        onDownloadStarted={onDownloadStarted}
-      />
+      {contact && (
+        <ExportDataDialogInner
+          key={contact.id}
+          contact={contact}
+          clientDisplayName={clientDisplayName}
+          preferredLocale={preferredLocale}
+          triggerRef={triggerRef}
+          onOpenChange={onOpenChange}
+          onDownloadStarted={onDownloadStarted}
+        />
+      )}
     </Dialog>
   );
 }

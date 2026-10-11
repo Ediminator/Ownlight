@@ -606,4 +606,123 @@ describe('TASK-0015: ExportDataDialog component (AC-9, AC-10, AC-11, AC-12)', ()
     mockReauthenticateAction.mockRejectedValueOnce(new Error('Auth exception'));
     await formNode?.onSubmit?.({ preventDefault });
   });
+
+  it('I3-U02: DialogContent has onCloseAutoFocus that returns focus to triggerRef', () => {
+    let tree: React.ReactElement | undefined;
+    const mockFocus = vi.fn();
+    const mockTriggerRef = {
+      current: {
+        focus: mockFocus,
+      } as unknown as HTMLElement,
+    };
+
+    function Wrapper() {
+      const rendered = ExportDataDialogInner({
+        contact: mockContact,
+        clientDisplayName: 'Jane Doe',
+        preferredLocale: 'en',
+        triggerRef: mockTriggerRef,
+        onOpenChange: vi.fn(),
+      });
+      tree = rendered;
+      return <div>{rendered}</div>;
+    }
+
+    renderToStaticMarkup(<Wrapper />);
+
+    const dialogContent = findNodeByTestId(tree, 'export-data-dialog');
+    expect(dialogContent).toBeDefined();
+
+    const props = dialogContent?.props as Record<string, unknown>;
+    expect(typeof props.onCloseAutoFocus).toBe('function');
+
+    const mockPreventDefault = vi.fn();
+    const onCloseAutoFocus = props.onCloseAutoFocus as (e: { preventDefault: () => void }) => void;
+    onCloseAutoFocus({ preventDefault: mockPreventDefault });
+
+    expect(mockPreventDefault).toHaveBeenCalled();
+    expect(mockFocus).toHaveBeenCalled();
+  });
+
+  it('I3-U03: displays localized German error on reauthentication failure instead of raw server error string', async () => {
+    currentLocale = 'de';
+
+    mockReauthenticateAction.mockResolvedValueOnce({
+      success: false,
+      error: 'Invalid password.', // Raw English server string that must NOT be shown in German UI
+    });
+
+    let tree: React.ReactElement | undefined;
+    function Wrapper() {
+      const rendered = ExportDataDialogInner({
+        contact: mockContact,
+        clientDisplayName: 'Jane Doe',
+        preferredLocale: 'de',
+        onOpenChange: vi.fn(),
+      });
+      tree = rendered;
+      return <div>{rendered}</div>;
+    }
+
+    mockStateQueue = [
+      'html', // format
+      'de', // locale
+      false, // isSubmitting
+      null, // error
+      true, // reauthRequired
+      'wrongpassword', // password
+      false, // isReauthenticating
+    ];
+
+    renderToStaticMarkup(<Wrapper />);
+
+    function findFormNode(element: unknown): ComponentProps | undefined {
+      if (!element || typeof element !== 'object') return undefined;
+      if (React.isValidElement(element)) {
+        const props = element.props as ComponentProps;
+        if (element.type === 'form' || typeof props.onSubmit === 'function') {
+          return props;
+        }
+        if (props.children) {
+          const res = findFormNode(props.children);
+          if (res) return res;
+        }
+      } else if (Array.isArray(element)) {
+        for (const item of element) {
+          const res = findFormNode(item);
+          if (res) return res;
+        }
+      }
+      return undefined;
+    }
+
+    const formNode = findFormNode(tree);
+    expect(formNode).toBeDefined();
+    await formNode?.onSubmit?.({ preventDefault: vi.fn() });
+
+    // Ensure localized German error banner is rendered and raw server string is excluded
+    mockStateQueue = [
+      'html', // format
+      'de', // locale
+      false, // isSubmitting
+      deMessages.privacy.export.errorReauth, // localized German error
+      true, // reauthRequired
+      '', // password
+      false, // isReauthenticating
+    ];
+
+    const html = renderToStaticMarkup(
+      <ExportDataDialog
+        contact={mockContact}
+        clientDisplayName="Jane Doe"
+        preferredLocale="de"
+        open={true}
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain(deMessages.privacy.export.errorReauth);
+    expect(html).toContain('Ungültiges Passwort. Bitte versuchen Sie es erneut.');
+    expect(html).not.toContain('Invalid password.');
+  });
 });

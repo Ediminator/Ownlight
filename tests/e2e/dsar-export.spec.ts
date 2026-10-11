@@ -106,6 +106,20 @@ test.describe('TASK-0015: DSAR Data Export E2E (AC-9 to AC-12)', () => {
     // Dialog auto-closes after download starts
     await expect(dialog).not.toBeVisible();
 
+    // I3-U02: Open dialog and verify focus restoration to trigger button on Cancel
+    await exportBtn.click();
+    await expect(dialog).toBeVisible();
+    await page.click('[data-testid="export-cancel-btn"]');
+    await expect(dialog).not.toBeVisible();
+    await expect(exportBtn).toBeFocused();
+
+    // I3-U02: Open dialog and verify focus restoration to trigger button on Escape
+    await exportBtn.click();
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(exportBtn).toBeFocused();
+
     // 2. Open dialog again for HTML export in German
     await page.goto(`/de/clients/${clientId}`);
     const exportBtnDe = page.locator('[data-testid^="export-contact-btn-"]').first();
@@ -194,6 +208,20 @@ test.describe('TASK-0015: DSAR Data Export E2E (AC-9 to AC-12)', () => {
       expect(
         htmlViolations,
         `Axe accessibility violations in generated HTML export:\n${JSON.stringify(htmlViolations, null, 2)}`,
+      ).toEqual([]);
+
+      // I3-U01: Verify mobile viewport (375x812) has zero scrollable-region-focusable violations
+      await newPage.setViewportSize({ width: 375, height: 812 });
+      const mobileScan = await new AxeBuilder({ page: newPage })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+        .analyze();
+
+      const mobileViolations = mobileScan.violations.filter(
+        (v) => v.impact === 'critical' || v.impact === 'serious',
+      );
+      expect(
+        mobileViolations,
+        `Axe accessibility violations in mobile HTML export:\n${JSON.stringify(mobileViolations, null, 2)}`,
       ).toEqual([]);
 
       await newPage.close();

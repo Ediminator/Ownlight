@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-import { generateHtmlExport, escapeHtml } from '@/server/privacy/export/html';
+import { generateHtmlExport, escapeHtml, formatColumnHeader } from '@/server/privacy/export/html';
 import type { ExportCollectedData } from '@/server/privacy/export/types';
 
 describe('TASK-0015: DSAR HTML export generator (AC-2, AC-11)', () => {
@@ -161,5 +161,46 @@ describe('TASK-0015: DSAR HTML export generator (AC-2, AC-11)', () => {
     expect(escapeHtml(12345)).toBe('12345');
     expect(escapeHtml(true)).toBe('true');
     expect(escapeHtml(new Date('2026-01-01T00:00:00Z'))).toBe('2026-01-01T00:00:00.000Z');
+  });
+
+  it('I3-U01 (AC-11): ensures table-wrapper containers are keyboard focusable with tabindex="0", role="region", and aria-label', () => {
+    const html = generateHtmlExport(sampleExportData, 'en');
+
+    // Each non-empty category table has a keyboard-navigable scrollable wrapper
+    expect(html).toContain(
+      '<div class="table-wrapper" tabindex="0" role="region" aria-label="Client Profile">',
+    );
+    expect(html).toContain(
+      '<div class="table-wrapper" tabindex="0" role="region" aria-label="Timeline &amp; History">',
+    );
+    expect(html).toContain('.table-wrapper:focus');
+  });
+
+  it('I3-U04: formatColumnHeader formats snake_case, dot-notation, and acronyms into human-readable Title Case', () => {
+    expect(formatColumnHeader('display_name')).toBe('Display Name');
+    expect(formatColumnHeader('occurred_at')).toBe('Occurred At');
+    expect(formatColumnHeader('actor_type')).toBe('Actor Type');
+    expect(formatColumnHeader('client.created')).toBe('Client Created');
+    expect(formatColumnHeader('created_at')).toBe('Created At');
+    expect(formatColumnHeader('last_activity_at')).toBe('Last Activity At');
+    expect(formatColumnHeader('id')).toBe('ID');
+    expect(formatColumnHeader('ip_address')).toBe('IP Address');
+    expect(formatColumnHeader('')).toBe('');
+  });
+
+  it('I3-U04: generated HTML export renders Title Case column headers instead of raw database field identifiers', () => {
+    const html = generateHtmlExport(sampleExportData, 'en');
+
+    expect(html).toContain('<th scope="col">Display Name</th>');
+    expect(html).toContain('<th scope="col">Created At</th>');
+    expect(html).toContain('<th scope="col">Last Activity At</th>');
+    expect(html).toContain('<th scope="col">Postal Code</th>');
+    expect(html).toContain('<th scope="col">Occurred At</th>');
+    expect(html).toContain('<th scope="col">Actor Type</th>');
+
+    // Ensure raw snake_case identifiers are not rendered in headers
+    expect(html).not.toContain('<th scope="col">display_name</th>');
+    expect(html).not.toContain('<th scope="col">occurred_at</th>');
+    expect(html).not.toContain('<th scope="col">actor_type</th>');
   });
 });

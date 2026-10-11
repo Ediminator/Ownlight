@@ -28,6 +28,24 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Formats a raw database / schema column identifier (e.g. `display_name`, `client.created`, `occurred_at`)
+ * into a human-readable Title Case column header.
+ */
+export function formatColumnHeader(key: string): string {
+  if (!key) return '';
+  const acronyms = new Set(['id', 'ip', 'url', 'vat', 'gdpr', 'ccpa', 'dsar']);
+  return key
+    .replace(/[._]/g, ' ')
+    .split(' ')
+    .filter((word) => word.length > 0)
+    .map((word) => {
+      if (acronyms.has(word.toLowerCase())) return word.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+}
+
 const UI_STRINGS = {
   en: {
     docTitle: 'Personal Data Export (GDPR Art. 15 / CCPA)',
@@ -171,11 +189,11 @@ export function generateHtmlExport(data: ExportCollectedData, locale: 'en' | 'de
       );
 
       itemsTableHtml = `
-        <div class="table-wrapper">
+        <div class="table-wrapper" tabindex="0" role="region" aria-label="${escapeHtml(catTitle)}">
           <table class="data-table">
             <thead>
               <tr>
-                ${keys.map((k) => `<th scope="col">${escapeHtml(k)}</th>`).join('')}
+                ${keys.map((k) => `<th scope="col">${escapeHtml(formatColumnHeader(k))}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
@@ -351,6 +369,10 @@ export function generateHtmlExport(data: ExportCollectedData, locale: 'en' | 'de
       width: 100%;
       overflow-x: auto;
       margin-top: 0.75rem;
+    }
+    .table-wrapper:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 1px;
     }
     table.data-table {
       width: 100%;

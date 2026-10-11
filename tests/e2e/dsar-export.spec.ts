@@ -122,6 +122,9 @@ test.describe('TASK-0015: DSAR Data Export E2E (AC-9 to AC-12)', () => {
     await expect(dialogDe).toContainText('Druckbares Dokument (HTML)');
     await expect(dialogDe).toContainText('Maschinenlesbare Daten (JSON)');
 
+    // AC-10: Select German locale for export document
+    await page.selectOption('[data-testid="export-locale-select"]', 'de');
+
     // Trigger HTML download in German
     const [htmlDownload] = await Promise.all([
       page.waitForEvent('download'),

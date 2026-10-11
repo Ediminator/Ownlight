@@ -9,12 +9,20 @@ import {
   clearExportProviders,
   collectExportData,
 } from '@/server/privacy/export/registry';
+import {
+  registerCategoryDefinition,
+  getCategoryDefinition,
+  getAllCategoryDefinitions,
+  resetCategoryRegistry,
+} from '@/server/privacy/export/categories';
+import { generateHtmlExport } from '@/server/privacy/export/html';
 import type { ExportProvider } from '@/server/privacy/export/types';
 import type { DbClient } from '@/server/db/client';
 
 describe('TASK-0015: DSAR export provider registry', () => {
   beforeEach(() => {
     resetExportProviders();
+    resetCategoryRegistry();
   });
 
   it('provides all default providers out of the box', () => {
@@ -128,5 +136,158 @@ describe('TASK-0015: DSAR export provider registry', () => {
     ).toBeUndefined();
 
     expect(collected.categories.notes).toEqual([{ id: 'n1', body: 'Test note' }]);
+  });
+
+  it('handles missing contact and missing client branches in collectExportData', async () => {
+    // Missing contact
+    const mockTxNoContact = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => Promise.resolve([]),
+          }),
+        }),
+      }),
+    } as unknown as DbClient;
+
+    const resNoContact = await collectExportData('unknown-contact', mockTxNoContact);
+    expect(resNoContact).toBeNull();
+
+    // Contact exists but client does not
+    let count = 0;
+    const mockTxNoClient = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => {
+              count++;
+              if (count === 1) {
+                return Promise.resolve([
+                  {
+                    id: 'c1',
+                    clientId: 'b1',
+                    isPrimary: false,
+                    givenName: null,
+                    familyName: null,
+                    email: null,
+                    phone: null,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                  },
+                ]);
+              }
+              return Promise.resolve([]);
+            },
+          }),
+        }),
+      }),
+    } as unknown as DbClient;
+
+    const resNoClient = await collectExportData('c1', mockTxNoClient);
+    expect(resNoClient).toBeNull();
+  });
+
+  it('handles non-array provider collection and anonymous contact naming', async () => {
+    const contactRow = {
+      id: 'c-secondary',
+      clientId: 'b-company',
+      isPrimary: false,
+      givenName: null,
+      familyName: null,
+      email: null,
+      phone: null,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-02T00:00:00Z'),
+    };
+
+    const clientRow = {
+      id: 'b-company',
+      displayName: 'Acme Corp',
+      kind: 'company',
+      preferredLocale: 'de',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      lastActivityAt: new Date('2026-01-02T00:00:00Z'),
+    };
+
+    clearExportProviders();
+    // Provider returning single object instead of array
+    registerExportProvider({
+      id: 'single.item.provider',
+      category: 'client_relationship',
+      coveredTables: ['clients'],
+      collect: () => Promise.resolve({ item: 'value' }),
+    });
+
+    let qCount = 0;
+    const mockTx = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: () => {
+              qCount++;
+              if (qCount === 1) return Promise.resolve([contactRow]);
+              if (qCount === 2) return Promise.resolve([clientRow]);
+              return Promise.resolve([]);
+            },
+          }),
+          limit: () => Promise.resolve([{ studio_name: 'Studio Test' }]),
+        }),
+      }),
+    } as unknown as DbClient;
+
+    const res = await collectExportData('c-secondary', mockTx);
+    expect(res).not.toBeNull();
+    expect(res?.exportData.subject.role).toBe('secondary');
+    expect(res?.exportData.subject.display_name).toBe('Acme Corp');
+    expect(res?.exportData.categories.client_relationship).toEqual([{ item: 'value' }]);
+  });
+
+  it('supports category definitions registry extensions', () => {
+    const all = getAllCategoryDefinitions();
+    expect(all.length).toBeGreaterThan(0);
+
+    const notesDef = getCategoryDefinition('notes');
+    expect(notesDef).toBeDefined();
+    expect(notesDef?.id).toBe('notes');
+
+    // Register custom category definition
+    registerCategoryDefinition({
+      id: 'custom_files',
+      title: { en: 'Files', de: 'Dateien' },
+      purpose: { en: 'File storage', de: 'Dateispeicherung' },
+      lawfulBasis: { en: 'Art. 6(1)(b) GDPR', de: 'Art. 6 Abs. 1 lit. b DSGVO' },
+      retention: { en: '1 year', de: '1 Jahr' },
+      recipients: { en: 'None', de: 'Keine' },
+      source: { en: 'Direct', de: 'Direkt' },
+    });
+
+    expect(getCategoryDefinition('custom_files')).toBeDefined();
+    resetCategoryRegistry();
+    expect(getCategoryDefinition('custom_files')).toBeUndefined();
+  });
+
+  it('renders empty notice when category has 0 items in HTML generator', () => {
+    const exportData = {
+      schema: 'ownlight.dsar.v1' as const,
+      generated_at: new Date().toISOString(),
+      studio: { name: 'Test Studio' },
+      subject: {
+        id: 's1',
+        display_name: 'Empty Test',
+        first_name: null,
+        last_name: null,
+        email: null,
+        phone: null,
+        role: 'primary' as const,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      categories: {
+        notes: [], // empty category items
+      },
+    };
+
+    const html = generateHtmlExport(exportData, 'en');
+    expect(html).toContain('No records stored in this category.');
   });
 });

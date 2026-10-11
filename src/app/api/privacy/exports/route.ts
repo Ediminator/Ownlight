@@ -23,11 +23,13 @@ export const dynamic = 'force-dynamic';
  * - Strict input schema parsing
  * - Streaming response without server-side file persistence
  */
-export async function POST(
-  request: NextRequest,
-  options?: { client?: DbClient },
-): Promise<Response> {
-  const dbClient = options?.client ?? db;
+export interface ExportRouteContext {
+  params?: Promise<Record<string, string | string[]>>;
+  client?: DbClient;
+}
+
+export async function POST(request: NextRequest, context?: ExportRouteContext): Promise<Response> {
+  const dbClient = context?.client ?? db;
   // 1. Origin verification (reject cross-origin requests)
   const origin = request.headers.get('origin');
   if (origin) {

@@ -31,7 +31,7 @@ interface ExportDataDialogContentProps {
   onDownloadStarted?: () => void;
 }
 
-function ExportDataDialogInner({
+export function ExportDataDialogInner({
   contact,
   clientDisplayName,
   preferredLocale = 'en',

@@ -53,6 +53,7 @@ describe('Retention sweep branch coverage', () => {
       entity: 'test_entity',
       action: 'delete',
       batchSize: 10,
+      deleteBatch: vi.fn(),
       getCandidates: vi.fn().mockResolvedValue([{ id: 'row-1' }, { id: 'row-2' }]),
       eraseCandidate: vi.fn().mockImplementation(() => {
         controller.abort();
@@ -79,6 +80,7 @@ describe('Retention sweep branch coverage', () => {
       entity: 'test_entity',
       action: 'delete',
       batchSize: 10,
+      deleteBatch: vi.fn(),
       getCandidates: vi
         .fn()
         .mockResolvedValueOnce([
@@ -99,7 +101,10 @@ describe('Retention sweep branch coverage', () => {
           return Promise.resolve({ outcome: 'failed', error: 'Known failure' });
         if (id === 'c-failed-nostring') return Promise.resolve({ outcome: 'failed' });
         if (id === 'c-throw-error') return Promise.reject(new Error('Boom Error'));
-        if (id === 'c-throw-string') return Promise.reject('Boom String');
+        if (id === 'c-throw-string') {
+          // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- exercises non-Error exception branch String(err) in sweep runner
+          return Promise.reject('Boom String');
+        }
         return Promise.resolve({ outcome: 'deleted' });
       }),
     };

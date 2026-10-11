@@ -440,10 +440,7 @@ describe('TASK-0019: LegalHoldSection Component (AC-17, AC-18)', () => {
     expect(html).toContain('Indefinite / until manual release');
   });
 
-  it('executes handleToggleSwitch when switch is clicked (inactive vs active)', async () => {
-    const mockSetIsDialogOpen = vi.fn();
-    const mockSetIsReleaseConfirmOpen = vi.fn();
-
+  it('executes handleToggleSwitch when switch is clicked (inactive vs active)', () => {
     // 1. Inactive hold: toggle switch opens set dialog
     mockStateQueue = [
       null, // hold
@@ -564,7 +561,8 @@ describe('TASK-0019: LegalHoldSection Component (AC-17, AC-18)', () => {
 
     const form1 = findForm(tree1);
     expect(form1).toBeDefined();
-    await (form1?.onSubmit as (e: unknown) => Promise<void>)?.({ preventDefault: vi.fn() });
+    const submit1 = form1?.onSubmit as ((e: unknown) => Promise<void>) | undefined;
+    await submit1?.({ preventDefault: vi.fn() });
     expect(setLegalHoldAction).not.toHaveBeenCalled();
 
     // 2. Action error
@@ -601,7 +599,8 @@ describe('TASK-0019: LegalHoldSection Component (AC-17, AC-18)', () => {
     renderToStaticMarkup(<Wrapper2 />);
 
     const form2 = findForm(tree2);
-    await (form2?.onSubmit as (e: unknown) => Promise<void>)?.({ preventDefault: vi.fn() });
+    const submit2 = form2?.onSubmit as ((e: unknown) => Promise<void>) | undefined;
+    await submit2?.({ preventDefault: vi.fn() });
     expect(setLegalHoldAction).toHaveBeenCalled();
 
     // 3. Action rejects with Error (catch block)
@@ -622,7 +621,8 @@ describe('TASK-0019: LegalHoldSection Component (AC-17, AC-18)', () => {
     renderToStaticMarkup(<Wrapper3 />);
 
     const form3 = findForm(tree3);
-    await (form3?.onSubmit as (e: unknown) => Promise<void>)?.({ preventDefault: vi.fn() });
+    const submit3 = form3?.onSubmit as ((e: unknown) => Promise<void>) | undefined;
+    await submit3?.({ preventDefault: vi.fn() });
 
     // 4. Action error without error message (falls back to errorGeneric)
     vi.mocked(setLegalHoldAction).mockResolvedValueOnce({
@@ -646,7 +646,8 @@ describe('TASK-0019: LegalHoldSection Component (AC-17, AC-18)', () => {
     renderToStaticMarkup(<Wrapper4 />);
 
     const form4 = findForm(tree4);
-    await (form4?.onSubmit as (e: unknown) => Promise<void>)?.({ preventDefault: vi.fn() });
+    const submit4 = form4?.onSubmit as ((e: unknown) => Promise<void>) | undefined;
+    await submit4?.({ preventDefault: vi.fn() });
 
     // 5. Success for new hold
     const mockHoldResult = {
@@ -694,7 +695,8 @@ describe('TASK-0019: LegalHoldSection Component (AC-17, AC-18)', () => {
     renderToStaticMarkup(<Wrapper5 />);
 
     const form5 = findForm(tree5);
-    await (form5?.onSubmit as (e: unknown) => Promise<void>)?.({ preventDefault: vi.fn() });
+    const submit5 = form5?.onSubmit as ((e: unknown) => Promise<void>) | undefined;
+    await submit5?.({ preventDefault: vi.fn() });
     expect(onHoldChangeMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: mockHoldResult.id }),
       true,
@@ -745,7 +747,8 @@ describe('TASK-0019: LegalHoldSection Component (AC-17, AC-18)', () => {
     renderToStaticMarkup(<Wrapper6 />);
 
     const form6 = findForm(tree6);
-    await (form6?.onSubmit as (e: unknown) => Promise<void>)?.({ preventDefault: vi.fn() });
+    const submit6 = form6?.onSubmit as ((e: unknown) => Promise<void>) | undefined;
+    await submit6?.({ preventDefault: vi.fn() });
   });
 
   it('executes handleConfirmRelease with error, fallback error, exception, and success', async () => {

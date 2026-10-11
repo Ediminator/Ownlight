@@ -7,7 +7,7 @@ import enMessages from '@/../messages/en.json';
 import deMessages from '@/../messages/de.json';
 
 let mockStateQueue: unknown[] = [];
-let capturedEffects: Array<() => void | (() => void)> = [];
+let capturedEffects: (() => unknown)[] = [];
 
 vi.mock('react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react')>();
@@ -20,7 +20,7 @@ vi.mock('react', async (importOriginal) => {
       }
       return actual.useState(initial);
     },
-    useEffect: (cb: () => void | (() => void)) => {
+    useEffect: (cb: () => unknown) => {
       capturedEffects.push(cb);
     },
   };
@@ -932,7 +932,7 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
     });
     let effect = capturedEffects.shift();
     expect(effect).toBeDefined();
-    let cleanup = effect?.();
+    effect?.();
     await new Promise((r) => setTimeout(r, 10));
     expect(mockPlanErasureAction).toHaveBeenCalled();
 
@@ -952,7 +952,7 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
       onOpenChange: vi.fn(),
     });
     effect = capturedEffects.shift();
-    cleanup = effect?.();
+    effect?.();
     await new Promise((r) => setTimeout(r, 10));
 
     // 3. Error code NOT_FOUND
@@ -966,7 +966,7 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
       onOpenChange: vi.fn(),
     });
     effect = capturedEffects.shift();
-    cleanup = effect?.();
+    effect?.();
     await new Promise((r) => setTimeout(r, 10));
 
     // 4. Generic error code
@@ -980,7 +980,7 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
       onOpenChange: vi.fn(),
     });
     effect = capturedEffects.shift();
-    cleanup = effect?.();
+    effect?.();
     await new Promise((r) => setTimeout(r, 10));
 
     // 5. Thrown exception (network error)
@@ -991,20 +991,18 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
       onOpenChange: vi.fn(),
     });
     effect = capturedEffects.shift();
-    cleanup = effect?.();
+    effect?.();
     await new Promise((r) => setTimeout(r, 10));
 
     // 6. Cancellation before resolution
     mockPlanErasureAction.mockReturnValueOnce(
       new Promise((resolve) => {
-        setTimeout(
-          () =>
-            resolve({
-              success: true,
-              plan: { categoryCounts: {}, holds: [], notesMayMentionPerson: false },
-            }),
-          50,
-        );
+        setTimeout(() => {
+          resolve({
+            success: true,
+            plan: { categoryCounts: {}, holds: [], notesMayMentionPerson: false },
+          });
+        }, 50);
       }),
     );
     renderInner({
@@ -1013,15 +1011,16 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
       onOpenChange: vi.fn(),
     });
     effect = capturedEffects.shift();
-    cleanup = effect?.();
-    // Cancel immediately before promise resolves
-    if (typeof cleanup === 'function') cleanup();
+    const cleanup6 = effect?.() as (() => void) | undefined;
+    cleanup6?.();
     await new Promise((r) => setTimeout(r, 70));
 
     // 7. Cancellation before rejection
     mockPlanErasureAction.mockReturnValueOnce(
       new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Delayed crash')), 50);
+        setTimeout(() => {
+          reject(new Error('Delayed crash'));
+        }, 50);
       }),
     );
     renderInner({
@@ -1030,9 +1029,8 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
       onOpenChange: vi.fn(),
     });
     effect = capturedEffects.shift();
-    cleanup = effect?.();
-    // Cancel immediately before promise rejects
-    if (typeof cleanup === 'function') cleanup();
+    const cleanup7 = effect?.() as (() => void) | undefined;
+    cleanup7?.();
     await new Promise((r) => setTimeout(r, 70));
   });
 
@@ -1054,9 +1052,9 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
     renderToStaticMarkup(<Wrapper1 />);
     const contentNode1 = findNodeByTestId(tree, 'erasure-dialog');
     const preventDefault1 = vi.fn();
-    (
-      contentNode1?.props as { onCloseAutoFocus?: (e: { preventDefault: () => void }) => void }
-    )?.onCloseAutoFocus?.({
+    const props1 = contentNode1?.props as
+      { onCloseAutoFocus?: (e: { preventDefault: () => void }) => void } | undefined;
+    props1?.onCloseAutoFocus?.({
       preventDefault: preventDefault1,
     });
     expect(preventDefault1).toHaveBeenCalled();
@@ -1077,9 +1075,9 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
     renderToStaticMarkup(<Wrapper2 />);
     const contentNode2 = findNodeByTestId(tree, 'erasure-dialog');
     const preventDefault2 = vi.fn();
-    (
-      contentNode2?.props as { onCloseAutoFocus?: (e: { preventDefault: () => void }) => void }
-    )?.onCloseAutoFocus?.({
+    const props2 = contentNode2?.props as
+      { onCloseAutoFocus?: (e: { preventDefault: () => void }) => void } | undefined;
+    props2?.onCloseAutoFocus?.({
       preventDefault: preventDefault2,
     });
     expect(preventDefault2).not.toHaveBeenCalled();
@@ -1097,9 +1095,9 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
     renderToStaticMarkup(<Wrapper3 />);
     const contentNode3 = findNodeByTestId(tree, 'erasure-dialog');
     const preventDefault3 = vi.fn();
-    (
-      contentNode3?.props as { onCloseAutoFocus?: (e: { preventDefault: () => void }) => void }
-    )?.onCloseAutoFocus?.({
+    const props3 = contentNode3?.props as
+      { onCloseAutoFocus?: (e: { preventDefault: () => void }) => void } | undefined;
+    props3?.onCloseAutoFocus?.({
       preventDefault: preventDefault3,
     });
     expect(preventDefault3).not.toHaveBeenCalled();

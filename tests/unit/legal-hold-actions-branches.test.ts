@@ -96,7 +96,7 @@ vi.mock('@/server/db/client', () => ({
 let mockIsUpdate = false;
 vi.mock('@/server/clients/legal-hold-repo', () => ({
   getLegalHold: () => Promise.resolve(mockExistingHold),
-  upsertLegalHold: (_data: unknown) =>
+  upsertLegalHold: () =>
     Promise.resolve({
       hold: {
         id: '018f0000-0000-7000-8000-000000000099',
@@ -116,7 +116,7 @@ vi.mock('@/server/clients/legal-hold-repo', () => ({
 
 const mockAuditFn = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/server/audit', () => ({
-  audit: (...args: unknown[]) => mockAuditFn(...args),
+  audit: (...args: unknown[]): Promise<void> => mockAuditFn(...args) as Promise<void>,
 }));
 
 import {

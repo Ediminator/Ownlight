@@ -6,6 +6,7 @@ let mockExecuteThrows: unknown = null;
 vi.mock('@/server/retention/runner', () => ({
   executeRetentionSweep: vi.fn().mockImplementation(() => {
     if (mockExecuteThrows) {
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- deliberately mocking both Error and non-Error rejections
       return Promise.reject(mockExecuteThrows);
     }
     return Promise.resolve({
@@ -96,7 +97,7 @@ describe('Retention CLI argument parsing and build unit tests', () => {
   });
 
   it('runCli executes sweep and exits with code 0 on success', async () => {
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((_code) => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
       return undefined as never;
     });
 

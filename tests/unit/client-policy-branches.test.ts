@@ -11,12 +11,58 @@ const mockAuditFn = vi.fn().mockImplementation(() => {
 });
 
 vi.mock('@/server/audit', () => ({
-  audit: (...args: unknown[]) => mockAuditFn(...args),
+  audit: (...args: unknown[]): Promise<void> => mockAuditFn(...args) as Promise<void>,
 }));
 
 import { authorizeClientRead, authorizeClientWrite } from '@/server/clients/policy';
 import { ForbiddenError, type AuthContext } from '@/server/auth/guards';
 import type { DbClient } from '@/server/db/client';
+
+type ApiKeyType = NonNullable<AuthContext['apiKey']>;
+
+function createMockUser(role: 'owner' | 'member' = 'owner') {
+  return {
+    id: 'u1',
+    name: role === 'owner' ? 'Owner' : 'Member',
+    email: `${role}@example.com`,
+    emailVerified: true,
+    image: null,
+    role,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+function createMockSession() {
+  return {
+    id: 's1',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    expiresAt: new Date(),
+    token: 'token-s1',
+    ipAddress: null,
+    userAgent: null,
+    userId: 'u1',
+    lastReauthenticatedAt: new Date(),
+  };
+}
+
+function createMockApiKey(overrides: Partial<ApiKeyType> = {}): ApiKeyType {
+  return {
+    id: 'k1',
+    prefix: 'ownlight_live_k1',
+    tokenHash: 'mock-token-hash',
+    name: 'Test Key',
+    scopes: ['clients:read'],
+    userId: 'u1',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastUsedAt: null,
+    expiresAt: null,
+    revokedAt: null,
+    ...overrides,
+  };
+}
 
 describe('src/server/clients/policy branch coverage', () => {
   const mockDbClient = {} as DbClient;
@@ -29,10 +75,10 @@ describe('src/server/clients/policy branch coverage', () => {
   describe('authorizeClientRead', () => {
     it('throws ForbiddenError when role is not owner', async () => {
       const nonOwnerContext: AuthContext = {
-        user: { id: 'u1', name: 'Member', email: 'member@example.com', role: 'member' },
+        user: createMockUser('member'),
         scopes: ['*'],
         authType: 'session',
-        session: { id: 's1' },
+        session: createMockSession(),
       };
 
       await expect(authorizeClientRead(nonOwnerContext)).rejects.toThrow(
@@ -42,10 +88,10 @@ describe('src/server/clients/policy branch coverage', () => {
 
     it('throws ForbiddenError when scopes lack both * and clients:read', async () => {
       const noScopeContext: AuthContext = {
-        user: { id: 'u1', name: 'Owner', email: 'owner@example.com', role: 'owner' },
+        user: createMockUser('owner'),
         scopes: ['settings:read'],
         authType: 'apiKey',
-        apiKey: { id: 'k1', prefix: 'ownlight_live_k1' },
+        apiKey: createMockApiKey({ scopes: ['settings:read'] }),
       };
 
       await expect(authorizeClientRead(noScopeContext)).rejects.toThrow(
@@ -55,10 +101,10 @@ describe('src/server/clients/policy branch coverage', () => {
 
     it('returns context when owner has clients:read scope', async () => {
       const readScopeContext: AuthContext = {
-        user: { id: 'u1', name: 'Owner', email: 'owner@example.com', role: 'owner' },
+        user: createMockUser('owner'),
         scopes: ['clients:read'],
         authType: 'apiKey',
-        apiKey: { id: 'k1', prefix: 'ownlight_live_k1' },
+        apiKey: createMockApiKey({ scopes: ['clients:read'] }),
       };
 
       const res = await authorizeClientRead(readScopeContext);
@@ -69,10 +115,10 @@ describe('src/server/clients/policy branch coverage', () => {
   describe('authorizeClientWrite', () => {
     it('throws ForbiddenError and audits denied event for non-owner role', async () => {
       const nonOwnerContext: AuthContext = {
-        user: { id: 'u1', name: 'Member', email: 'member@example.com', role: 'member' },
+        user: createMockUser('member'),
         scopes: ['*'],
         authType: 'session',
-        session: { id: 's1' },
+        session: createMockSession(),
       };
 
       await expect(
@@ -92,10 +138,10 @@ describe('src/server/clients/policy branch coverage', () => {
 
     it('throws ForbiddenError and audits with token actor when apiKey lacks clients:write scope', async () => {
       const apiKeyContext: AuthContext = {
-        user: { id: 'u1', name: 'Owner', email: 'owner@example.com', role: 'owner' },
+        user: createMockUser('owner'),
         scopes: ['clients:read'],
         authType: 'apiKey',
-        apiKey: { id: 'k1', prefix: 'ownlight_live_k1' },
+        apiKey: createMockApiKey({ scopes: ['clients:read'] }),
       };
 
       await expect(
@@ -118,10 +164,13 @@ describe('src/server/clients/policy branch coverage', () => {
 
     it('falls back to apiKey prefix when apiKey.id is missing', async () => {
       const apiKeyPrefixContext: AuthContext = {
-        user: { id: 'u1', name: 'Owner', email: 'owner@example.com', role: 'owner' },
+        user: createMockUser('owner'),
         scopes: ['clients:read'],
         authType: 'apiKey',
-        apiKey: { id: undefined as unknown as string, prefix: 'ownlight_live_pref' },
+        apiKey: createMockApiKey({
+          id: undefined as unknown as string,
+          prefix: 'ownlight_live_pref',
+        }),
       };
 
       await expect(
@@ -140,10 +189,10 @@ describe('src/server/clients/policy branch coverage', () => {
     it('gracefully catches audit errors during authorization denial without masking ForbiddenError', async () => {
       mockAuditThrows = true;
       const nonOwnerContext: AuthContext = {
-        user: { id: 'u1', name: 'Member', email: 'member@example.com', role: 'member' },
+        user: createMockUser('member'),
         scopes: ['*'],
         authType: 'session',
-        session: { id: 's1' },
+        session: createMockSession(),
       };
 
       await expect(
@@ -153,10 +202,10 @@ describe('src/server/clients/policy branch coverage', () => {
 
     it('returns context when owner has clients:write scope', async () => {
       const writeScopeContext: AuthContext = {
-        user: { id: 'u1', name: 'Owner', email: 'owner@example.com', role: 'owner' },
+        user: createMockUser('owner'),
         scopes: ['clients:write'],
         authType: 'apiKey',
-        apiKey: { id: 'k1', prefix: 'ownlight_live_k1' },
+        apiKey: createMockApiKey({ scopes: ['clients:write'] }),
       };
 
       const res = await authorizeClientWrite(

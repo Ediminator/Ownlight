@@ -494,7 +494,7 @@ export function ClientProfile({
                             setErasureContactName(fullName);
                             setErasureDialogOpen(true);
                           }}
-                          className="rounded p-1.5 text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
+                          className="rounded p-1.5 text-red-700 dark:text-red-400 hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px] min-w-[32px] flex items-center justify-center"
                           data-testid={`erase-contact-btn-${contact.id}`}
                           aria-label={`${t('erasePerson')}: ${fullName}`}
                           title={t('erasePerson')}
@@ -701,7 +701,10 @@ export function ClientProfile({
         data-testid="danger-zone-section"
       >
         <div className="border-b border-destructive/20 pb-3">
-          <h2 id="danger-zone-heading" className="text-lg font-semibold text-destructive">
+          <h2
+            id="danger-zone-heading"
+            className="text-lg font-semibold text-red-700 dark:text-red-400"
+          >
             {tDanger('title')}
           </h2>
           <p className="text-sm text-muted-foreground mt-1">{tDanger('description')}</p>

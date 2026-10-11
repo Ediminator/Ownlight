@@ -186,9 +186,9 @@ test.describe('TASK-0016: Erasure with retention-lock awareness E2E (AC-10 to AC
     await expect(notesWarning).toBeVisible();
     await expect(notesWarning).toContainText('Review client notes');
 
-    // Confirmation input asks for the contact's name
+    // Confirmation input asks for the client's display name per contract
     const confirmInput = page.locator('[data-testid="erasure-confirmation-input"]');
-    await confirmInput.fill('Partner Person');
+    await confirmInput.fill(clientName);
 
     const submitBtn = page.locator('[data-testid="erasure-submit-btn"]');
     await expect(submitBtn).toBeEnabled();
@@ -222,6 +222,8 @@ test.describe('TASK-0016: Erasure with retention-lock awareness E2E (AC-10 to AC
     await page.click('[data-testid="delete-client-btn"]');
     const dialog = page.locator('[data-testid="erasure-dialog"]');
     await expect(dialog).toBeVisible();
+    // Allow Radix open transition to settle before color contrast analysis
+    await page.waitForTimeout(300);
 
     // Audit erasure dialog
     const dialogScan = await new AxeBuilder({ page })
@@ -316,6 +318,7 @@ test.describe('TASK-0016: Erasure with retention-lock awareness E2E (AC-10 to AC
       // Open dialog and capture dialog screenshot
       await page.click('[data-testid="delete-client-btn"]');
       await expect(page.locator('[data-testid="erasure-dialog"]')).toBeVisible();
+      await page.waitForTimeout(300);
 
       const dialogPath = path.join(UX_RUN_DIR, `erasure-dialog-${bp.name}.png`);
       await page.screenshot({ path: dialogPath, fullPage: false });

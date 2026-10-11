@@ -200,11 +200,14 @@ export function ErasureDialogInner({
       }}
     >
       <DialogHeader>
-        <DialogTitle className="text-lg sm:text-xl font-semibold text-destructive flex items-center gap-2">
+        <DialogTitle className="text-lg sm:text-xl font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
           {isClientErasure ? (
-            <Trash2 className="h-5 w-5 text-destructive shrink-0" aria-hidden="true" />
+            <Trash2
+              className="h-5 w-5 text-red-700 dark:text-red-400 shrink-0"
+              aria-hidden="true"
+            />
           ) : (
-            <UserX className="h-5 w-5 text-destructive shrink-0" aria-hidden="true" />
+            <UserX className="h-5 w-5 text-red-700 dark:text-red-400 shrink-0" aria-hidden="true" />
           )}
           <span>{isClientErasure ? t('titleClient') : t('titleContact')}</span>
         </DialogTitle>
@@ -218,7 +221,7 @@ export function ErasureDialogInner({
       {error && (
         <div
           role="alert"
-          className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive font-medium flex items-center gap-2"
+          className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive dark:text-red-300 font-medium flex items-center gap-2"
           data-testid="erasure-error"
         >
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />

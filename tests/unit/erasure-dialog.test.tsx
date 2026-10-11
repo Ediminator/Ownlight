@@ -741,7 +741,7 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
       false, // isSubmitting
       null, // error
       true, // reauthRequired
-      'secret-password', // password
+      'fake-test-pw', // password
       false, // isReauthenticating
     ];
 
@@ -778,7 +778,7 @@ describe('TASK-0016: ErasureDialog component (AC-1, AC-3, AC-4, AC-10, AC-11, AC
     const preventDefault = vi.fn();
     await formNode?.onSubmit?.({ preventDefault });
     await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(mockReauthenticateAction).toHaveBeenCalledWith({ password: 'secret-password' });
+    expect(mockReauthenticateAction).toHaveBeenCalledWith({ password: 'fake-test-pw' });
 
     // Reauth success -> triggers executeErasure
     mockReauthenticateAction.mockResolvedValueOnce({

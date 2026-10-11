@@ -532,7 +532,7 @@ describe('TASK-0015: ExportDataDialog component (AC-9, AC-10, AC-11, AC-12)', ()
       false, // isSubmitting
       null, // error
       true, // reauthRequired
-      'valid-password', // password
+      'fake-pw', // password
       false, // isReauthenticating
     ];
 
@@ -588,7 +588,7 @@ describe('TASK-0015: ExportDataDialog component (AC-9, AC-10, AC-11, AC-12)', ()
     expect(formNode).toBeDefined();
     const preventDefault = vi.fn();
     await formNode?.onSubmit?.({ preventDefault });
-    expect(mockReauthenticateAction).toHaveBeenCalledWith({ password: 'valid-password' });
+    expect(mockReauthenticateAction).toHaveBeenCalledWith({ password: 'fake-pw' });
 
     // Submit reauth success
     mockReauthenticateAction.mockResolvedValueOnce({

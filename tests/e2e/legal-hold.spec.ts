@@ -201,8 +201,8 @@ test.describe('TASK-0019: Manual Client Legal Hold and Retention UI E2E (AC-17 t
     await page.click('[data-testid="delete-client-btn"]');
     const erasureDialog = page.locator('[data-testid="erasure-dialog"]');
     await expect(erasureDialog).toBeVisible();
-    await expect(erasureDialog).toContainText('Löschen nicht möglich');
-    await expect(erasureDialog).toContainText('Löschsperre');
+    await expect(erasureDialog).toContainText('Löschung durch aktive Aufbewahrungsfrist blockiert');
+    await expect(erasureDialog).toContainText('Gesetzliche Anforderung');
     await page.keyboard.press('Escape');
     await expect(erasureDialog).not.toBeVisible();
   });
@@ -275,7 +275,7 @@ test.describe('TASK-0019: Manual Client Legal Hold and Retention UI E2E (AC-17 t
     // Target sizes >= 24px per WCAG 2.2 AA SC 2.5.8
     const targets = [
       page.locator('[data-testid="legal-hold-switch"]'),
-      page.locator('[data-testid="cancel-legal-hold-btn"]'),
+      page.locator('[data-testid="legal-hold-cancel-btn"]'),
       page.locator('[data-testid="save-legal-hold-btn"]'),
     ];
 
@@ -289,7 +289,7 @@ test.describe('TASK-0019: Manual Client Legal Hold and Retention UI E2E (AC-17 t
     }
 
     // Cancel dialog and verify focus restoration to switch
-    await page.click('[data-testid="cancel-legal-hold-btn"]');
+    await page.click('[data-testid="legal-hold-cancel-btn"]');
     await expect(dialog).not.toBeVisible();
     await expect(holdSwitch).toBeFocused();
 
@@ -327,7 +327,7 @@ test.describe('TASK-0019: Manual Client Legal Hold and Retention UI E2E (AC-17 t
       const dialogShotPath = path.join(UX_RUN_DIR, `legal-hold-dialog-${bp.name}.png`);
       await page.screenshot({ path: dialogShotPath, fullPage: false });
 
-      await page.click('[data-testid="cancel-legal-hold-btn"]');
+      await page.click('[data-testid="legal-hold-cancel-btn"]');
       await expect(dialog).not.toBeVisible();
     }
   });

@@ -26,7 +26,11 @@ vi.mock('next/headers', () => ({
     }),
 }));
 import { createIsolatedTestDatabase, type TestDatabaseInstance } from '../helpers/db-test-helper';
-import { setLegalHoldAction, releaseLegalHoldAction } from '@/server/clients/legal-hold-actions';
+import {
+  setLegalHoldAction,
+  releaseLegalHoldAction,
+  getLegalHoldAction,
+} from '@/server/clients/legal-hold-actions';
 import { executeErasureAction } from '@/server/privacy/erasure/actions';
 import { getClient, getClientList } from '@/server/clients/service';
 import { listTimeline } from '@/server/timeline/service';
@@ -559,5 +563,95 @@ describe('TASK-0019: Manual Client Legal Hold Integration (AC-1 to AC-7, AC-14 t
     expect(record.until).toBe('2029-01-01');
     expect(record.created_at).toBeDefined();
     expect(record.updated_at).toBeDefined();
+  });
+
+  it('getLegalHoldAction reads hold with session and rejects unauthenticated or API key', async () => {
+    const clientId = '018f0000-0000-7000-8000-000000000085';
+
+    await dbClient.insert(clients).values({
+      id: clientId,
+      displayName: 'Hold Getter Client',
+      kind: 'person',
+      preferredLocale: 'en',
+      createdAt: new Date('2026-01-10T10:00:00Z'),
+      lastActivityAt: new Date('2026-01-10T10:00:00Z'),
+    });
+
+    await setLegalHoldAction({
+      clientId,
+      reason: 'statutory',
+      note: 'Tax audit documentation hold',
+      until: '2029-01-01',
+    });
+
+    // 1. Success with active session
+    const getRes = await getLegalHoldAction(clientId);
+    expect(getRes.success).toBe(true);
+    if (getRes.success) {
+      expect(getRes.hold?.reason).toBe('statutory');
+    }
+
+    // 2. Reject API key
+    mockHeadersStore.set('authorization', 'Bearer ownlight_live_test');
+    const apiRes = await getLegalHoldAction(clientId);
+    expect(apiRes.success).toBe(false);
+    expect(apiRes.error).toBe('API keys are not permitted for legal hold actions.');
+
+    // 3. Reject unauthenticated (no session cookie)
+    mockHeadersStore.clear();
+    mockCookiesStore.clear();
+    const unauthRes = await getLegalHoldAction(clientId);
+    expect(unauthRes.success).toBe(false);
+    expect(unauthRes.error).toBe('Authentication required.');
+
+    // Restore session
+    mockCookiesStore.set(SESSION_COOKIE_NAME, sessionToken);
+  });
+
+  it('setLegalHoldAction and releaseLegalHoldAction handle NOT_FOUND and invalid calendar date branches', async () => {
+    const nonExistentClientId = '018f0000-0000-7000-8000-000000000099';
+
+    // setLegalHoldAction with invalid calendar date (e.g. month 13)
+    const invalidDateRes = await setLegalHoldAction({
+      clientId: nonExistentClientId,
+      reason: 'dispute',
+      until: '2028-13-45',
+    });
+    expect(invalidDateRes.success).toBe(false);
+    expect(invalidDateRes.code).toBe('VALIDATION_FAILED');
+
+    // setLegalHoldAction when client doesn't exist
+    const clientNotFoundRes = await setLegalHoldAction({
+      clientId: nonExistentClientId,
+      reason: 'dispute',
+      until: '2028-12-31',
+    });
+    expect(clientNotFoundRes.success).toBe(false);
+    expect(clientNotFoundRes.code).toBe('NOT_FOUND');
+
+    // releaseLegalHoldAction when client doesn't exist
+    const releaseClientNotFound = await releaseLegalHoldAction({
+      clientId: nonExistentClientId,
+    });
+    expect(releaseClientNotFound.success).toBe(false);
+    expect(releaseClientNotFound.code).toBe('NOT_FOUND');
+
+    // releaseLegalHoldAction when client exists but has no hold
+    const clientNoHoldId = '018f0000-0000-7000-8000-000000000098';
+    await dbClient.insert(clients).values({
+      id: clientNoHoldId,
+      displayName: 'No Hold Client',
+      kind: 'person',
+      preferredLocale: 'en',
+      createdAt: new Date('2026-01-10T10:00:00Z'),
+      lastActivityAt: new Date('2026-01-10T10:00:00Z'),
+    });
+
+    const releaseHoldNotFound = await releaseLegalHoldAction({
+      clientId: clientNoHoldId,
+    });
+    expect(releaseHoldNotFound.success).toBe(false);
+    expect(releaseHoldNotFound.code).toBe('NOT_FOUND');
+    expect(releaseHoldNotFound.error).toBe('Legal hold not found.');
   });
 });

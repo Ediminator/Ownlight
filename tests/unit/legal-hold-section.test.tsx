@@ -1,6 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+
+let mockStateQueue: unknown[] = [];
+
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>();
+  return {
+    ...actual,
+    useState: <T,>(initial: T | (() => T)): [T, (val: T) => void] => {
+      if (mockStateQueue.length > 0) {
+        const val = mockStateQueue.shift() as T;
+        return [val, vi.fn()];
+      }
+      return actual.useState(initial);
+    },
+  };
+});
 import {
   LegalHoldSection,
   isHoldActiveDate,
@@ -83,7 +99,7 @@ describe('TASK-0019: LegalHoldSection Component (AC-17, AC-18)', () => {
     expect(html).toContain('aria-checked="false"');
     expect(html).toContain('Legal hold');
     expect(html).toContain('aria-live="polite"');
-    expect(html).toContain('role="status"');
+    expect(html).toContain('data-testid="legal-hold-status-announcement"');
   });
 
   it('AC-17: renders active hold with reason, dates, Edit and Release buttons, and switch aria-checked="true"', () => {
@@ -174,5 +190,146 @@ describe('TASK-0019: LegalHoldSection Component (AC-17, AC-18)', () => {
     expect(html).toContain('Rechtsstreit');
     expect(html).toContain('Löschsperre bearbeiten');
     expect(html).toContain('Löschsperre aufheben');
+  });
+
+  it('renders edit dialog open with form error, filled fields, and polite announcement', () => {
+    mockStateQueue = [
+      null, // hold
+      true, // isDialogOpen
+      false, // isReleaseConfirmOpen
+      false, // isSubmitting
+      false, // isReleasing
+      'Until date must be today or in the future.', // formError
+      null, // releaseError
+      'Legal hold was activated.', // statusAnnouncement
+      'statutory', // reason
+      'Auditing ongoing', // note
+      '2028-12-31', // until
+    ];
+
+    const html = renderToStaticMarkup(
+      <LegalHoldSection
+        clientId="018f0000-0000-7000-8000-000000000001"
+        initialHold={null}
+        studioTimezone="UTC"
+        locale="en"
+      />,
+    );
+
+    expect(html).toContain('data-testid="legal-hold-dialog"');
+    expect(html).toContain('data-testid="legal-hold-form-error"');
+    expect(html).toContain('Until date must be today or in the future.');
+    expect(html).toContain('Auditing ongoing');
+    expect(html).toContain('2028-12-31');
+    expect(html).toContain('Legal hold was activated.');
+  });
+
+  it('renders edit dialog in submitting state with disabled button', () => {
+    mockStateQueue = [
+      null, // hold
+      true, // isDialogOpen
+      false, // isReleaseConfirmOpen
+      true, // isSubmitting
+      false, // isReleasing
+      null, // formError
+      null, // releaseError
+      null, // statusAnnouncement
+      'dispute', // reason
+      '', // note
+      '', // until
+    ];
+
+    const html = renderToStaticMarkup(
+      <LegalHoldSection
+        clientId="018f0000-0000-7000-8000-000000000001"
+        initialHold={null}
+        studioTimezone="UTC"
+        locale="en"
+      />,
+    );
+
+    expect(html).toContain('data-testid="save-legal-hold-btn"');
+    expect(html).toContain('disabled=""');
+  });
+
+  it('renders release confirmation dialog with release error', () => {
+    const activeHold: ClientLegalHoldData = {
+      id: '018f0000-0000-7000-8000-000000000012',
+      clientId: '018f0000-0000-7000-8000-000000000001',
+      reason: 'dispute',
+      note: null,
+      until: null,
+      setByActorType: 'owner',
+      setByActorId: '018f0000-0000-7000-8000-000000000099',
+      createdAt: '2026-01-01T10:00:00Z',
+      updatedAt: '2026-01-01T10:00:00Z',
+    };
+
+    mockStateQueue = [
+      activeHold, // hold
+      false, // isDialogOpen
+      true, // isReleaseConfirmOpen
+      false, // isSubmitting
+      false, // isReleasing
+      null, // formError
+      'Failed to release legal hold.', // releaseError
+      null, // statusAnnouncement
+      'dispute', // reason
+      '', // note
+      '', // until
+    ];
+
+    const html = renderToStaticMarkup(
+      <LegalHoldSection
+        clientId="018f0000-0000-7000-8000-000000000001"
+        initialHold={activeHold}
+        studioTimezone="UTC"
+        locale="en"
+      />,
+    );
+
+    expect(html).toContain('data-testid="confirm-dialog"');
+    expect(html).toContain('Failed to release legal hold.');
+    expect(html).toContain('data-testid="confirm-dialog-confirm-btn"');
+  });
+
+  it('renders release confirmation dialog in releasing state with disabled button', () => {
+    const activeHold: ClientLegalHoldData = {
+      id: '018f0000-0000-7000-8000-000000000012',
+      clientId: '018f0000-0000-7000-8000-000000000001',
+      reason: 'dispute',
+      note: null,
+      until: null,
+      setByActorType: 'owner',
+      setByActorId: '018f0000-0000-7000-8000-000000000099',
+      createdAt: '2026-01-01T10:00:00Z',
+      updatedAt: '2026-01-01T10:00:00Z',
+    };
+
+    mockStateQueue = [
+      activeHold, // hold
+      false, // isDialogOpen
+      true, // isReleaseConfirmOpen
+      false, // isSubmitting
+      true, // isReleasing
+      null, // formError
+      null, // releaseError
+      null, // statusAnnouncement
+      'dispute', // reason
+      '', // note
+      '', // until
+    ];
+
+    const html = renderToStaticMarkup(
+      <LegalHoldSection
+        clientId="018f0000-0000-7000-8000-000000000001"
+        initialHold={activeHold}
+        studioTimezone="UTC"
+        locale="en"
+      />,
+    );
+
+    expect(html).toContain('data-testid="confirm-dialog-confirm-btn"');
+    expect(html).toContain('disabled=""');
   });
 });

@@ -1,4 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+vi.mock('@/server/privacy/erasure/service', () => ({
+  eraseSubject: vi.fn().mockResolvedValue({ success: true }),
+}));
 import {
   computeCutoff,
   defineRetentionPolicy,
@@ -6,6 +11,7 @@ import {
   registerPolicy,
   getPolicies,
   resetPolicies,
+  getClientRetentionMonths,
 } from '@/server/retention/policy';
 import type { DbClient } from '@/server/db/client';
 
@@ -167,6 +173,25 @@ describe('Retention policy utility and definition branches', () => {
       // Deletes timeline events and consent records (2 calls)
       expect(deletedCount).toBe(5);
     }
+
+    if (inactiveClientsPolicy) {
+      if (inactiveClientsPolicy.legalHold) {
+        const holdNoTx = await inactiveClientsPolicy.legalHold(
+          { id: 'c-1', lastActivityAt: now },
+          undefined,
+        );
+        expect(holdNoTx).toBe(false);
+
+        const holdWithTx = await inactiveClientsPolicy.legalHold(
+          { id: 'c-1', lastActivityAt: now },
+          mockClient,
+        );
+        expect(typeof holdWithTx).toBe('boolean');
+      }
+
+      await inactiveClientsPolicy.deleteBatch(mockClient, []);
+      await inactiveClientsPolicy.deleteBatch(mockClient, ['c-1']);
+    }
   });
 
   it('manages policy registry via registerPolicy, getPolicies, and resetPolicies', () => {
@@ -197,5 +222,11 @@ describe('Retention policy utility and definition branches', () => {
     const auditPolicy = policies.find((p) => p.id === 'audit-events-retention');
     expect(auditPolicy).toBeDefined();
     expect(auditPolicy?.after?.months).toBe(24);
+  });
+
+  it('getClientRetentionMonths returns positive integer (default 36 or env value)', () => {
+    const months = getClientRetentionMonths();
+    expect(typeof months).toBe('number');
+    expect(months).toBeGreaterThan(0);
   });
 });

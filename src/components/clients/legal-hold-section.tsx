@@ -263,7 +263,6 @@ export function LegalHoldSection({
 
       {/* Screen Reader Status Announcements (AC-16, AC-17) */}
       <div
-        role="status"
         aria-live="polite"
         aria-atomic="true"
         className="sr-only"

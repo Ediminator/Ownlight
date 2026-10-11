@@ -20,12 +20,13 @@ vi.mock('react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react')>();
   return {
     ...actual,
-    useState: <T,>(initial: T): [T, (val: T) => void] => {
+    useState: <T,>(initial: T | (() => T)): [T, (val: T) => void] => {
       if (mockStateQueue.length > 0) {
         const val = mockStateQueue.shift() as T;
         return [val, vi.fn()];
       }
-      return [initial, vi.fn()];
+      const resolved = typeof initial === 'function' ? (initial as () => T)() : initial;
+      return [resolved, vi.fn()];
     },
     useRef: <T,>(initial: T) => ({ current: (initial ?? { focus: vi.fn() }) as unknown as T }),
     useEffect: (fn: () => unknown) => {

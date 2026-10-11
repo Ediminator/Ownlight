@@ -3,8 +3,10 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import path from 'node:path';
-import { executeRetentionSweep } from '../../scripts/retention-sweep.mjs';
-import { BackgroundWorker } from '../../scripts/worker.mjs';
+import * as schema from '@/server/db/schema';
+import { executeRetentionSweep } from '@/server/retention/runner';
+import { BackgroundWorker } from '@/server/retention/worker';
+import type { DbClient } from '@/server/db/client';
 
 vi.mock('server-only', () => ({}));
 
@@ -15,8 +17,8 @@ describe('Retention CLI & Worker scripts integration', () => {
   it('executeRetentionSweep respects dryRun option and reports per-policy stats', async () => {
     const client = new PGlite();
     try {
-      const db = drizzle(client);
-      await migrate(db, { migrationsFolder: drizzleDir });
+      const db = drizzle(client, { schema }) as unknown as DbClient;
+      await migrate(drizzle(client), { migrationsFolder: drizzleDir });
 
       const now = new Date('2026-10-10T12:00:00.000Z');
 
@@ -66,8 +68,8 @@ describe('Retention CLI & Worker scripts integration', () => {
   it('I1-S01: executeRetentionSweep evaluates legalHold and preserves held records across batch chunks', async () => {
     const client = new PGlite();
     try {
-      const db = drizzle(client);
-      await migrate(db, { migrationsFolder: drizzleDir });
+      const db = drizzle(client, { schema }) as unknown as DbClient;
+      await migrate(drizzle(client), { migrationsFolder: drizzleDir });
 
       const now = new Date('2026-10-10T12:00:00.000Z');
 

@@ -1,147 +1,50 @@
 #!/usr/bin/env node
 /**
  * scripts/worker.mjs
- * Background worker skeleton for maintenance tasks and daily retention sweeps.
- *
- * Features:
- * 1. Postgres advisory lock to ensure single active worker leader.
- * 2. Graceful shutdown on SIGTERM / SIGINT ensuring transaction atomicity.
- * 3. Schedules canonical retention:sweep daily with statutory legal hold and batch chunking.
- * 4. Supports --run-once flag for CLI / cron invocation.
+ * Delegates to the unified compiled retention worker (TASK-0020).
  */
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import postgres from 'postgres';
-import { executeRetentionSweep } from './retention-sweep.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, '..');
+const distWorker = path.resolve(rootDir, 'dist/retention/worker.mjs');
 
-const WORKER_ADVISORY_LOCK_ID = 884210;
-const SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours (daily)
-
-export class BackgroundWorker {
-  constructor(options = {}) {
-    this.connectionUrl =
-      options.connectionUrl || process.env.DATABASE_RETENTION_URL || process.env.DATABASE_URL;
-
-    if (!this.connectionUrl) {
-      throw new Error(
-        'Database connection URL missing. Set DATABASE_RETENTION_URL or DATABASE_URL in environment.',
-      );
-    }
-
-    this.runOnce = options.runOnce ?? process.argv.includes('--run-once');
-    this.intervalMs = options.intervalMs ?? SWEEP_INTERVAL_MS;
-    this.isShuttingDown = false;
-    this.abortController = new AbortController();
-    this.activeSweepPromise = null;
-    this.timer = null;
-    this.sql = null;
+let WorkerClass;
+try {
+  const mod = await import('../src/server/retention/worker.ts');
+  WorkerClass = mod.BackgroundWorker;
+} catch {
+  if (!existsSync(distWorker)) {
+    const { buildRetention } = await import('./build-retention.mjs');
+    await buildRetention();
   }
-
-  async start() {
-    this.sql = postgres(this.connectionUrl, { max: 1, onnotice: () => {} });
-
-    // Acquire PostgreSQL advisory lock to ensure leader election across worker replicas
-    const lockRes = await this
-      .sql`SELECT pg_try_advisory_lock(${WORKER_ADVISORY_LOCK_ID}) as locked`;
-    const isLocked = lockRes[0]?.locked;
-
-    if (!isLocked) {
-      console.warn('⚠️ Another worker holds the advisory lock. Exiting duplicate instance.');
-      await this.sql.end();
-      return { success: false, reason: 'locked' };
-    }
-
-    console.log('🤖 Background worker started (advisory lock acquired).');
-
-    // Run initial sweep
-    await this.runCycle();
-
-    if (this.runOnce || this.isShuttingDown) {
-      await this.stop();
-      return { success: true };
-    }
-
-    // Schedule daily retention sweep
-    this.timer = setInterval(async () => {
-      if (this.isShuttingDown) return;
-      await this.runCycle();
-    }, this.intervalMs);
-
-    return { success: true };
-  }
-
-  async runCycle() {
-    if (this.isShuttingDown) return;
-
-    console.log('⏰ Worker: running daily retention sweep...');
-    try {
-      this.activeSweepPromise = executeRetentionSweep({
-        connectionUrl: this.connectionUrl,
-        dryRun: false,
-        signal: this.abortController.signal,
-      });
-      const results = await this.activeSweepPromise;
-      const totalDeleted =
-        results.auditEvents.deleted + results.sessions.deleted + results.rateLimits.deleted;
-      const totalHeld = results.auditEvents.held + results.sessions.held + results.rateLimits.held;
-      console.log(
-        `✅ Worker: daily retention sweep completed (deleted: ${totalDeleted}, held: ${totalHeld}).`,
-      );
-    } catch (err) {
-      console.error(
-        '❌ Worker: retention sweep failed:',
-        err instanceof Error ? err.message : String(err),
-      );
-    } finally {
-      this.activeSweepPromise = null;
-    }
-  }
-
-  async stop() {
-    if (this.isShuttingDown) return;
-    this.isShuttingDown = true;
-    this.abortController.abort();
-    console.log('🛑 Worker shutting down gracefully...');
-
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
-    }
-
-    if (this.activeSweepPromise) {
-      console.log('⏳ Waiting for in-flight sweep batch to complete...');
-      await this.activeSweepPromise;
-    }
-
-    if (this.sql) {
-      try {
-        await this.sql`SELECT pg_advisory_unlock(${WORKER_ADVISORY_LOCK_ID})`;
-        await this.sql.end();
-      } catch {
-        // Ignore unlock errors during process termination
-      }
-      this.sql = null;
-    }
-
-    console.log('👋 Worker stopped cleanly.');
-  }
+  const mod = await import('../dist/retention/worker.mjs');
+  WorkerClass = mod.BackgroundWorker;
 }
 
-if (process.argv[1] === __filename) {
-  const worker = new BackgroundWorker();
+export const BackgroundWorker = WorkerClass;
 
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
+) {
+  const worker = new BackgroundWorker();
   const handleSignal = async (signal) => {
     console.log(`\nReceived ${signal}. Initiating graceful worker shutdown.`);
     await worker.stop();
     process.exit(0);
   };
 
-  process.on('SIGTERM', () => handleSignal('SIGTERM'));
-  process.on('SIGINT', () => handleSignal('SIGINT'));
+  process.on('SIGTERM', () => void handleSignal('SIGTERM'));
+  process.on('SIGINT', () => void handleSignal('SIGINT'));
 
   try {
-    await worker.start();
+    const outcome = await worker.start();
+    if (!outcome.success && outcome.reason === 'locked') {
+      process.exit(0);
+    }
   } catch (err) {
     console.error('Fatal worker error:', err instanceof Error ? err.message : String(err));
     process.exit(1);

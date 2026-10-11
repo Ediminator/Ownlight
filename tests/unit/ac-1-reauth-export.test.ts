@@ -102,4 +102,49 @@ describe('AC-1: Re-authentication helper export isolation', () => {
     // assertFreshReauthentication is exported from reauth.ts
     expect(typeof reauthModule.assertFreshReauthentication).toBe('function');
   });
+
+  it('assertFreshReauthentication validates session freshness and handles branches', async () => {
+    const dummyDb = {} as any;
+
+    // 1. Session token override succeeds when session is fresh
+    const mockVerifiedFresh = {
+      user: { id: 'u-123' },
+      session: { lastReauthenticatedAt: new Date(Date.now() - 60 * 1000) }, // 1 min ago
+    };
+    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce(
+      mockVerifiedFresh as any,
+    );
+    await expect(
+      reauthModule.assertFreshReauthentication('u-123', dummyDb, 'valid-token'),
+    ).resolves.toBeUndefined();
+
+    // 2. Throws when user id does not match
+    const mockVerifiedWrongUser = {
+      user: { id: 'other-user' },
+      session: { lastReauthenticatedAt: new Date() },
+    };
+    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce(
+      mockVerifiedWrongUser as any,
+    );
+    await expect(
+      reauthModule.assertFreshReauthentication('u-123', dummyDb, 'valid-token'),
+    ).rejects.toThrow('REAUTH_REQUIRED: Invalid session.');
+
+    // 3. Throws when session is older than 5 minutes
+    const mockVerifiedStale = {
+      user: { id: 'u-123' },
+      session: { lastReauthenticatedAt: new Date(Date.now() - 10 * 60 * 1000) }, // 10 min ago
+    };
+    vi.spyOn(await import('@/server/auth/session'), 'verifySession').mockResolvedValueOnce(
+      mockVerifiedStale as any,
+    );
+    await expect(
+      reauthModule.assertFreshReauthentication('u-123', dummyDb, 'valid-token'),
+    ).rejects.toThrow('REAUTH_REQUIRED: Re-authentication required for sensitive operation.');
+
+    // 4. Throws when no session cookie is found and no override is provided
+    await expect(reauthModule.assertFreshReauthentication('u-123', dummyDb)).rejects.toThrow(
+      'REAUTH_REQUIRED: No active session cookie found.',
+    );
+  });
 });

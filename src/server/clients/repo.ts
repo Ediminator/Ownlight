@@ -222,33 +222,24 @@ export async function listClients(
   if (q && q.trim().length > 0) {
     const escapedPattern = `%${escapeLikeWildcards(q.trim())}%`;
     whereConditions.push(
-      sql`(
-        ${clients.displayName} ILIKE ${escapedPattern} ESCAPE '\\'
-        OR EXISTS (
-          SELECT 1 FROM client_contacts
-          WHERE client_contacts.client_id = ${clients.id}
-          AND (
-            client_contacts.given_name ILIKE ${escapedPattern} ESCAPE '\\'
-            OR client_contacts.family_name ILIKE ${escapedPattern} ESCAPE '\\'
-            OR client_contacts.email_normalized ILIKE ${escapedPattern} ESCAPE '\\'
-            OR client_contacts.phone ILIKE ${escapedPattern} ESCAPE '\\'
-          )
+      sql`${clients.id} IN (
+        SELECT id FROM clients WHERE display_name ILIKE ${escapedPattern} ESCAPE '\\'
+        UNION
+        SELECT client_id FROM client_contacts WHERE (
+          given_name ILIKE ${escapedPattern} ESCAPE '\\'
+          OR family_name ILIKE ${escapedPattern} ESCAPE '\\'
+          OR email_normalized ILIKE ${escapedPattern} ESCAPE '\\'
+          OR phone ILIKE ${escapedPattern} ESCAPE '\\'
         )
-        OR EXISTS (
-          SELECT 1 FROM client_tags
-          JOIN tags ON tags.id = client_tags.tag_id
-          WHERE client_tags.client_id = ${clients.id}
-          AND tags.name ILIKE ${escapedPattern} ESCAPE '\\'
-        )
+        UNION
+        SELECT client_id FROM client_tags
+        JOIN tags ON tags.id = client_tags.tag_id
+        WHERE tags.name ILIKE ${escapedPattern} ESCAPE '\\'
       )`,
     );
   }
 
   const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
-
-  const countQuery = client.select({ total: count() }).from(clients);
-  const [totalRow] = whereClause ? await countQuery.where(whereClause) : await countQuery;
-  const total = totalRow?.total ?? 0;
 
   const dataQuery = client
     .select({
@@ -268,6 +259,15 @@ export async function listClients(
         .orderBy(asc(clients.displayName), asc(clients.id))
         .limit(pageSize)
         .offset(offset);
+
+  let total: number;
+  if (offset === 0 && clientRows.length < pageSize) {
+    total = clientRows.length;
+  } else {
+    const countQuery = client.select({ total: count() }).from(clients);
+    const [totalRow] = whereClause ? await countQuery.where(whereClause) : await countQuery;
+    total = totalRow?.total ?? 0;
+  }
 
   if (clientRows.length === 0) {
     return {

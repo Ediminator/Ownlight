@@ -815,5 +815,119 @@ describe('Clients Domain & Actions Branch Coverage (Unit)', () => {
       });
       expect(validWithSnakeCase.success).toBe(true);
     });
+
+    it('covers client repo error and not-found branches', async () => {
+      // 1. deleteContactRecord returns null when contact not found
+      const mockTxNotFound = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => Promise.resolve([]),
+            }),
+          }),
+        }),
+      };
+      const mockDbNotFound = {
+        transaction: (cb: any) => cb(mockTxNotFound),
+      } as unknown as DbClient;
+
+      const delContactRes = await clientRepo.deleteContactRecord(
+        'c-1',
+        'ct-notfound',
+        mockDbNotFound,
+      );
+      expect(delContactRes).toBeNull();
+
+      // 2. upsertAddressRecord throws CLIENT_NOT_FOUND when client does not exist
+      await expect(
+        clientRepo.upsertAddressRecord(
+          'c-notfound',
+          {
+            type: 'postal',
+            line1: 'Test St',
+            postalCode: '10115',
+            city: 'Berlin',
+            countryCode: 'DE',
+          },
+          mockDbNotFound,
+        ),
+      ).rejects.toThrow('CLIENT_NOT_FOUND');
+
+      // 3. upsertAddressRecord throws Failed to upsert address when returning is empty
+      const mockTxUpsertEmpty = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => Promise.resolve([{ id: 'c-1' }]),
+            }),
+          }),
+        }),
+        insert: () => ({
+          values: () => ({
+            onConflictDoUpdate: () => ({
+              returning: () => Promise.resolve([]),
+            }),
+          }),
+        }),
+      };
+      const mockDbUpsertEmpty = {
+        transaction: (cb: any) => cb(mockTxUpsertEmpty),
+      } as unknown as DbClient;
+
+      await expect(
+        clientRepo.upsertAddressRecord(
+          'c-1',
+          {
+            type: 'postal',
+            line1: 'Test St',
+            postalCode: '10115',
+            city: 'Berlin',
+            countryCode: 'DE',
+          },
+          mockDbUpsertEmpty,
+        ),
+      ).rejects.toThrow('Failed to upsert address');
+
+      // 4. deleteAddressRecord returns false when address does not exist
+      const delAddrRes = await clientRepo.deleteAddressRecord('c-1', 'postal', mockDbNotFound);
+      expect(delAddrRes).toBe(false);
+
+      // 5. updateContactRecord returns null when contact not found
+      const updateContactRes = await clientRepo.updateContactRecord(
+        'c-1',
+        'ct-notfound',
+        { givenName: 'Test' },
+        mockDbNotFound,
+      );
+      expect(updateContactRes).toBeNull();
+
+      // 6. insertContact throws Failed to insert contact when returning is empty
+      const mockTxInsertEmpty = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => Promise.resolve([{ id: 'c-1' }]),
+            }),
+          }),
+        }),
+        update: () => ({
+          set: () => ({
+            where: () => Promise.resolve([]),
+          }),
+        }),
+        insert: () => ({
+          values: () => ({
+            returning: () => Promise.resolve([]),
+          }),
+        }),
+      };
+      const mockDbInsertEmpty = {
+        transaction: (cb: any) => cb(mockTxInsertEmpty),
+      } as unknown as DbClient;
+
+      await expect(
+        clientRepo.insertContact('c-1', { givenName: 'Alice', isPrimary: true }, mockDbInsertEmpty),
+      ).rejects.toThrow('Failed to insert contact');
+    });
   });
 });

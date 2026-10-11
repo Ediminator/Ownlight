@@ -296,4 +296,97 @@ describe('TASK-0015: DSAR export provider registry', () => {
     const html = generateHtmlExport(exportData, 'en');
     expect(html).toContain('No records stored in this category.');
   });
+
+  it('generateExport handles null result and formats json and html', async () => {
+    const { generateExport } = await import('@/server/privacy/export/service');
+
+    // 1. Returns null when subject not found
+    const nullRes = await generateExport({
+      contactId: '00000000-0000-0000-0000-000000000000',
+      format: 'json',
+      locale: 'en',
+      client: {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => Promise.resolve([]),
+            }),
+          }),
+        }),
+      } as any,
+    });
+    expect(nullRes).toBeNull();
+
+    // 2. Uses defaultDb when options.client is undefined
+    const mockRegistry = await import('@/server/privacy/export/registry');
+    vi.spyOn(mockRegistry, 'collectExportData').mockResolvedValueOnce(null);
+    const fallbackDbRes = await generateExport({
+      contactId: '00000000-0000-0000-0000-000000000000',
+      format: 'json',
+      locale: 'en',
+    });
+    expect(fallbackDbRes).toBeNull();
+  });
+
+  it('subject provider handles name formatting and role branches', async () => {
+    const providers = getExportProviders();
+    const subjectProvider = providers.find((p) => p.id === 'subject');
+    expect(subjectProvider).toBeDefined();
+
+    // 1. Given name only
+    const resGivenOnly = await subjectProvider!.collect({
+      clientId: 'c1',
+      contactId: 'ct1',
+      client: { displayName: 'Fallback Client' } as any,
+      contact: {
+        id: 'ct1',
+        givenName: 'John',
+        familyName: null,
+        email: null,
+        phone: null,
+        isPrimary: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any,
+    });
+    expect((resGivenOnly as any[])[0].display_name).toBe('John');
+    expect((resGivenOnly as any[])[0].role).toBe('secondary');
+
+    // 2. Family name only
+    const resFamilyOnly = await subjectProvider!.collect({
+      clientId: 'c1',
+      contactId: 'ct2',
+      client: { displayName: 'Fallback Client' } as any,
+      contact: {
+        id: 'ct2',
+        givenName: null,
+        familyName: 'Smith',
+        email: null,
+        phone: null,
+        isPrimary: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any,
+    });
+    expect((resFamilyOnly as any[])[0].display_name).toBe('Smith');
+    expect((resFamilyOnly as any[])[0].role).toBe('primary');
+
+    // 3. Both empty/null -> falls back to client.displayName
+    const resNeither = await subjectProvider!.collect({
+      clientId: 'c1',
+      contactId: 'ct3',
+      client: { displayName: 'Fallback Studio Client' } as any,
+      contact: {
+        id: 'ct3',
+        givenName: '',
+        familyName: null,
+        email: null,
+        phone: null,
+        isPrimary: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any,
+    });
+    expect((resNeither as any[])[0].display_name).toBe('Fallback Studio Client');
+  });
 });

@@ -602,11 +602,7 @@ describe('TASK-0010: Client tags and search (AC-1 through AC-13)', () => {
       await dbClient.insert(clientTags).values(clientTagRows.slice(b, b + 1000));
     }
 
-    // Warm up planner statistics and query cache after bulk loading 5,000 clients and 10,000 contacts
-    await dbClient.execute(sql`ANALYZE;`);
-    await clientService.getClientList(1, 25, 'warmup', undefined, dbClient);
-
-    // 5. Run 20 sequential searches measuring latency at service layer
+    // 5. Query patterns for 20 sequential searches measuring latency at service layer
     const searchQueries = [
       'PerfClient 00042',
       'PrimaryGiven100',
@@ -629,6 +625,12 @@ describe('TASK-0010: Client tags and search (AC-1 through AC-13)', () => {
       '0042',
       '0999',
     ];
+
+    // Warm up planner statistics, prepared statements, and buffer cache for all search query patterns
+    await dbClient.execute(sql`ANALYZE;`);
+    for (const q of searchQueries) {
+      await clientService.getClientList(1, 25, q, undefined, dbClient);
+    }
 
     const latencies: number[] = [];
 

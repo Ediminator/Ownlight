@@ -1,9 +1,11 @@
-import { lt, notInArray, inArray, and, sql } from 'drizzle-orm';
+import { lt, notInArray, inArray, and, sql, asc } from 'drizzle-orm';
 import type { DbClient } from '@/server/db/client';
 import { auditEvents, type AuditEvent } from '@/server/db/schema/audit';
 import { session, rateLimits, type Session, type RateLimit } from '@/server/db/schema/auth';
 import { consentRecords, type ConsentRecord } from '@/server/db/schema/consents';
 import { clientTimelineEvents } from '@/server/db/schema/timeline';
+import { clients } from '@/server/db/schema/clients';
+import { findActiveClientIds } from '@/server/clients/activity';
 import { env } from '@/env';
 
 export interface RetentionEntity {
@@ -21,7 +23,7 @@ export interface RetentionPolicyDef<T extends RetentionEntity = RetentionEntity>
   };
   where?: (client: DbClient, now: Date) => Promise<T[]> | T[];
   action: 'delete' | 'anonymize';
-  legalHold?: (row: T) => boolean | Promise<boolean>;
+  legalHold?: (row: T, client?: DbClient) => boolean | Promise<boolean>;
   getCandidates?: (
     client: DbClient,
     cutoff: Date,
@@ -29,6 +31,10 @@ export interface RetentionPolicyDef<T extends RetentionEntity = RetentionEntity>
     excludedIds: string[],
   ) => Promise<T[]>;
   deleteBatch?: (client: DbClient, ids: string[]) => Promise<void>;
+  eraseCandidate?: (
+    client: DbClient,
+    id: string,
+  ) => Promise<{ outcome: 'deleted' | 'held' | 'failed'; error?: unknown }>;
   anonymizeBatch?: (client: DbClient, ids: string[]) => Promise<void>;
   batchSize?: number;
 }
@@ -43,6 +49,22 @@ export interface RetentionPolicy<
     excludedIds: string[],
   ) => Promise<T[]>;
   deleteBatch: (client: DbClient, ids: string[]) => Promise<void>;
+  eraseCandidate?: (
+    client: DbClient,
+    id: string,
+  ) => Promise<{ outcome: 'deleted' | 'held' | 'failed'; error?: unknown }>;
+}
+
+export function getClientRetentionMonths(): number {
+  try {
+    const val = env.CLIENT_RETENTION_MONTHS;
+    if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+      return val;
+    }
+  } catch {
+    // Fallback if env is not configured in current execution context (e.g. unit tests)
+  }
+  return 36;
 }
 
 export function computeCutoff(
@@ -87,6 +109,7 @@ export function defineRetentionPolicy<T extends RetentionEntity = RetentionEntit
     ...def,
     getCandidates,
     deleteBatch,
+    eraseCandidate: def.eraseCandidate,
   };
 }
 
@@ -268,11 +291,83 @@ export function createDefaultPolicies(): RetentionPolicy[] {
     },
   });
 
+  // 5. Inactive clients policy (ADR-0012 §4.2, TASK-0019)
+  const clientMonths = getClientRetentionMonths();
+
+  const inactiveClientsPolicy = defineRetentionPolicy<{ id: string; lastActivityAt: Date }>({
+    id: 'inactive-clients',
+    entity: 'clients',
+    description:
+      'Purges clients inactive for 36 months (configurable) without activity, respecting legal holds',
+    after: { months: clientMonths },
+    action: 'delete',
+    batchSize: 50,
+    legalHold: async (row, tx) => {
+      if (!tx) return false;
+      const { getErasureHoldProviders } = await import('@/server/privacy/erasure/registry');
+      const holdProviders = getErasureHoldProviders();
+      for (const hp of holdProviders) {
+        const holds = await hp.holds({ kind: 'client', clientId: row.id }, tx);
+        if (holds.length > 0) return true;
+      }
+      return false;
+    },
+    getCandidates: async (client, cutoff, limit, excludedIds) => {
+      const basePredicate =
+        excludedIds.length > 0
+          ? and(lt(clients.lastActivityAt, cutoff), notInArray(clients.id, excludedIds))
+          : lt(clients.lastActivityAt, cutoff);
+
+      const rows = await client
+        .select({
+          id: clients.id,
+          lastActivityAt: clients.lastActivityAt,
+        })
+        .from(clients)
+        .where(basePredicate)
+        .orderBy(asc(clients.lastActivityAt), asc(clients.id))
+        .limit(Math.max(limit * 2, 100));
+
+      if (rows.length === 0) return [];
+
+      const candidateIds = rows.map((r) => r.id);
+      const activeIds = await findActiveClientIds(client, cutoff, candidateIds);
+
+      return rows.filter((r) => !activeIds.has(r.id)).slice(0, limit);
+    },
+    eraseCandidate: async (client, id) => {
+      const { eraseSubject } = await import('@/server/privacy/erasure/service');
+      const res = await eraseSubject(
+        { kind: 'client', clientId: id },
+        { actor: { actorType: 'system', actorId: 'retention-worker' } },
+        client,
+      );
+      if (res.success) {
+        return { outcome: 'deleted' };
+      }
+      if (res.code === 'ERASURE_BLOCKED') {
+        return { outcome: 'held' };
+      }
+      return { outcome: 'failed', error: res.error };
+    },
+    deleteBatch: async (client, ids) => {
+      const { eraseSubject } = await import('@/server/privacy/erasure/service');
+      for (const id of ids) {
+        await eraseSubject(
+          { kind: 'client', clientId: id },
+          { actor: { actorType: 'system', actorId: 'retention-worker' } },
+          client,
+        );
+      }
+    },
+  });
+
   return [
     auditEventsPolicy as unknown as RetentionPolicy,
     expiredSessionsPolicy as unknown as RetentionPolicy,
     expiredRateLimitsPolicy as unknown as RetentionPolicy,
     withdrawnConsentProofPolicy as unknown as RetentionPolicy,
+    inactiveClientsPolicy as unknown as RetentionPolicy,
   ];
 }
 

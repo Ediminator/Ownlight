@@ -57,6 +57,13 @@
       "when": 1791714992134,
       "tag": "0007_nifty_post",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791744540636,
+      "tag": "0008_material_vivisector",
+      "breakpoints": true
     }
   ]
 }

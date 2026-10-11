@@ -52,7 +52,8 @@ describe('Erasure & Hold Provider Registries', () => {
   });
 
   it('allows registering and clearing hold providers', () => {
-    expect(getErasureHoldProviders()).toHaveLength(0);
+    expect(getErasureHoldProviders().length).toBeGreaterThanOrEqual(1);
+    expect(getErasureHoldProviders().map((p) => p.id)).toContain('client_legal_hold');
 
     const testHoldProvider: ErasureHoldProvider = {
       id: 'statutory_invoice',
@@ -66,14 +67,14 @@ describe('Erasure & Hold Provider Registries', () => {
     };
 
     registerErasureHoldProvider(testHoldProvider);
-    expect(getErasureHoldProviders()).toHaveLength(1);
-    expect(getErasureHoldProviders()[0]?.id).toBe('statutory_invoice');
+    expect(getErasureHoldProviders().map((p) => p.id)).toContain('statutory_invoice');
 
     clearErasureHoldProviders();
     expect(getErasureHoldProviders()).toHaveLength(0);
 
     registerErasureHoldProvider(testHoldProvider);
     resetErasureHoldProviders();
-    expect(getErasureHoldProviders()).toHaveLength(0);
+    expect(getErasureHoldProviders().length).toBeGreaterThanOrEqual(1);
+    expect(getErasureHoldProviders().map((p) => p.id)).toContain('client_legal_hold');
   });
 });

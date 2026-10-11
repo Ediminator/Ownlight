@@ -44,6 +44,7 @@ export function ErasureDialogInner({
   onSuccess,
 }: ErasureDialogContentProps) {
   const t = useTranslations('privacy.erasure');
+  const tHolds = useTranslations('privacy.holds');
   const locale = useLocale();
 
   const [isLoadingPlan, setIsLoadingPlan] = React.useState(true);
@@ -260,20 +261,26 @@ export function ErasureDialogInner({
             </div>
 
             <ul className="space-y-2 pt-2 border-t border-amber-200/60 dark:border-amber-800/40 text-xs text-foreground">
-              {holds.map((h, idx) => (
-                <li
-                  key={idx}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2 rounded bg-background/60 border"
-                  data-testid="erasure-hold-item"
-                >
-                  <span className="font-mono font-medium">{h.reason}</span>
-                  <span className="text-muted-foreground">
-                    {t('retainUntil', {
-                      date: formatDate(h.retainUntil, locale),
-                    })}
-                  </span>
-                </li>
-              ))}
+              {holds.map((h, idx) => {
+                const manualKey = h.reason.startsWith('manual.') ? h.reason.slice(7) : null;
+                const localizedReason = manualKey ? tHolds(`manual.${manualKey}`) : h.reason;
+                return (
+                  <li
+                    key={idx}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2 rounded bg-background/60 border"
+                    data-testid="erasure-hold-item"
+                  >
+                    <span className="font-mono font-medium">{localizedReason}</span>
+                    <span className="text-muted-foreground">
+                      {h.retainUntil
+                        ? t('retainUntil', {
+                            date: formatDate(h.retainUntil, locale),
+                          })
+                        : t('retainIndefinite')}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </div>
@@ -369,7 +376,9 @@ export function ErasureDialogInner({
                               ? 'categoryTimeline'
                               : cat === 'consents'
                                 ? 'categoryConsents'
-                                : null;
+                                : cat === 'legal_hold'
+                                  ? 'categoryLegalHold'
+                                  : null;
                 const label = catTranslationKey ? t(catTranslationKey) : cat;
                 return (
                   <div

@@ -6,6 +6,7 @@ import { clientNotes } from '@/server/db/schema/timeline';
 import { clientTimelineEvents } from '@/server/db/schema/timeline';
 import { consentRecords } from '@/server/db/schema/consents';
 import { auditEvents } from '@/server/db/schema/audit';
+import { clientLegalHolds } from '@/server/db/schema/client-legal-holds';
 import { getStudioSettings } from '@/server/settings/repo';
 import type {
   ExportProvider,
@@ -220,6 +221,26 @@ const DEFAULT_PROVIDERS: ExportProvider[] = [
         action: a.action,
         occurred_at: a.occurredAt.toISOString(),
         outcome: a.outcome,
+      }));
+    },
+  },
+  {
+    id: 'legal_hold',
+    category: 'legal_hold',
+    coveredTables: ['client_legal_holds'],
+    collect: async (subject, tx) => {
+      const rows = await tx
+        .select()
+        .from(clientLegalHolds)
+        .where(eq(clientLegalHolds.clientId, subject.clientId))
+        .limit(1);
+
+      return rows.map((h) => ({
+        reason: h.reason,
+        note: h.note ?? null,
+        until: h.until ?? null,
+        created_at: h.createdAt.toISOString(),
+        updated_at: h.updatedAt.toISOString(),
       }));
     },
   },

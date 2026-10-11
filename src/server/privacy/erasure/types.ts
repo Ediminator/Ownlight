@@ -5,7 +5,7 @@ export type ErasureSubject =
 
 export interface ErasureHold {
   reason: string;
-  retainUntil: Date | string;
+  retainUntil: Date | string | null;
 }
 
 export interface ErasureHoldProvider {

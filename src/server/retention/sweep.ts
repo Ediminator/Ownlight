@@ -27,8 +27,13 @@ export interface PolicySweepResult {
   scannedCount: number;
   deletedCount: number;
   heldCount: number;
+  failedCount?: number;
   dryRun: boolean;
   durationMs: number;
+  erasableCount?: number;
+  erasableIds?: string[];
+  heldIds?: string[];
+  errors?: string[];
 }
 
 export interface SweepSummary {
@@ -39,6 +44,7 @@ export interface SweepSummary {
   totalScanned: number;
   totalDeleted: number;
   totalHeld: number;
+  totalFailed?: number;
   aborted: boolean;
   policies: PolicySweepResult[];
 }
@@ -86,6 +92,10 @@ export async function runRetentionSweep(options: SweepOptions = {}): Promise<Swe
     let policyScanned = 0;
     let policyDeleted = 0;
     let policyHeld = 0;
+    let policyFailed = 0;
+    const policyErrors: string[] = [];
+    const policyErasableIds: string[] = [];
+    const policyHeldIds: string[] = [];
     const excludedIds: string[] = [];
     let batchIndex = 0;
     let hasMore = true;
@@ -107,15 +117,21 @@ export async function runRetentionSweep(options: SweepOptions = {}): Promise<Swe
       for (const row of candidates) {
         let isHeld = false;
         if (policy.legalHold) {
-          isHeld = await policy.legalHold(row);
+          isHeld = await policy.legalHold(row, client);
         }
         if (isHeld) {
           heldRows.push(row);
+          if (!policyHeldIds.includes(row.id)) {
+            policyHeldIds.push(row.id);
+          }
           if (!excludedIds.includes(row.id)) {
             excludedIds.push(row.id);
           }
         } else {
           eligibleRows.push(row);
+          if (!policyErasableIds.includes(row.id)) {
+            policyErasableIds.push(row.id);
+          }
         }
       }
 
@@ -133,17 +149,63 @@ export async function runRetentionSweep(options: SweepOptions = {}): Promise<Swe
             await options.onBatchStart(policy.id, batchIndex);
           }
 
-          const eligibleIds: string[] = eligibleRows.map((r) => r.id);
-
-          // Atomic batch transaction
-          await client.transaction(async (tx) => {
-            if (options.beforeBatchCommit) {
-              await options.beforeBatchCommit(policy.id, batchIndex);
+          if (policy.eraseCandidate) {
+            // Individual candidate execution with failure isolation (TASK-0019 / AC-12)
+            for (const row of eligibleRows) {
+              if (options.signal?.aborted) {
+                aborted = true;
+                break;
+              }
+              try {
+                const res = await policy.eraseCandidate(client, row.id);
+                if (res.outcome === 'deleted') {
+                  policyDeleted++;
+                } else if (res.outcome === 'held') {
+                  policyHeld++;
+                  if (!policyHeldIds.includes(row.id)) {
+                    policyHeldIds.push(row.id);
+                  }
+                  if (!excludedIds.includes(row.id)) {
+                    excludedIds.push(row.id);
+                  }
+                } else {
+                  policyFailed++;
+                  if (!excludedIds.includes(row.id)) {
+                    excludedIds.push(row.id);
+                  }
+                  policyErrors.push(
+                    typeof res.error === 'string' ? res.error : `Erasure failed for ${row.id}`,
+                  );
+                }
+              } catch (err) {
+                policyFailed++;
+                if (!excludedIds.includes(row.id)) {
+                  excludedIds.push(row.id);
+                }
+                policyErrors.push(err instanceof Error ? err.message : String(err));
+                logger.error(
+                  {
+                    err: err instanceof Error ? err.message : String(err),
+                    candidateId: row.id,
+                    policyId: policy.id,
+                  },
+                  'Candidate erasure threw an error, individual candidate rolled back cleanly',
+                );
+              }
             }
-            await policy.deleteBatch(tx, eligibleIds);
-          });
+          } else {
+            const eligibleIds: string[] = eligibleRows.map((r) => r.id);
 
-          policyDeleted += eligibleRows.length;
+            // Atomic batch transaction
+            await client.transaction(async (tx) => {
+              if (options.beforeBatchCommit) {
+                await options.beforeBatchCommit(policy.id, batchIndex);
+              }
+              await policy.deleteBatch(tx, eligibleIds);
+            });
+
+            policyDeleted += eligibleRows.length;
+          }
 
           if (options.onBatchComplete) {
             await options.onBatchComplete(policy.id, batchIndex, eligibleRows.length);
@@ -164,6 +226,10 @@ export async function runRetentionSweep(options: SweepOptions = {}): Promise<Swe
         policyDeleted += eligibleRows.length;
       }
 
+      if (candidates.length < batchSize) {
+        hasMore = false;
+      }
+
       batchIndex++;
     }
 
@@ -175,8 +241,13 @@ export async function runRetentionSweep(options: SweepOptions = {}): Promise<Swe
       scannedCount: policyScanned,
       deletedCount: dryRun ? 0 : policyDeleted,
       heldCount: policyHeld,
+      failedCount: policyFailed > 0 ? policyFailed : undefined,
       dryRun,
       durationMs: policyDuration,
+      erasableCount: policyErasableIds.length,
+      erasableIds: policyErasableIds,
+      heldIds: policyHeldIds,
+      errors: policyErrors.length > 0 ? policyErrors : undefined,
     };
     policyResults.push(result);
 
@@ -187,6 +258,18 @@ export async function runRetentionSweep(options: SweepOptions = {}): Promise<Swe
     // Record audit event for actual retention sweep runs (counts only)
     if (!dryRun && !aborted && policyScanned > 0) {
       try {
+        const auditMeta: Record<string, unknown> = {
+          policy_id: policy.id,
+          scanned_count: policyScanned,
+          deleted_count: policyDeleted,
+          held_count: policyHeld,
+          dry_run: false,
+          duration_ms: policyDuration,
+        };
+        if (policyFailed > 0) {
+          auditMeta.failed_count = policyFailed;
+        }
+
         await audit(
           {
             actorType: 'system',
@@ -194,14 +277,7 @@ export async function runRetentionSweep(options: SweepOptions = {}): Promise<Swe
             action: 'retention.sweep.completed',
             targetType: policy.entity,
             outcome: 'success',
-            metadata: {
-              policy_id: policy.id,
-              scanned_count: policyScanned,
-              deleted_count: policyDeleted,
-              held_count: policyHeld,
-              dry_run: false,
-              duration_ms: policyDuration,
-            },
+            metadata: auditMeta,
           },
           client,
         );
@@ -212,6 +288,7 @@ export async function runRetentionSweep(options: SweepOptions = {}): Promise<Swe
   }
 
   const completedAt = new Date();
+  const totalFailed = policyResults.reduce((acc, p) => acc + (p.failedCount ?? 0), 0);
   const summary: SweepSummary = {
     dryRun,
     startedAt,
@@ -220,6 +297,7 @@ export async function runRetentionSweep(options: SweepOptions = {}): Promise<Swe
     totalScanned,
     totalDeleted,
     totalHeld,
+    totalFailed: totalFailed > 0 ? totalFailed : undefined,
     aborted,
     policies: policyResults,
   };

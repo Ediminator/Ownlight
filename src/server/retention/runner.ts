@@ -14,6 +14,7 @@ export interface CliExecutionResult extends SweepSummary {
   auditEvents: { scanned: number; deleted: number; held: number };
   sessions: { scanned: number; deleted: number; held: number };
   rateLimits: { scanned: number; deleted: number; held: number };
+  inactiveClients?: { scanned: number; deleted: number; held: number };
 }
 
 /**
@@ -66,6 +67,9 @@ export async function executeRetentionSweep(options: CliOptions = {}): Promise<C
     const rateLimitPolicy = summary.policies.find(
       (p) => p.policyId === 'expired-rate-limits' || p.entity === 'rate_limits',
     );
+    const clientPolicy = summary.policies.find(
+      (p) => p.policyId === 'inactive-clients' || p.entity === 'clients',
+    );
 
     return {
       ...summary,
@@ -83,6 +87,11 @@ export async function executeRetentionSweep(options: CliOptions = {}): Promise<C
         scanned: rateLimitPolicy?.scannedCount ?? 0,
         deleted: rateLimitPolicy?.deletedCount ?? 0,
         held: rateLimitPolicy?.heldCount ?? 0,
+      },
+      inactiveClients: {
+        scanned: clientPolicy?.scannedCount ?? 0,
+        deleted: clientPolicy?.deletedCount ?? 0,
+        held: clientPolicy?.heldCount ?? 0,
       },
     };
   } finally {

@@ -99,6 +99,16 @@ To prevent Time-of-Check to Time-of-Use (TOCTOU) race conditions:
 1. **Planning Phase:** When the owner opens the erasure dialog, `planErasure` queries all registered hold providers to inspect whether any holds exist.
 2. **Execution Phase:** When `eraseSubject` executes, it starts a dedicated database transaction with strict isolation and **re-evaluates all hold providers inside the transaction**. If any hold is detected, the transaction immediately rolls back, nothing is deleted, and the operation returns `ERASURE_BLOCKED`.
 
+### Manual Client Legal Hold (`client_legal_holds`)
+
+The studio owner can place a manual per-client legal hold (TASK-0019 / ADR-0012 §4.3) on any client:
+
+- **Purpose & Grounds:** Temporarily or indefinitely suspend automatic retention sweeps and manual erasure during an active dispute (`dispute`), statutory compliance obligation (`statutory`), or other legal grounds (`other`) pursuant to GDPR Art. 17(3)(b) & (e).
+- **Activeness:** A hold is active if its expiration date `until` is `NULL` (indefinite hold) or `until >= CURRENT_DATE` in the studio's configured time zone.
+- **Erasure Interaction:** When an active hold exists, `planErasureAction` lists the hold as blocking erasure with reason (`manual.dispute`, `manual.statutory`, `manual.other`) and formatted expiration date, and `executeErasureAction` rejects deletion with `ERASURE_BLOCKED`.
+- **Expired Holds:** If a hold has reached or passed its `until` date, the hold is considered expired and no longer blocks erasure. When the client is erased, the `legal_hold` erasure provider deletes the expired hold row before the client row is deleted, ensuring the foreign key constraint (`ON DELETE RESTRICT`) never blocks a permitted erasure.
+- **Releasing Holds:** The owner can release a legal hold at any time from the client profile (protected by a confirmation prompt). Releasing immediately removes the hold row and re-enables automatic retention sweeps and manual erasure.
+
 ### Accountability Audit Events
 
 - When an erasure completes: `privacy.erasure.completed` is recorded with `target_id = <subject UUID>`, `metadata = { subject_kind, category_counts }`. Zero PII (names, emails, phones) is recorded in audit metadata or server logs.

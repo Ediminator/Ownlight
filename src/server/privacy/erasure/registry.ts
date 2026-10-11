@@ -4,6 +4,7 @@ import { clients, clientContacts, clientAddresses } from '@/server/db/schema/cli
 import { clientTags } from '@/server/db/schema/tags';
 import { clientNotes, clientTimelineEvents } from '@/server/db/schema/timeline';
 import { consentRecords } from '@/server/db/schema/consents';
+import { clientLegalHolds, isHoldActive } from '@/server/db/schema/client-legal-holds';
 import type { ErasureProvider, ErasureHoldProvider } from './types';
 
 const erasureProviders = new Map<string, ErasureProvider>();
@@ -344,6 +345,31 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
     },
   },
   {
+    id: 'legal_hold',
+    category: 'legal_hold',
+    coveredTables: ['client_legal_holds'],
+    plan: async (subject, tx) => {
+      if (subject.kind === 'client') {
+        const [res] = await tx
+          .select({ count: count() })
+          .from(clientLegalHolds)
+          .where(eq(clientLegalHolds.clientId, subject.clientId));
+        return res?.count ?? 0;
+      }
+      return 0;
+    },
+    erase: async (subject, tx) => {
+      if (subject.kind === 'client') {
+        const deleted = await tx
+          .delete(clientLegalHolds)
+          .where(eq(clientLegalHolds.clientId, subject.clientId))
+          .returning({ id: clientLegalHolds.id });
+        return deleted.length;
+      }
+      return 0;
+    },
+  },
+  {
     id: 'client',
     category: 'client',
     coveredTables: ['clients'],
@@ -370,9 +396,48 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
   },
 ];
 
+export const DEFAULT_HOLD_PROVIDERS: ErasureHoldProvider[] = [
+  {
+    id: 'client_legal_hold',
+    holds: async (subject, tx) => {
+      const clientId = subject.clientId;
+      const [hold] = await tx
+        .select()
+        .from(clientLegalHolds)
+        .where(eq(clientLegalHolds.clientId, clientId))
+        .limit(1);
+
+      if (!hold) return [];
+
+      let timezone = 'UTC';
+      try {
+        const { getStudioSettings } = await import('@/server/settings/repo');
+        const settings = await getStudioSettings(tx);
+        timezone = settings.timezone;
+      } catch {
+        timezone = 'UTC';
+      }
+
+      if (!isHoldActive(hold.until, timezone)) {
+        return [];
+      }
+
+      return [
+        {
+          reason: 'manual.' + hold.reason,
+          retainUntil: hold.until ?? null,
+        },
+      ];
+    },
+  },
+];
+
 function initDefaultProviders(): void {
   for (const provider of DEFAULT_ERASURE_PROVIDERS) {
     erasureProviders.set(provider.id, provider);
+  }
+  for (const hp of DEFAULT_HOLD_PROVIDERS) {
+    holdProviders.set(hp.id, hp);
   }
 }
 
@@ -385,10 +450,13 @@ export function resetErasureProviders(): void {
 }
 
 /**
- * Resets the hold provider registry back to empty state.
+ * Resets the hold provider registry back to default initial providers.
  */
 export function resetErasureHoldProviders(): void {
   holdProviders.clear();
+  for (const hp of DEFAULT_HOLD_PROVIDERS) {
+    holdProviders.set(hp.id, hp);
+  }
 }
 
 // Initialise default providers

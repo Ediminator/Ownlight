@@ -7,6 +7,8 @@ import { getClient } from '@/server/clients/service';
 import { listTimeline } from '@/server/timeline/service';
 import { listConsentsForClient } from '@/server/consents/repo';
 import { getStudioSettings } from '@/server/settings/repo';
+import { getLegalHold } from '@/server/clients/legal-hold-repo';
+import { getClientRetentionMonths } from '@/server/retention/policy';
 import { ClientProfile } from '@/components/clients/client-profile';
 
 export const dynamic = 'force-dynamic';
@@ -52,11 +54,12 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
     return null;
   }
 
-  const [clientRes, timelineRes, consentsData, settings] = await Promise.all([
+  const [clientRes, timelineRes, consentsData, settings, legalHold] = await Promise.all([
     getClient(clientId),
     listTimeline(clientId).catch(() => null),
     listConsentsForClient(clientId).catch(() => null),
     getStudioSettings().catch(() => null),
+    getLegalHold(clientId).catch(() => null),
   ]);
 
   if (!clientRes.success) {
@@ -74,6 +77,8 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
         studioTimezone={studioTimezone}
         initialTimeline={timelineRes?.success ? timelineRes.data : undefined}
         initialConsents={consentsData ?? undefined}
+        initialLegalHold={legalHold}
+        retentionMonths={getClientRetentionMonths()}
       />
     </div>
   );

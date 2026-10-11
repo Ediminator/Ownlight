@@ -493,6 +493,53 @@
       "deleteClientTitle": "Diesen Kunden löschen",
       "deleteClientDescription": "Löscht diesen Kunden, alle Kontakte, Adressen, Notizen, Tags, Timeline- und Einwilligungseinträge dauerhaft.",
       "deleteClientButton": "Kunden löschen"
+    },
+    "retentionIndicator": {
+      "title": "Datenaufbewahrung",
+      "scheduledAutomaticErasure": "Automatische Löschung am {date} ohne weitere Aktivitäten geplant.",
+      "pausedByHold": "Automatische Löschung ist durch eine aktive Löschsperre pausiert.",
+      "pendingErasure": "Ausstehende automatische Löschung beim nächsten Durchlauf.",
+      "policyInfo": "Kunden ohne Aktivität für 36 Monate werden automatisch gelöscht."
+    },
+    "legalHold": {
+      "title": "Löschsperre",
+      "description": "Automatische und manuelle Löschung für diesen Kunden vorübergehend oder unbefristet aussetzen.",
+      "switchLabel": "Löschsperre",
+      "activeBadge": "Aktiv",
+      "expiredBadge": "Abgelaufen",
+      "dialogTitle": "Löschsperre festlegen",
+      "editDialogTitle": "Löschsperre bearbeiten",
+      "dialogDescription": "Geben Sie den Grund und die optionale Dauer für die Aufbewahrung der Kundendaten an.",
+      "reasonLabel": "Grund",
+      "reasonPlaceholder": "Grund auswählen...",
+      "reasons": {
+        "dispute": "Rechtsstreitigkeit",
+        "statutory": "Gesetzliche Anforderung",
+        "other": "Sonstige rechtliche Gründe"
+      },
+      "noteLabel": "Notiz (optional)",
+      "noteHint": "Keine besonderen Kategorien personenbezogener Daten (z. B. Gesundheitsdaten) erfassen.",
+      "notePlaceholder": "Rechtlichen Kontext oder Aktenzeichen beschreiben...",
+      "untilLabel": "Gültig bis (optional)",
+      "untilHint": "Leer lassen für eine unbefristete Löschsperre.",
+      "save": "Löschsperre speichern",
+      "saving": "Speichern...",
+      "cancel": "Abbrechen",
+      "edit": "Löschsperre bearbeiten",
+      "release": "Löschsperre aufheben",
+      "releaseConfirmTitle": "Löschsperre aufheben?",
+      "releaseConfirmDescription": "Das Aufheben der Löschsperre aktiviert die automatischen Löschläufe wieder und erlaubt die manuelle Löschung dieses Kunden.",
+      "confirmRelease": "Löschsperre aufheben",
+      "releasing": "Aufheben...",
+      "sinceLabel": "Aktiv seit",
+      "untilDateLabel": "Gültig bis",
+      "indefinite": "Unbefristet / bis zur manuellen Aufhebung",
+      "noteDisplayLabel": "Notiz",
+      "statusActiveAnnounce": "Löschsperre aktiviert",
+      "statusUpdatedAnnounce": "Löschsperre aktualisiert",
+      "statusReleasedAnnounce": "Löschsperre aufgehoben",
+      "errorGeneric": "Beim Aktualisieren der Löschsperre ist ein Fehler aufgetreten.",
+      "errorPastDate": "Das Ablaufdatum muss heute oder in der Zukunft liegen."
     }
   },
   "privacy": {
@@ -533,9 +580,11 @@
       "categoryNotes": "Notizen",
       "categoryTimeline": "Timeline-Ereignisse",
       "categoryConsents": "Einwilligungsnachweise",
+      "categoryLegalHold": "Löschsperre-Einträge",
       "holdsTitle": "Löschung durch aktive Aufbewahrungsfrist blockiert",
       "holdsDescription": "Diese Daten dürfen nicht gelöscht werden, da gesetzliche oder rechtliche Aufbewahrungspflichten bestehen:",
       "retainUntil": "Aufbewahrung bis: {date}",
+      "retainIndefinite": "Unbefristet / bis zur manuellen Aufhebung",
       "warningNotesTitle": "Kundennotizen prüfen",
       "warningNotesMayMention": "Freitext-Notizen dieses Kunden erwähnen diese Person möglicherweise weiterhin. Bitte prüfen Sie die Notizen nach der Löschung manuell.",
       "reauthTitle": "Erneute Authentifizierung erforderlich",
@@ -561,6 +610,13 @@
       "errorBlocked": "Löschung wurde blockiert, da aktive Aufbewahrungsfristen bestehen.",
       "errorNotFound": "Kunde oder Person wurde nicht gefunden.",
       "dismissBanner": "Meldung ausblenden"
+    },
+    "holds": {
+      "manual": {
+        "dispute": "Rechtsstreitigkeit",
+        "statutory": "Gesetzliche Anforderung",
+        "other": "Sonstige rechtliche Gründe"
+      }
     }
   }
 }

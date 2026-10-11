@@ -25,12 +25,25 @@ export interface RetentionPolicyDef<T = any> {
 
 ### Registered Built-In Policies
 
-| Policy ID                 | Target Entity     | Rule / Cutoff                                                                           | Action   | Default Retention                    |
-| ------------------------- | ----------------- | --------------------------------------------------------------------------------------- | -------- | ------------------------------------ |
-| `audit-events-retention`  | `audit_events`    | `occurred_at < NOW() - RETENTION_PERIOD_MONTHS`                                         | `delete` | 24 months (configurable)             |
-| `expired-sessions`        | `session`         | `expires_at < NOW()`                                                                    | `delete` | Immediate upon expiry (max 30 days)  |
-| `expired-rate-limits`     | `rate_limits`     | `expires_at < NOW()`                                                                    | `delete` | Immediate upon expiry (max 24 hours) |
-| `withdrawn-consent-proof` | `consent_records` | `latest status = 'withdrawn' AND effective_on < NOW() - CONSENT_PROOF_RETENTION_MONTHS` | `delete` | 36 months (configurable)             |
+| Policy ID                 | Target Entity     | Rule / Cutoff                                                                                       | Action   | Default Retention                                      |
+| ------------------------- | ----------------- | --------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------ |
+| `audit-events-retention`  | `audit_events`    | `occurred_at < NOW() - RETENTION_PERIOD_MONTHS`                                                     | `delete` | 24 months (configurable)                               |
+| `expired-sessions`        | `session`         | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 30 days)                    |
+| `expired-rate-limits`     | `rate_limits`     | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 24 hours)                   |
+| `withdrawn-consent-proof` | `consent_records` | `latest status = 'withdrawn' AND effective_on < NOW() - CONSENT_PROOF_RETENTION_MONTHS`             | `delete` | 36 months (configurable)                               |
+| `inactive-clients`        | `clients`         | `last_activity_at < NOW() - CLIENT_RETENTION_MONTHS` AND no activity reported by activity providers | `delete` | 36 months (configurable via `CLIENT_RETENTION_MONTHS`) |
+
+### Client Activity Definition (`inactive-clients`)
+
+Under the `inactive-clients` policy (TASK-0019 / ADR-0012 §4.2), a client is considered inactive if they have had no qualifying interaction within the configured retention cutoff window (default 36 months). Client activity is evaluated via the pluggable activity provider registry (`src/server/clients/activity.ts`):
+
+1. **Base Criterion:** `clients.last_activity_at < cutoff`. This timestamp updates upon client profile modifications, contact additions/edits/removals, or address updates. Viewing or reading client data is never considered activity (AC-14).
+2. **Timeline Events:** Non-system timeline events (`subject_type != 'system'` with `occurred_at >= cutoff`). System events (such as automated exports or status flags) do not count as activity.
+3. **Notes:** Free-text client notes created or updated on or after the cutoff date (`updated_at >= cutoff`).
+4. **Consent Records:** Consent grants or withdrawals recorded on or after the cutoff date (`created_at >= cutoff`, linked via client contacts).
+5. **Domain Extensibility (E3+):** Additional domains plug into the registry using `registerActivityProvider({ id, activeClientIds(tx, since, candidateIds) })` (e.g., project bookings, gallery shoots, or communications). Candidates reported as active by any registered provider are preserved and excluded from deletion.
+
+When an inactive client is purged, erasure delegates to the ADR-0012 right to erasure framework (`eraseSubject`), erasing the complete E1 client graph in an isolated, atomic transaction while respecting active legal holds.
 
 ---
 

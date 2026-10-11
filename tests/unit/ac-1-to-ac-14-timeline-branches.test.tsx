@@ -8,7 +8,12 @@ import {
   listTimelineAction,
 } from '@/server/timeline/actions';
 import { decodeTimelineCursor } from '@/server/timeline/cursor';
-import { addNote } from '@/server/timeline/service';
+import { addNote, updateNote, deleteNote } from '@/server/timeline/service';
+import {
+  getClientTimelineEvents,
+  insertTimelineEventRecord,
+  insertClientNoteRecord,
+} from '@/server/timeline/repo';
 import { UnauthorizedError, ForbiddenError } from '@/server/auth/guards';
 
 let mockStateQueue: unknown[] = [];
@@ -441,6 +446,36 @@ describe('Timeline Branches & Edge Cases Unit Tests', () => {
       expect(v7.success).toBe(false);
       expect(v7.code).toBe('VALIDATION_FAILED');
     });
+
+    it('actions rethrow generic errors from auth or policy', async () => {
+      const { requireAuth } = await import('@/server/auth/guards');
+      vi.mocked(requireAuth).mockRejectedValueOnce(new Error('Generic auth failure'));
+      await expect(
+        addNoteAction({ clientId: '018f0000-0000-7000-8000-000000000001', body: 'text' }),
+      ).rejects.toThrow('Generic auth failure');
+
+      vi.mocked(requireAuth).mockRejectedValueOnce(new Error('Generic auth failure'));
+      await expect(
+        updateNoteAction({
+          clientId: '018f0000-0000-7000-8000-000000000001',
+          noteId: '018f0000-0000-7000-8000-000000000002',
+          body: 'text',
+        }),
+      ).rejects.toThrow('Generic auth failure');
+
+      vi.mocked(requireAuth).mockRejectedValueOnce(new Error('Generic auth failure'));
+      await expect(
+        deleteNoteAction({
+          clientId: '018f0000-0000-7000-8000-000000000001',
+          noteId: '018f0000-0000-7000-8000-000000000002',
+        }),
+      ).rejects.toThrow('Generic auth failure');
+
+      vi.mocked(requireAuth).mockRejectedValueOnce(new Error('Generic auth failure'));
+      await expect(
+        listTimelineAction({ clientId: '018f0000-0000-7000-8000-000000000001' }),
+      ).rejects.toThrow('Generic auth failure');
+    });
   });
 
   describe('cursor edge cases and service client not found', () => {
@@ -483,6 +518,274 @@ describe('Timeline Branches & Edge Cases Unit Tests', () => {
       );
 
       expect(result).toEqual({ success: false, code: 'NOT_FOUND', error: 'NOT_FOUND' });
+    });
+
+    it('service functions handle apiKey actor type with id, prefix, and missing apiKey', async () => {
+      const mockDbClientExists = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => Promise.resolve([{ id: '018f0000-0000-7000-8000-000000000001' }]),
+            }),
+          }),
+        }),
+        insert: () => ({
+          values: () => ({
+            returning: () => Promise.resolve([{ id: 'audit-1' }]),
+          }),
+        }),
+        transaction: (cb: (tx: unknown) => Promise<unknown>) =>
+          cb({
+            insert: () => ({
+              values: () => ({
+                returning: () =>
+                  Promise.resolve([
+                    {
+                      id: 'note-1',
+                      clientId: '018f0000-0000-7000-8000-000000000001',
+                      body: 'text',
+                      createdAt: new Date(),
+                      updatedAt: new Date(),
+                    },
+                  ]),
+              }),
+            }),
+            update: () => ({
+              set: () => ({
+                where: () => Promise.resolve(),
+              }),
+            }),
+          }),
+      };
+
+      // 1. apiKey with id
+      const r1 = await addNote(
+        { clientId: '018f0000-0000-7000-8000-000000000001', body: 'text' },
+        {
+          authType: 'apiKey',
+          apiKey: { id: 'key_123', prefix: 'own_' },
+          user: { id: 'u1', role: 'owner' },
+        } as unknown as Parameters<typeof addNote>[1],
+        mockDbClientExists as unknown as Parameters<typeof addNote>[2],
+      );
+      expect(r1.success).toBe(true);
+
+      // 2. apiKey with prefix (no id)
+      const r2 = await addNote(
+        { clientId: '018f0000-0000-7000-8000-000000000001', body: 'text' },
+        {
+          authType: 'apiKey',
+          apiKey: { prefix: 'own_' },
+          user: { id: 'u1', role: 'owner' },
+        } as unknown as Parameters<typeof addNote>[1],
+        mockDbClientExists as unknown as Parameters<typeof addNote>[2],
+      );
+      expect(r2.success).toBe(true);
+
+      // 3. apiKey with undefined apiKey
+      const r3 = await addNote(
+        { clientId: '018f0000-0000-7000-8000-000000000001', body: 'text' },
+        {
+          authType: 'apiKey',
+          apiKey: undefined,
+          user: { id: 'u1', role: 'owner' },
+        } as unknown as Parameters<typeof addNote>[1],
+        mockDbClientExists as unknown as Parameters<typeof addNote>[2],
+      );
+      expect(r3.success).toBe(true);
+    });
+
+    it('service.updateNote and deleteNote return NOT_FOUND if note does not exist, and handle success', async () => {
+      const mockDbNoNote = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => Promise.resolve([]),
+            }),
+          }),
+        }),
+      };
+
+      const r1 = await updateNote(
+        {
+          clientId: '018f0000-0000-7000-8000-000000000001',
+          noteId: '018f0000-0000-7000-8000-000000000002',
+          body: 'new text',
+        },
+        { user: { id: 'u1', role: 'owner' } } as unknown as Parameters<typeof updateNote>[1],
+        mockDbNoNote as unknown as Parameters<typeof updateNote>[2],
+      );
+      expect(r1).toEqual({ success: false, code: 'NOT_FOUND', error: 'NOT_FOUND' });
+
+      const r2 = await deleteNote(
+        {
+          clientId: '018f0000-0000-7000-8000-000000000001',
+          noteId: '018f0000-0000-7000-8000-000000000002',
+        },
+        { user: { id: 'u1', role: 'owner' } } as unknown as Parameters<typeof deleteNote>[1],
+        mockDbNoNote as unknown as Parameters<typeof deleteNote>[2],
+      );
+      expect(r2).toEqual({ success: false, code: 'NOT_FOUND', error: 'NOT_FOUND' });
+
+      // Successful update and delete with transaction
+      const mockDbSuccess = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () =>
+                Promise.resolve([
+                  {
+                    id: '018f0000-0000-7000-8000-000000000002',
+                    clientId: '018f0000-0000-7000-8000-000000000001',
+                    body: 'old text',
+                  },
+                ]),
+            }),
+          }),
+        }),
+        insert: () => ({
+          values: () => ({
+            returning: () => Promise.resolve([{ id: 'audit-1' }]),
+          }),
+        }),
+        transaction: (cb: (tx: unknown) => Promise<unknown>) =>
+          cb({
+            update: () => ({
+              set: () => {
+                const whereObj = {
+                  returning: () =>
+                    Promise.resolve([
+                      {
+                        id: '018f0000-0000-7000-8000-000000000002',
+                        clientId: '018f0000-0000-7000-8000-000000000001',
+                        body: 'new text',
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                      },
+                    ]),
+                  then: (resolve: (v: unknown) => unknown) => Promise.resolve().then(resolve),
+                };
+                return {
+                  where: () => whereObj,
+                };
+              },
+            }),
+            delete: () => ({
+              where: () => ({
+                returning: () => Promise.resolve([{ id: '018f0000-0000-7000-8000-000000000002' }]),
+              }),
+            }),
+          }),
+      };
+
+      const r3 = await updateNote(
+        {
+          clientId: '018f0000-0000-7000-8000-000000000001',
+          noteId: '018f0000-0000-7000-8000-000000000002',
+          body: 'new text',
+        },
+        { user: { id: 'u1', role: 'owner' } } as unknown as Parameters<typeof updateNote>[1],
+        mockDbSuccess as unknown as Parameters<typeof updateNote>[2],
+      );
+      expect(r3.success).toBe(true);
+
+      const r4 = await deleteNote(
+        {
+          clientId: '018f0000-0000-7000-8000-000000000001',
+          noteId: '018f0000-0000-7000-8000-000000000002',
+        },
+        { user: { id: 'u1', role: 'owner' } } as unknown as Parameters<typeof deleteNote>[1],
+        mockDbSuccess as unknown as Parameters<typeof deleteNote>[2],
+      );
+      expect(r4.success).toBe(true);
+    });
+
+    it('repo functions throw when insert returns no row', async () => {
+      const mockTxNoRow = {
+        insert: () => ({
+          values: () => ({
+            returning: () => Promise.resolve([]),
+          }),
+        }),
+      };
+
+      await expect(
+        insertTimelineEventRecord(
+          mockTxNoRow as unknown as Parameters<typeof insertTimelineEventRecord>[0],
+          {
+            clientId: '018f0000-0000-7000-8000-000000000001',
+            type: 'client.created',
+            occurredAt: new Date(),
+            actorType: 'owner',
+            data: {},
+          },
+        ),
+      ).rejects.toThrow('Failed to insert timeline event');
+
+      await expect(
+        insertClientNoteRecord(
+          mockTxNoRow as unknown as Parameters<typeof insertClientNoteRecord>[0],
+          {
+            clientId: '018f0000-0000-7000-8000-000000000001',
+            body: 'text',
+          },
+        ),
+      ).rejects.toThrow('Failed to insert client note');
+    });
+
+    it('repo getClientTimelineEvents handles missing note in notesMap and contactName fallback', async () => {
+      const mockDbEvents = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () =>
+                  Promise.resolve([
+                    // note.created event whose noteId does not exist in notesMap (simulates deleted note row)
+                    {
+                      id: '018f0000-0000-7000-8000-000000000010',
+                      clientId: '018f0000-0000-7000-8000-000000000001',
+                      type: 'note.created',
+                      occurredAt: new Date(),
+                      actorType: 'owner',
+                      actorId: null,
+                      subjectType: 'note',
+                      subjectId: 'missing-note-id',
+                      data: {},
+                      createdAt: new Date(),
+                    },
+                    // contact.added event whose contactId does not exist in contactsMap (simulates deleted contact)
+                    {
+                      id: '018f0000-0000-7000-8000-000000000020',
+                      clientId: '018f0000-0000-7000-8000-000000000001',
+                      type: 'client.contact.added',
+                      occurredAt: new Date(),
+                      actorType: 'owner',
+                      actorId: null,
+                      subjectType: 'contact',
+                      subjectId: 'missing-contact-id',
+                      data: {},
+                      createdAt: new Date(),
+                    },
+                  ]),
+              }),
+              then: (resolve: (v: unknown) => unknown) => Promise.resolve([]).then(resolve),
+            }),
+          }),
+        }),
+      };
+
+      const result = await getClientTimelineEvents(
+        '018f0000-0000-7000-8000-000000000001',
+        null,
+        20,
+        mockDbEvents as unknown as Parameters<typeof getClientTimelineEvents>[3],
+      );
+
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]?.noteBody).toBeNull();
+      expect(result.items[0]?.edited).toBe(false);
+      expect(result.items[1]?.contactName).toBeNull();
     });
   });
 });

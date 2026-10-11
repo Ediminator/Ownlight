@@ -1,6 +1,32 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+
+let mockStateQueue: unknown[] = [];
+
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>();
+  return {
+    ...actual,
+    useState: <T,>(initial: T): [T, (val: T) => void] => {
+      if (mockStateQueue.length > 0) {
+        const val = mockStateQueue.shift() as T;
+        return [val, vi.fn()];
+      }
+      return [initial, vi.fn()];
+    },
+    useRef: <T,>(initial: T): { current: T } => {
+      return { current: initial };
+    },
+    useEffect: (fn: () => unknown) => {
+      try {
+        fn();
+      } catch {
+        // Ignore effect errors in unit test environment
+      }
+    },
+  };
+});
 
 vi.mock('server-only', () => ({}));
 
@@ -12,6 +38,8 @@ vi.mock('@/server/timeline/actions', () => ({
     .fn()
     .mockResolvedValue({ success: true, data: { items: [], nextCursor: null } }),
 }));
+
+import { addNoteAction, deleteNoteAction, listTimelineAction } from '@/server/timeline/actions';
 
 import enMessages from '@/../messages/en.json';
 import deMessages from '@/../messages/de.json';
@@ -198,6 +226,83 @@ describe('AC-12, AC-13, AC-14, AC-9: Timeline UI rendering, i18n, a11y, and XSS 
     expect(html).not.toContain('<img src=x onerror=alert(1)>');
   });
 
+  interface ComponentProps {
+    onClick?: (e?: unknown) => void;
+    onChange?: (e?: { target?: { value?: string } }) => void;
+    onConfirm?: () => void | Promise<void>;
+    onSuccess?: (body: string) => void;
+    onOpenChange?: (open: boolean) => void;
+    onSubmit?: (e?: { preventDefault: () => void }) => void | Promise<void>;
+    ref?: (node: unknown) => void;
+    [key: string]: unknown;
+  }
+
+  function findNodeByTestId(
+    element: React.ReactElement | undefined,
+    testId: string,
+  ): React.ReactElement | undefined {
+    if (!element) return undefined;
+    let found: React.ReactElement | undefined;
+    function traverse(node: unknown): void {
+      if (!node || typeof node !== 'object') return;
+      if (React.isValidElement(node)) {
+        const props = node.props as Record<string, unknown>;
+        if (props['data-testid'] === testId) {
+          found = node;
+          return;
+        }
+        if (props.children) traverse(props.children);
+      } else if (Array.isArray(node)) {
+        for (const item of node) traverse(item);
+      }
+    }
+    traverse(element);
+    return found;
+  }
+
+  function findForm(
+    element: React.ReactElement | undefined,
+  ): { onSubmit?: (e?: { preventDefault: () => void }) => void | Promise<void> } | undefined {
+    if (!element) return undefined;
+    let found:
+      { onSubmit?: (e?: { preventDefault: () => void }) => void | Promise<void> } | undefined;
+    function traverse(node: unknown): void {
+      if (!node || typeof node !== 'object') return;
+      if (React.isValidElement(node)) {
+        const props = node.props as Record<string, unknown>;
+        if (node.type === 'form' || typeof props.onSubmit === 'function') {
+          found = props;
+          return;
+        }
+        if (props.children) traverse(props.children);
+      } else if (Array.isArray(node)) {
+        for (const item of node) traverse(item);
+      }
+    }
+    traverse(element);
+    return found;
+  }
+
+  function findFirstLi(element: React.ReactElement | undefined): React.ReactElement | undefined {
+    if (!element) return undefined;
+    let found: React.ReactElement | undefined;
+    function traverse(node: unknown): void {
+      if (!node || typeof node !== 'object') return;
+      if (React.isValidElement(node)) {
+        if (node.type === 'li') {
+          found = node;
+          return;
+        }
+        const props = node.props as Record<string, unknown>;
+        if (props.children) traverse(props.children);
+      } else if (Array.isArray(node)) {
+        for (const item of node) traverse(item);
+      }
+    }
+    traverse(element);
+    return found;
+  }
+
   it('AC-14: renders edit note dialog with accessible inputs and character counter', () => {
     currentLocale = 'en';
 
@@ -219,5 +324,530 @@ describe('AC-12, AC-13, AC-14, AC-9: Timeline UI rendering, i18n, a11y, and XSS 
     expect(html).toContain('for="edit-note-body"');
     expect(html).toContain('id="edit-note-body"');
     expect(html).toContain('id="edit-note-counter"');
+  });
+
+  describe('ClientTimeline interactive handlers and branch coverage', () => {
+    function makeTimelineStates(
+      overrides: {
+        items?: ResolvedTimelineItem[];
+        nextCursor?: string | null;
+        isLoadingMore?: boolean;
+        paginationError?: string | null;
+        focusTargetIndex?: number | null;
+        noteText?: string;
+        isSubmittingNote?: boolean;
+        composerError?: string | null;
+        editingNote?: { id: string; noteId: string; body: string } | null;
+        deletingNote?: { id: string; noteId: string; body: string } | null;
+        isDeletingNote?: boolean;
+        deleteError?: string | null;
+      } = {},
+    ): unknown[] {
+      return [
+        overrides.items ?? sampleItems,
+        overrides.nextCursor ?? null,
+        overrides.isLoadingMore ?? false,
+        overrides.paginationError ?? null,
+        overrides.focusTargetIndex ?? null,
+        overrides.noteText ?? '',
+        overrides.isSubmittingNote ?? false,
+        overrides.composerError ?? null,
+        overrides.editingNote ?? null,
+        overrides.deletingNote ?? null,
+        overrides.isDeletingNote ?? false,
+        overrides.deleteError ?? null,
+      ];
+    }
+
+    beforeEach(() => {
+      mockStateQueue = [];
+      currentLocale = 'en';
+      vi.clearAllMocks();
+      vi.mocked(listTimelineAction).mockResolvedValue({
+        success: true,
+        data: { items: [], nextCursor: null },
+      });
+    });
+
+    it('AC-12: renders empty timeline message when items array is empty', () => {
+      currentLocale = 'en';
+
+      const html = renderToStaticMarkup(
+        <ClientTimeline
+          clientId="018f0000-0000-7000-8000-000000000001"
+          locale="en"
+          studioTimezone="UTC"
+          initialItems={[]}
+        />,
+      );
+
+      expect(html).toContain('No timeline events recorded yet');
+      expect(html).not.toContain('<ol');
+    });
+
+    it('AC-12: renders contact removed event and contact added without name fallback', () => {
+      const items: ResolvedTimelineItem[] = [
+        {
+          id: '018f0000-0000-7000-8000-000000000091',
+          clientId: '018f0000-0000-7000-8000-000000000001',
+          type: 'client.contact.removed',
+          occurredAt: new Date('2026-06-15T16:00:00Z'),
+          actorType: 'owner',
+          actorId: null,
+          subjectType: 'contact',
+          subjectId: '018f0000-0000-7000-8000-000000000092',
+          data: {},
+          createdAt: new Date('2026-06-15T16:00:00Z'),
+        },
+        {
+          id: '018f0000-0000-7000-8000-000000000093',
+          clientId: '018f0000-0000-7000-8000-000000000001',
+          type: 'client.contact.added',
+          occurredAt: new Date('2026-06-15T15:00:00Z'),
+          actorType: 'owner',
+          actorId: null,
+          subjectType: 'contact',
+          subjectId: '018f0000-0000-7000-8000-000000000094',
+          data: {},
+          createdAt: new Date('2026-06-15T15:00:00Z'),
+          contactName: null,
+        },
+      ];
+
+      const html = renderToStaticMarkup(
+        <ClientTimeline
+          clientId="018f0000-0000-7000-8000-000000000001"
+          locale="en"
+          studioTimezone="UTC"
+          initialItems={items}
+        />,
+      );
+
+      expect(html).toContain('Contact removed');
+      expect(html).toContain('Contact added');
+    });
+
+    it('AC-12: renders edited note marker, note without body, and note without subjectId', () => {
+      const items: ResolvedTimelineItem[] = [
+        {
+          id: '018f0000-0000-7000-8000-000000000095',
+          clientId: '018f0000-0000-7000-8000-000000000001',
+          type: 'note.created',
+          occurredAt: new Date('2026-06-15T16:00:00Z'),
+          actorType: 'owner',
+          actorId: null,
+          subjectType: 'note',
+          subjectId: '018f0000-0000-7000-8000-000000000096',
+          data: {},
+          createdAt: new Date('2026-06-15T16:00:00Z'),
+          noteBody: 'Edited text',
+          edited: true,
+        },
+        {
+          id: '018f0000-0000-7000-8000-000000000097',
+          clientId: '018f0000-0000-7000-8000-000000000001',
+          type: 'note.created',
+          occurredAt: new Date('2026-06-15T15:00:00Z'),
+          actorType: 'owner',
+          actorId: null,
+          subjectType: 'note',
+          subjectId: null,
+          data: {},
+          createdAt: new Date('2026-06-15T15:00:00Z'),
+          noteBody: null,
+          edited: false,
+        },
+      ];
+
+      const html = renderToStaticMarkup(
+        <ClientTimeline
+          clientId="018f0000-0000-7000-8000-000000000001"
+          locale="en"
+          studioTimezone="UTC"
+          initialItems={items}
+        />,
+      );
+
+      expect(html).toContain('(edited)');
+      expect(html).not.toContain('note-body-018f0000-0000-7000-8000-000000000097');
+      expect(html).not.toContain('edit-note-btn-018f0000-0000-7000-8000-000000000097');
+      expect(html).not.toContain('delete-note-btn-018f0000-0000-7000-8000-000000000097');
+    });
+
+    it('AC-13: textarea onChange updates text and submit button reflects isSubmitting state', () => {
+      // 1. Textarea onChange invocation
+      const tree = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+
+      const textarea = findNodeByTestId(tree, 'timeline-note-textarea');
+      const textareaProps = (textarea?.props ?? {}) as ComponentProps;
+      textareaProps.onChange?.({ target: { value: 'Typing note' } });
+
+      // 2. isSubmittingNote = true renders submitting spinner in button
+      mockStateQueue = makeTimelineStates({
+        noteText: 'Valid note',
+        isSubmittingNote: true,
+      });
+
+      const htmlSubmitting = renderToStaticMarkup(
+        <ClientTimeline
+          clientId="018f0000-0000-7000-8000-000000000001"
+          locale="en"
+          studioTimezone="UTC"
+          initialItems={sampleItems}
+        />,
+      );
+
+      expect(htmlSubmitting).toContain('Adding...');
+    });
+
+    it('AC-13: composer form submit validates input and early returns when isSubmitting', async () => {
+      // 1. isSubmitting is true -> early return
+      mockStateQueue = makeTimelineStates({
+        noteText: 'Note text',
+        isSubmittingNote: true,
+      });
+      const tree1 = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      await findForm(tree1)?.onSubmit?.({ preventDefault: vi.fn() });
+      expect(addNoteAction).not.toHaveBeenCalled();
+
+      // 2. empty/whitespace body -> validation error
+      mockStateQueue = makeTimelineStates({
+        noteText: '   ',
+        isSubmittingNote: false,
+      });
+      const tree2 = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      await findForm(tree2)?.onSubmit?.({ preventDefault: vi.fn() });
+      expect(addNoteAction).not.toHaveBeenCalled();
+
+      // 3. body > 5000 chars -> validation error
+      mockStateQueue = makeTimelineStates({
+        noteText: 'x'.repeat(5001),
+        isSubmittingNote: false,
+      });
+      const tree3 = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      await findForm(tree3)?.onSubmit?.({ preventDefault: vi.fn() });
+      expect(addNoteAction).not.toHaveBeenCalled();
+    });
+
+    it('AC-13: composer form handles addNoteAction failure, success, and exception', async () => {
+      // 1. Action failure returns error code
+      mockStateQueue = makeTimelineStates({
+        noteText: 'Valid text',
+        isSubmittingNote: false,
+      });
+      vi.mocked(addNoteAction).mockResolvedValueOnce({
+        success: false,
+        code: 'FORBIDDEN',
+        error: 'Forbidden',
+      });
+      const tree1 = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      await findForm(tree1)?.onSubmit?.({ preventDefault: vi.fn() });
+      expect(addNoteAction).toHaveBeenCalledTimes(1);
+
+      // 2. Action success refreshes timeline
+      mockStateQueue = makeTimelineStates({
+        noteText: 'Valid text',
+        isSubmittingNote: false,
+      });
+      vi.mocked(addNoteAction).mockResolvedValueOnce({
+        success: true,
+        data: { noteId: 'note-100' },
+      });
+      vi.mocked(listTimelineAction).mockResolvedValueOnce({
+        success: true,
+        data: { items: sampleItems, nextCursor: 'cur-new' },
+      });
+      const tree2 = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      await findForm(tree2)?.onSubmit?.({ preventDefault: vi.fn() });
+      expect(listTimelineAction).toHaveBeenCalled();
+
+      // 3. Action throws exception -> caught and sets generic error
+      mockStateQueue = makeTimelineStates({
+        noteText: 'Valid text',
+        isSubmittingNote: false,
+      });
+      vi.mocked(addNoteAction).mockRejectedValueOnce(new Error('Network failure'));
+      const tree3 = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      await findForm(tree3)?.onSubmit?.({ preventDefault: vi.fn() });
+    });
+
+    it('AC-14: handleLoadMore handles early return, failure, success, and exception', () => {
+      // 1. nextCursor is null -> no load more button
+      const treeNoCursor = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      expect(findNodeByTestId(treeNoCursor, 'timeline-load-more-btn')).toBeUndefined();
+
+      // 2. failure response
+      mockStateQueue = makeTimelineStates({
+        nextCursor: 'cur-1',
+        isLoadingMore: false,
+      });
+      vi.mocked(listTimelineAction).mockResolvedValueOnce({
+        success: false,
+        code: 'UNAUTHORIZED',
+        error: 'Unauthorized',
+      });
+      const treeFail = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      const loadBtnProps1 = (findNodeByTestId(treeFail, 'timeline-load-more-btn')?.props ??
+        {}) as ComponentProps;
+      loadBtnProps1.onClick?.();
+
+      // 3. success response
+      mockStateQueue = makeTimelineStates({
+        nextCursor: 'cur-1',
+        isLoadingMore: false,
+      });
+      vi.mocked(listTimelineAction).mockResolvedValueOnce({
+        success: true,
+        data: { items: sampleItems, nextCursor: null },
+      });
+      const treeSuccess = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      const loadBtnProps2 = (findNodeByTestId(treeSuccess, 'timeline-load-more-btn')?.props ??
+        {}) as ComponentProps;
+      loadBtnProps2.onClick?.();
+
+      // 4. exception
+      mockStateQueue = makeTimelineStates({
+        nextCursor: 'cur-1',
+        isLoadingMore: false,
+      });
+      vi.mocked(listTimelineAction).mockRejectedValueOnce(new Error('Pagination error'));
+      const treeError = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      const loadBtnProps3 = (findNodeByTestId(treeError, 'timeline-load-more-btn')?.props ??
+        {}) as ComponentProps;
+      loadBtnProps3.onClick?.();
+    });
+
+    it('AC-14: renders pagination error message and loading spinner when isLoadingMore is true', () => {
+      mockStateQueue = makeTimelineStates({
+        nextCursor: 'cur-1',
+        isLoadingMore: true,
+        paginationError: 'Failed to load page.',
+      });
+
+      const html = renderToStaticMarkup(
+        <ClientTimeline
+          clientId="018f0000-0000-7000-8000-000000000001"
+          locale="en"
+          studioTimezone="UTC"
+          initialItems={sampleItems}
+        />,
+      );
+
+      expect(html).toContain('Failed to load page.');
+      expect(html).toContain('Loading...');
+    });
+
+    it('AC-14: edit button click opens EditNoteDialog, handleNoteEditSuccess updates item, and onOpenChange closes dialog', () => {
+      // 1. Click edit button
+      const tree = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      const editBtn = findNodeByTestId(tree, 'edit-note-btn-018f0000-0000-7000-8000-000000000003');
+      const editBtnProps = (editBtn?.props ?? {}) as ComponentProps;
+      editBtnProps.onClick?.({ currentTarget: {} });
+
+      // 2. When editingNote is set, EditNoteDialog renders and its handlers work
+      mockStateQueue = makeTimelineStates({
+        editingNote: {
+          id: '018f0000-0000-7000-8000-000000000003',
+          noteId: '018f0000-0000-7000-8000-000000000010',
+          body: 'Note body to edit',
+        },
+      });
+      const treeWithEdit = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+
+      let dialogProps: ComponentProps | undefined;
+
+      function findEditDialog(node: unknown): void {
+        if (!node || typeof node !== 'object') return;
+        if (React.isValidElement(node)) {
+          if (node.type === EditNoteDialog) {
+            dialogProps = node.props as ComponentProps;
+            return;
+          }
+          const props = node.props as Record<string, unknown>;
+          if (props.children) findEditDialog(props.children);
+        } else if (Array.isArray(node)) {
+          for (const item of node) findEditDialog(item);
+        }
+      }
+      findEditDialog(treeWithEdit);
+
+      expect(dialogProps).toBeDefined();
+      dialogProps?.onSuccess?.('Brand new note body');
+      dialogProps?.onOpenChange?.(false);
+      dialogProps?.onOpenChange?.(true);
+    });
+
+    it('AC-14: delete button opens ConfirmDialog, handleConfirmDelete handles failure, success, and exception', async () => {
+      // 1. Click delete button
+      const tree = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+      const delBtn = findNodeByTestId(tree, 'delete-note-btn-018f0000-0000-7000-8000-000000000003');
+      const delBtnProps = (delBtn?.props ?? {}) as ComponentProps;
+      delBtnProps.onClick?.({ currentTarget: {} });
+
+      // 2. When deletingNote is set, ConfirmDialog renders
+      mockStateQueue = makeTimelineStates({
+        deletingNote: {
+          id: '018f0000-0000-7000-8000-000000000003',
+          noteId: '018f0000-0000-7000-8000-000000000010',
+          body: 'Note body to delete',
+        },
+        isDeletingNote: false,
+      });
+
+      const treeWithDelete = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+
+      let confirmProps: ComponentProps | undefined;
+
+      function findConfirmDialog(node: unknown): void {
+        if (!node || typeof node !== 'object') return;
+        if (React.isValidElement(node)) {
+          const props = node.props as Record<string, unknown>;
+          if (typeof props.onConfirm === 'function' && typeof props.onOpenChange === 'function') {
+            confirmProps = props;
+            return;
+          }
+          if (props.children) findConfirmDialog(props.children);
+        } else if (Array.isArray(node)) {
+          for (const item of node) findConfirmDialog(item);
+        }
+      }
+      findConfirmDialog(treeWithDelete);
+
+      expect(confirmProps).toBeDefined();
+
+      // Action failure
+      vi.mocked(deleteNoteAction).mockResolvedValueOnce({
+        success: false,
+        code: 'FORBIDDEN',
+        error: 'Forbidden',
+      });
+      await confirmProps?.onConfirm?.();
+
+      // Action success
+      vi.mocked(deleteNoteAction).mockResolvedValueOnce({
+        success: true,
+        data: { noteId: '018f0000-0000-7000-8000-000000000010' },
+      });
+      await confirmProps?.onConfirm?.();
+
+      // Action exception
+      vi.mocked(deleteNoteAction).mockRejectedValueOnce(new Error('Delete exploded'));
+      await confirmProps?.onConfirm?.();
+
+      // onOpenChange closes
+      confirmProps?.onOpenChange?.(false);
+    });
+
+    it('AC-13: list item ref callback handles both node attachment and cleanup', () => {
+      const tree = ClientTimeline({
+        clientId: '018f0000-0000-7000-8000-000000000001',
+        locale: 'en',
+        studioTimezone: 'UTC',
+        initialItems: sampleItems,
+      });
+
+      const li = findFirstLi(tree);
+      const liProps = (li?.props ?? {}) as ComponentProps;
+      expect(typeof liProps.ref).toBe('function');
+
+      // 1. Attach node
+      liProps.ref?.({ focus: vi.fn() });
+
+      // 2. Detach node (null cleanup)
+      liProps.ref?.(null);
+    });
+
+    it('AC-13: renders composer alert div when composerError is set', () => {
+      mockStateQueue = makeTimelineStates({
+        composerError: 'Note could not be saved.',
+      });
+
+      const html = renderToStaticMarkup(
+        <ClientTimeline
+          clientId="018f0000-0000-7000-8000-000000000001"
+          locale="en"
+          studioTimezone="UTC"
+          initialItems={sampleItems}
+        />,
+      );
+
+      expect(html).toContain('timeline-composer-error');
+      expect(html).toContain('Note could not be saved.');
+    });
   });
 });

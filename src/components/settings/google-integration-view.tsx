@@ -354,7 +354,7 @@ export function GoogleIntegrationView({
                   setIsDisconnectDialogOpen(true);
                 }}
                 data-testid="disconnect-button"
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-destructive/30 text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 min-h-[40px] px-4 py-2 transition-colors shadow-sm"
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-destructive/30 text-destructive dark:text-red-400 hover:bg-destructive/10 dark:hover:bg-red-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 min-h-[40px] px-4 py-2 transition-colors shadow-sm"
               >
                 {t('disconnectButton')}
               </button>

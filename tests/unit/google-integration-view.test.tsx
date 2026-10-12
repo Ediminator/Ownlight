@@ -224,4 +224,25 @@ describe('GoogleIntegrationView Component (AC-1, AC-8)', () => {
     expect(html).toContain('hyphens-auto');
     expect(html).toContain('p-4 sm:p-6');
   });
+
+  it('AC-8, I2-U01: disconnect button includes dark:text-red-400 for WCAG 2.2 AA contrast in dark mode', () => {
+    const connectedStatus: GoogleIntegrationDetails = {
+      status: 'connected',
+      configured: true,
+      connected: true,
+      scope: 'https://www.googleapis.com/auth/contacts',
+      connectedAt: new Date('2026-10-12T12:00:00Z'),
+    };
+
+    const html = renderToStaticMarkup(
+      <GoogleIntegrationView
+        initialStatus={connectedStatus}
+        locale="en"
+        redirectUri={redirectUri}
+      />,
+    );
+
+    expect(html).toContain('dark:text-red-400');
+    expect(html).toContain('dark:hover:bg-red-950/30');
+  });
 });

@@ -261,3 +261,102 @@ export const successRedirectUrlSchema = z
   )
   .nullable()
   .optional();
+
+export const createInquiryFormActionInputSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Form name is required')
+      .max(100, 'Form name cannot exceed 100 characters'),
+    default_locale: z.enum(['en', 'de']).optional(),
+  })
+  .strict();
+
+export type CreateInquiryFormActionInput = z.infer<typeof createInquiryFormActionInputSchema>;
+
+export const updateInquiryFormActionInputSchema = z
+  .object({
+    id: z.string().min(1, 'Form ID is required'),
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Form name must be between 1 and 100 characters')
+      .max(100, 'Form name cannot exceed 100 characters')
+      .optional(),
+    default_locale: z.enum(['en', 'de']).optional(),
+    fields: z.array(inquiryFormFieldConfigSchema).optional(),
+    event_types: z.array(inquiryFormEventTypeSchema).optional(),
+    auto_reply_enabled: z.boolean().optional(),
+    accept_unverified: z.boolean().optional(),
+    success_redirect_url: successRedirectUrlSchema,
+  })
+  .strict();
+
+export type UpdateInquiryFormActionInput = z.infer<typeof updateInquiryFormActionInputSchema>;
+
+export const createNoticeVersionActionInputSchema = z
+  .object({
+    formId: z.string().min(1, 'Form ID is required'),
+    acknowledgement_text_en: z
+      .string()
+      .min(1, 'English acknowledgement text must be 1–500 characters')
+      .max(500, 'English acknowledgement text cannot exceed 500 characters')
+      .refine((text) => !text.includes('<') && !text.includes('>'), {
+        message: 'Notice text must be plain text without HTML tags (< or >)',
+      })
+      .optional(),
+    acknowledgement_text_de: z
+      .string()
+      .min(1, 'German acknowledgement text must be 1–500 characters')
+      .max(500, 'German acknowledgement text cannot exceed 500 characters')
+      .refine((text) => !text.includes('<') && !text.includes('>'), {
+        message: 'Notice text must be plain text without HTML tags (< or >)',
+      })
+      .optional(),
+    privacy_policy_url: z
+      .string()
+      .min(1, 'Privacy policy URL is required')
+      .max(2048, 'Privacy policy URL cannot exceed 2048 characters')
+      .refine(
+        (url) => {
+          if (!url.startsWith('https://')) return false;
+          try {
+            const parsed = new URL(url);
+            return parsed.protocol === 'https:';
+          } catch {
+            return false;
+          }
+        },
+        {
+          message: 'Privacy policy URL must be an absolute https:// URL',
+        },
+      ),
+  })
+  .strict();
+
+export type CreateNoticeVersionActionInput = z.infer<typeof createNoticeVersionActionInputSchema>;
+
+export const publishInquiryFormActionInputSchema = z
+  .object({
+    id: z.string().min(1, 'Form ID is required'),
+  })
+  .strict();
+
+export type PublishInquiryFormActionInput = z.infer<typeof publishInquiryFormActionInputSchema>;
+
+export const unpublishInquiryFormActionInputSchema = z
+  .object({
+    id: z.string().min(1, 'Form ID is required'),
+  })
+  .strict();
+
+export type UnpublishInquiryFormActionInput = z.infer<typeof unpublishInquiryFormActionInputSchema>;
+
+export const archiveInquiryFormActionInputSchema = z
+  .object({
+    id: z.string().min(1, 'Form ID is required'),
+  })
+  .strict();
+
+export type ArchiveInquiryFormActionInput = z.infer<typeof archiveInquiryFormActionInputSchema>;

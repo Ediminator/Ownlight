@@ -428,5 +428,335 @@ describe('TASK-0021: Google Outbox and PeopleClient Branch Coverage', () => {
         .where(eq(googleContactsLinks.contactId, contactId));
       expect(remainingLinks).toHaveLength(0);
     });
+
+    it('processOutboxBatch: updates contact when link exists, and falls back to recreate on 404', async () => {
+      const dbClient = getDb();
+      const clientId = '018f0000-0000-7000-8000-000000000050';
+      const contactId = '018f0000-0000-7000-8000-000000000051';
+      const linkId = '018f0000-0000-7000-8000-000000000052';
+
+      await dbClient.insert(clients).values({
+        id: clientId,
+        displayName: 'Recreate 404 Client',
+        kind: 'person',
+        preferredLocale: 'en',
+        googleContactsSyncEnabled: true,
+      });
+      await dbClient.insert(clientContacts).values({
+        id: contactId,
+        clientId,
+        isPrimary: true,
+        givenName: 'Recreated',
+        familyName: 'User',
+      });
+      await dbClient.insert(googleContactsLinks).values({
+        id: linkId,
+        contactId,
+        googleResourceName: 'people/missing-upstream-contact',
+        googleEtag: 'old-etag',
+        lastSyncedAt: new Date(),
+      });
+      // Notice: fakePeople does NOT have 'people/missing-upstream-contact', so updateContact returns 404!
+
+      await enqueueContactUpsert(contactId, dbClient);
+      const result = await processOutboxBatch({ dbClient });
+
+      expect(result.syncedCount).toBe(1);
+      const [updatedLink] = await dbClient
+        .select()
+        .from(googleContactsLinks)
+        .where(eq(googleContactsLinks.contactId, contactId));
+      expect(updatedLink?.googleResourceName).not.toBe('people/missing-upstream-contact');
+      expect(updatedLink?.googleResourceName).toContain('people/');
+    });
+
+    it('processOutboxBatch: deletes contact using DB link fallback when DELETE payload has no resourceName', async () => {
+      const dbClient = getDb();
+      const clientId = '018f0000-0000-7000-8000-000000000059';
+      const contactId = '018f0000-0000-7000-8000-000000000060';
+
+      await dbClient.insert(clients).values({
+        id: clientId,
+        displayName: 'Fallback Delete Client',
+        kind: 'person',
+        preferredLocale: 'en',
+        googleContactsSyncEnabled: false,
+      });
+      await dbClient.insert(clientContacts).values({
+        id: contactId,
+        clientId,
+        isPrimary: true,
+        givenName: 'Fallback',
+        familyName: 'Delete',
+      });
+
+      await dbClient.insert(googleContactsLinks).values({
+        id: '018f0000-0000-7000-8000-000000000061',
+        contactId,
+        googleResourceName: 'people/fallback-lookup-delete',
+        googleEtag: 'etag-fallback',
+        lastSyncedAt: new Date(),
+      });
+      fakePeople.contacts.set('people/fallback-lookup-delete', {
+        resourceName: 'people/fallback-lookup-delete',
+        etag: 'etag-fallback',
+        names: [{ givenName: 'Fallback', familyName: 'Delete' }],
+      });
+
+      // Insert DELETE outbox without payload
+      await dbClient.insert(googleContactsOutbox).values({
+        id: '018f0000-0000-7000-8000-000000000062',
+        contactId,
+        action: 'DELETE',
+        status: 'PENDING',
+        payload: null,
+      });
+
+      const result = await processOutboxBatch({ dbClient });
+      expect(result.syncedCount).toBe(1);
+      expect(fakePeople.contacts.has('people/fallback-lookup-delete')).toBe(false);
+
+      const remainingLinks = await dbClient
+        .select()
+        .from(googleContactsLinks)
+        .where(eq(googleContactsLinks.contactId, contactId));
+      expect(remainingLinks).toHaveLength(0);
+    });
+
+    it('processOutboxBatch: deletes link by resourceName when contactId is absent', async () => {
+      const dbClient = getDb();
+      const clientId = '018f0000-0000-7000-8000-000000000069';
+      const contactId = '018f0000-0000-7000-8000-000000000071';
+      const resourceName = 'people/resource-name-only-delete';
+
+      await dbClient.insert(clients).values({
+        id: clientId,
+        displayName: 'Resource Only Client',
+        kind: 'person',
+        preferredLocale: 'en',
+        googleContactsSyncEnabled: false,
+      });
+      await dbClient.insert(clientContacts).values({
+        id: contactId,
+        clientId,
+        isPrimary: true,
+        givenName: 'Resource',
+        familyName: 'Only',
+      });
+
+      await dbClient.insert(googleContactsLinks).values({
+        id: '018f0000-0000-7000-8000-000000000070',
+        contactId,
+        googleResourceName: resourceName,
+        googleEtag: 'etag-res-only',
+        lastSyncedAt: new Date(),
+      });
+      fakePeople.contacts.set(resourceName, {
+        resourceName,
+        etag: 'etag-res-only',
+        names: [{ givenName: 'Resource', familyName: 'Only' }],
+      });
+
+      // Insert DELETE outbox without contactId, but with resourceName payload
+      await dbClient.insert(googleContactsOutbox).values({
+        id: '018f0000-0000-7000-8000-000000000072',
+        action: 'DELETE',
+        status: 'PENDING',
+        payload: { resourceName },
+      });
+
+      const result = await processOutboxBatch({ dbClient });
+      expect(result.syncedCount).toBe(1);
+      expect(fakePeople.contacts.has(resourceName)).toBe(false);
+
+      const remainingLinks = await dbClient
+        .select()
+        .from(googleContactsLinks)
+        .where(eq(googleContactsLinks.googleResourceName, resourceName));
+      expect(remainingLinks).toHaveLength(0);
+    });
+
+    it('processOutboxBatch: handles non-Error rejection in catch block', async () => {
+      const dbClient = getDb();
+      const clientId = '018f0000-0000-7000-8000-000000000080';
+      const contactId = '018f0000-0000-7000-8000-000000000081';
+
+      await dbClient.insert(clients).values({
+        id: clientId,
+        displayName: 'Non-Error Client',
+        kind: 'person',
+        preferredLocale: 'en',
+        googleContactsSyncEnabled: true,
+      });
+      await dbClient.insert(clientContacts).values({
+        id: contactId,
+        clientId,
+        isPrimary: true,
+        givenName: 'Non',
+        familyName: 'Error',
+      });
+      await dbClient.insert(googleContactsOutbox).values({
+        id: '018f0000-0000-7000-8000-000000000082',
+        contactId,
+        action: 'UPSERT',
+        status: 'PENDING',
+        attempts: 0,
+      });
+
+      // Mock dbClient.update to throw a non-Error string during markOutboxItemProcessing
+      vi.spyOn(dbClient, 'update').mockImplementationOnce(() => {
+        throw 'raw-string-exception';
+      });
+
+      const result = await processOutboxBatch({ dbClient });
+      expect(result.failedCount).toBe(1);
+
+      const [item] = await dbClient
+        .select()
+        .from(googleContactsOutbox)
+        .where(eq(googleContactsOutbox.contactId, contactId));
+      expect(item?.lastError).toContain('raw-string-exception');
+    });
+
+    it('processOutboxBatch: discards UPSERT item when contact row does not exist', async () => {
+      const dbClient = getDb();
+      const clientId = '018f0000-0000-7000-8000-000000000090';
+      const contactId = '018f0000-0000-7000-8000-000000000091';
+
+      await dbClient.insert(clients).values({
+        id: clientId,
+        displayName: 'Discard Test Client',
+        kind: 'person',
+        preferredLocale: 'en',
+        googleContactsSyncEnabled: true,
+      });
+      await dbClient.insert(clientContacts).values({
+        id: contactId,
+        clientId,
+        isPrimary: true,
+        givenName: 'Test',
+        familyName: 'User',
+      });
+      await dbClient.insert(googleContactsOutbox).values({
+        id: '018f0000-0000-7000-8000-000000000092',
+        contactId,
+        action: 'UPSERT',
+        status: 'PENDING',
+      });
+
+      // Simulate contact query returning empty (e.g. concurrent deletion during processing)
+      const originalSelect = dbClient.select.bind(dbClient);
+      let callCount = 0;
+      vi.spyOn(dbClient, 'select').mockImplementation((...args) => {
+        callCount++;
+        // The second select in processOutboxBatch is the contact query
+        if (callCount === 2) {
+          return {
+            from: () => ({
+              innerJoin: () => ({
+                where: () => ({
+                  limit: async () => [],
+                }),
+              }),
+            }),
+          } as unknown as ReturnType<typeof dbClient.select>;
+        }
+        return originalSelect(...args);
+      });
+
+      const result = await processOutboxBatch({ dbClient });
+      expect(result.syncedCount).toBe(0);
+      expect(result.failedCount).toBe(0);
+
+      const [item] = await dbClient
+        .select()
+        .from(googleContactsOutbox)
+        .where(eq(googleContactsOutbox.id, '018f0000-0000-7000-8000-000000000092'));
+      expect(item).toBeUndefined();
+    });
+
+    it('processOutboxBatch: discards UPSERT item when client sync is disabled', async () => {
+      const dbClient = getDb();
+      const clientId = '018f0000-0000-7000-8000-000000000093';
+      const contactId = '018f0000-0000-7000-8000-000000000094';
+
+      await dbClient.insert(clients).values({
+        id: clientId,
+        displayName: 'Disabled Client',
+        kind: 'person',
+        preferredLocale: 'en',
+        googleContactsSyncEnabled: false,
+      });
+      await dbClient.insert(clientContacts).values({
+        id: contactId,
+        clientId,
+        isPrimary: true,
+        givenName: 'Disabled',
+        familyName: 'User',
+      });
+      await dbClient.insert(googleContactsOutbox).values({
+        id: '018f0000-0000-7000-8000-000000000095',
+        contactId,
+        action: 'UPSERT',
+        status: 'PENDING',
+      });
+
+      const result = await processOutboxBatch({ dbClient });
+      expect(result.syncedCount).toBe(0);
+      expect(result.failedCount).toBe(0);
+
+      const [item] = await dbClient
+        .select()
+        .from(googleContactsOutbox)
+        .where(eq(googleContactsOutbox.id, '018f0000-0000-7000-8000-000000000095'));
+      expect(item).toBeUndefined();
+    });
+
+    it('processOutboxBatch: rethrows error when updateContact fails with non-404 error', async () => {
+      const dbClient = getDb();
+      const clientId = '018f0000-0000-7000-8000-000000000096';
+      const contactId = '018f0000-0000-7000-8000-000000000097';
+
+      await dbClient.insert(clients).values({
+        id: clientId,
+        displayName: '500 Update Client',
+        kind: 'person',
+        preferredLocale: 'en',
+        googleContactsSyncEnabled: true,
+      });
+      await dbClient.insert(clientContacts).values({
+        id: contactId,
+        clientId,
+        isPrimary: true,
+        givenName: 'Update500',
+        familyName: 'User',
+      });
+      await dbClient.insert(googleContactsLinks).values({
+        id: '018f0000-0000-7000-8000-000000000098',
+        contactId,
+        googleResourceName: 'people/500-update-contact',
+        googleEtag: 'etag-500',
+        lastSyncedAt: new Date(),
+      });
+      await dbClient.insert(googleContactsOutbox).values({
+        id: '018f0000-0000-7000-8000-000000000099',
+        contactId,
+        action: 'UPSERT',
+        status: 'PENDING',
+      });
+
+      fakePeople.setResponseOverride('PATCH', 'updateContact', 500, {
+        error: { message: 'Internal Server Error' },
+      });
+
+      const result = await processOutboxBatch({ dbClient });
+      expect(result.failedCount).toBe(1);
+
+      const [item] = await dbClient
+        .select()
+        .from(googleContactsOutbox)
+        .where(eq(googleContactsOutbox.id, '018f0000-0000-7000-8000-000000000099'));
+      expect(item?.attempts).toBe(1);
+    });
   });
 });

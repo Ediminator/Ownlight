@@ -138,7 +138,7 @@ describe('TASK-0021: Google Contacts Erasure Integration (AC-7)', () => {
       throw new Error('Expected deleteReq to be defined');
     }
     expect(deleteReq.method).toBe('DELETE');
-    expect(deleteReq.url).toContain(encodeURIComponent(resourceName).replace('%2F', '/'));
+    expect(deleteReq.url).toContain(encodeURIComponent(resourceName).replaceAll('%2F', '/'));
 
     // 5. Verify remote resource was deleted (no orphan)
     expect(fakePeople.contacts.has(resourceName)).toBe(false);

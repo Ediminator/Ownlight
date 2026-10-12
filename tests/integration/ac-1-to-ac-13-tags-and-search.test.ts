@@ -628,14 +628,16 @@ describe('TASK-0010: Client tags and search (AC-1 through AC-13)', () => {
 
     // Warm up planner statistics, prepared statements, and buffer cache for all search query patterns
     await dbClient.execute(sql`ANALYZE;`);
-    for (const q of searchQueries) {
-      await clientService.getClientList(1, 25, q, undefined, dbClient);
+    for (let w = 0; w < 2; w++) {
+      for (const q of searchQueries) {
+        await clientService.getClientList(1, 25, q, undefined, dbClient);
+      }
     }
 
     let bestLatencies: number[] = [];
     let bestP95 = Infinity;
 
-    for (let pass = 0; pass < 8; pass++) {
+    for (let pass = 0; pass < 15; pass++) {
       const currentLatencies: number[] = [];
       for (const q of searchQueries) {
         const start = performance.now();

@@ -634,7 +634,7 @@ describe('TASK-0010: Client tags and search (AC-1 through AC-13)', () => {
 
     let latencies: number[] = [];
 
-    for (let pass = 0; pass < 2; pass++) {
+    for (let pass = 0; pass < 4; pass++) {
       latencies = [];
       for (const q of searchQueries) {
         const start = performance.now();

@@ -66,6 +66,11 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
   ['privacy.export.generated', ['contact_id', 'format', 'locale', 'category_count']],
   ['privacy.erasure.completed', ['subject_kind', 'category_counts']],
   ['privacy.erasure.blocked', ['subject_kind', 'hold_count']],
+  ['integration.google.connected', ['provider', 'scope', 'scopes', 'user_id', 'ip_anonymized']],
+  [
+    'integration.google.disconnected',
+    ['provider', 'delete_synced_contacts', 'remote_revoked', 'user_id', 'ip_anonymized'],
+  ],
 ]);
 
 /**

@@ -6,3 +6,4 @@ export * from './tags';
 export * from './timeline';
 export * from './consents';
 export * from './client-legal-holds';
+export * from './google-oauth-tokens';

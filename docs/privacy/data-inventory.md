@@ -78,3 +78,11 @@ This register documents all personal data processed by the application, its lawf
 | `metadata`    | jsonb                                                | Strict allowlist-filtered non-PII operational telemetry. Prohibited: raw IPs (anonymized `/24` or `/48` only), cleartext emails, names, passwords, tokens. Permitted for agent attribution: `token_id`, `tool_name`, `command_name`, `args_hash`. |
 
 ---
+
+## 4. Integration & Credential Vault Data (TASK-0017, ADR-0014)
+
+| Data Field / Entity                           | Purpose                                                                          | Lawful Basis (GDPR)              | Retention Period                        | Deletion / Export                                                                                                                     |
+| --------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `google_oauth_tokens.encrypted_refresh_token` | Secure offline API access token storage for Google Workspace (Contacts/Calendar) | Art. 6(1)(f) Legitimate interest | Retained while integration is connected | Deleted immediately on disconnect; encrypted with master key (`ENCRYPTION_KEY`); excluded from client DSAR exports (operator secret). |
+| `google_oauth_tokens.access_token`            | Short-lived cached OAuth access token                                            | Art. 6(1)(f) Legitimate interest | Up to 1 hour                            | Deleted on disconnect; excluded from client DSAR exports.                                                                             |
+| `google_oauth_tokens.scope`                   | OAuth permissions granted by studio owner                                        | Art. 6(1)(f) Legitimate interest | Retained while integration is connected | Deleted on disconnect; excluded from client DSAR exports.                                                                             |

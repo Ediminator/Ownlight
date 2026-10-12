@@ -823,6 +823,47 @@ describe('TASK-0012: Client Profile UI and Dialog Integrations', () => {
     const contactDialog = findNodeByType(tree, ContactDialog);
     getProps(contactDialog).onSuccess?.();
   });
+
+  it('I1-U01: renders google sync status badges with WCAG 2.2 AA compliant dark mode contrast classes', () => {
+    const baseClient = createSampleClient();
+
+    // 1. Failed sync status badge (I1-U01)
+    const failedClient = {
+      ...baseClient,
+      googleSyncStatus: 'failed' as const,
+    };
+    const failedHtml = renderToStaticMarkup(
+      <ClientProfile clientData={failedClient} locale="en" studioTimezone="UTC" />,
+    );
+    expect(failedHtml).toContain('data-testid="google-sync-status-badge"');
+    expect(failedHtml).toContain('dark:bg-red-950/40');
+    expect(failedHtml).toContain('dark:text-red-300');
+    expect(failedHtml).toContain('dark:border-red-800');
+
+    // 2. Synced status badge
+    const syncedClient = {
+      ...baseClient,
+      googleSyncStatus: 'synced' as const,
+    };
+    const syncedHtml = renderToStaticMarkup(
+      <ClientProfile clientData={syncedClient} locale="en" studioTimezone="UTC" />,
+    );
+    expect(syncedHtml).toContain('dark:bg-emerald-950/40');
+    expect(syncedHtml).toContain('dark:text-emerald-300');
+    expect(syncedHtml).toContain('dark:border-emerald-800');
+
+    // 3. Pending status badge
+    const pendingClient = {
+      ...baseClient,
+      googleSyncStatus: 'pending' as const,
+    };
+    const pendingHtml = renderToStaticMarkup(
+      <ClientProfile clientData={pendingClient} locale="en" studioTimezone="UTC" />,
+    );
+    expect(pendingHtml).toContain('dark:bg-amber-950/40');
+    expect(pendingHtml).toContain('dark:text-amber-300');
+    expect(pendingHtml).toContain('dark:border-amber-800');
+  });
 });
 
 interface InteractiveProps {

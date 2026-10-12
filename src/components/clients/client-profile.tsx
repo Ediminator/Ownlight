@@ -346,7 +346,7 @@ export function ClientProfile({
                     : syncStatus === 'pending'
                       ? 'bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
                       : syncStatus === 'failed'
-                        ? 'bg-destructive/10 text-destructive border-destructive/20'
+                        ? 'bg-destructive/10 text-destructive border-destructive/20 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800'
                         : 'bg-muted text-muted-foreground border-border'
                 }`}
                 data-testid="google-sync-status-badge"

@@ -26,27 +26,35 @@ vi.mock('next/headers', () => ({
   },
   headers: () =>
     Promise.resolve({
-      get: (name: string) => (name === 'x-real-ip' ? '127.0.0.1' : null),
+      get: (name: string) =>
+        name === 'x-forwarded-for' || name === 'x-real-ip' ? '127.0.0.1' : null,
     }),
 }));
 
 let mockRateLimitAllowed = true;
-vi.mock('@/server/auth/rate-limiter', () => ({
-  checkSignInRateLimit: vi.fn(() => Promise.resolve({ allowed: mockRateLimitAllowed })),
-  recordSignInFailure: vi.fn(() => Promise.resolve()),
-  recordSignInSuccess: vi.fn(() => Promise.resolve()),
-  checkSetupRateLimit: vi.fn(() => Promise.resolve({ allowed: mockRateLimitAllowed })),
-  recordSetupFailure: vi.fn(() => Promise.resolve()),
-  checkPasswordResetRequestRateLimit: vi.fn(() =>
-    Promise.resolve({ allowed: mockRateLimitAllowed }),
-  ),
-  recordPasswordResetRequest: vi.fn(() => Promise.resolve()),
-  checkPasswordResetActionRateLimit: vi.fn(() =>
-    Promise.resolve({ allowed: mockRateLimitAllowed }),
-  ),
-  recordPasswordResetActionFailure: vi.fn(() => Promise.resolve()),
-  anonymizeIp: (ip: string) => ip,
-}));
+vi.mock('@/server/auth/rate-limiter', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/server/auth/rate-limiter')>();
+  return {
+    ...actual,
+    checkSignInRateLimit: vi.fn(() => Promise.resolve({ allowed: mockRateLimitAllowed })),
+    recordSignInFailure: vi.fn(() => Promise.resolve()),
+    recordSignInSuccess: vi.fn(() => Promise.resolve()),
+    checkSetupRateLimit: vi.fn(() => Promise.resolve({ allowed: mockRateLimitAllowed })),
+    recordSetupFailure: vi.fn(() => Promise.resolve()),
+    checkPasswordResetRequestRateLimit: vi.fn(() =>
+      Promise.resolve({ allowed: mockRateLimitAllowed }),
+    ),
+    consumePasswordResetRequestRateLimit: vi.fn(() =>
+      Promise.resolve({ allowed: mockRateLimitAllowed }),
+    ),
+    recordPasswordResetRequest: vi.fn(() => Promise.resolve()),
+    checkPasswordResetActionRateLimit: vi.fn(() =>
+      Promise.resolve({ allowed: mockRateLimitAllowed }),
+    ),
+    recordPasswordResetActionFailure: vi.fn(() => Promise.resolve()),
+    anonymizeIp: (ip: string) => ip,
+  };
+});
 
 let mockArgon2Match = true;
 vi.mock('@/server/auth/passwords/policy', async (importOriginal) => {

@@ -1,7 +1,19 @@
+import 'server-only';
 import crypto from 'node:crypto';
-import { eq, lt } from 'drizzle-orm';
+import { eq, lt, sql } from 'drizzle-orm';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
 import { rateLimits } from '@/server/db/schema/auth';
+
+/**
+ * Typed error thrown when the rate limit service or database is unavailable.
+ * Used by callers to fail-closed without leaking PII or credentials.
+ */
+export class RateLimitUnavailableError extends Error {
+  constructor(message = 'Rate limit service unavailable') {
+    super(message);
+    this.name = 'RateLimitUnavailableError';
+  }
+}
 
 export const ACCOUNT_MAX_ATTEMPTS = 10;
 export const ACCOUNT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -96,20 +108,91 @@ export async function cleanupExpiredRateLimits(client: DbClient = defaultDb): Pr
 }
 
 /**
- * Checks whether a key is currently throttled.
+ * Consumes one rate limit attempt atomically using a single upsert statement.
+ * Resets window if expired.
+ * Fail-closed: throws RateLimitUnavailableError on database error.
  */
-export async function checkRateLimit(
+export async function consumeRateLimit(
   key: string,
-  maxAttempts: number,
+  max: number,
   windowMs: number,
   client: DbClient = defaultDb,
 ): Promise<RateLimitCheckResult> {
   const now = new Date();
-  try {
-    // Prune expired records during check to ensure database retention <= 24h
-    void cleanupExpiredRateLimits(client);
+  const windowEnd = new Date(now.getTime() + windowMs);
 
-    const rows = await client.select().from(rateLimits).where(eq(rateLimits.key, key)).limit(1);
+  try {
+    const rows = await client
+      .insert(rateLimits)
+      .values({
+        key,
+        count: 1,
+        lastAttemptAt: now,
+        expiresAt: windowEnd,
+      })
+      .onConflictDoUpdate({
+        target: rateLimits.key,
+        set: {
+          count: sql`CASE WHEN ${rateLimits.expiresAt} <= now() THEN 1 ELSE ${rateLimits.count} + 1 END`,
+          expiresAt: sql`CASE WHEN ${rateLimits.expiresAt} <= now() THEN ${windowEnd} ELSE ${rateLimits.expiresAt} END`,
+          lastAttemptAt: sql`now()`,
+        },
+      })
+      .returning({
+        count: rateLimits.count,
+        expiresAt: rateLimits.expiresAt,
+      });
+
+    const record = rows[0];
+    if (!record) {
+      throw new RateLimitUnavailableError('Failed to execute rate limit upsert');
+    }
+
+    const count = record.count;
+    const allowed = count <= max;
+    const remaining = Math.max(0, max - count);
+
+    return {
+      allowed,
+      remaining,
+      resetAt: record.expiresAt,
+    };
+  } catch (err) {
+    if (err instanceof RateLimitUnavailableError) {
+      throw err;
+    }
+    throw new RateLimitUnavailableError(
+      err instanceof Error ? err.message : 'Database error during rate limit consumption',
+    );
+  }
+}
+
+/**
+ * Checks whether a key is currently throttled (read-only).
+ * Fail-closed: throws RateLimitUnavailableError on database error.
+ */
+export async function checkRateLimit(
+  key: string,
+  maxAttempts: number,
+  windowMsOrClient?: number | DbClient,
+  client?: DbClient,
+): Promise<RateLimitCheckResult> {
+  let windowMs = 15 * 60 * 1000;
+  let dbClient = defaultDb;
+
+  if (typeof windowMsOrClient === 'number') {
+    windowMs = windowMsOrClient;
+    if (client) dbClient = client;
+  } else if (windowMsOrClient) {
+    dbClient = windowMsOrClient;
+  }
+
+  const now = new Date();
+  try {
+    // Prune expired records during check (non-fatal if background cleanup fails)
+    void cleanupExpiredRateLimits(dbClient).catch(() => 0);
+
+    const rows = await dbClient.select().from(rateLimits).where(eq(rateLimits.key, key)).limit(1);
 
     if (rows.length === 0 || !rows[0]) {
       return {
@@ -143,71 +226,66 @@ export async function checkRateLimit(
       remaining: Math.max(0, maxAttempts - record.count),
       resetAt: record.expiresAt,
     };
-  } catch {
-    return {
-      allowed: true,
-      remaining: maxAttempts,
-      resetAt: new Date(now.getTime() + windowMs),
-    };
+  } catch (err) {
+    if (err instanceof RateLimitUnavailableError) {
+      throw err;
+    }
+    throw new RateLimitUnavailableError(
+      err instanceof Error ? err.message : 'Database error during rate limit check',
+    );
   }
 }
 
 /**
- * Increments the failure counter for a key.
+ * Increments the failure counter for a key using an atomic upsert statement.
+ * Fail-closed: throws RateLimitUnavailableError on database error.
  */
 export async function recordFailedAttempt(
   key: string,
   windowMs: number,
   client: DbClient = defaultDb,
 ): Promise<void> {
-  try {
-    const now = new Date();
-    const rows = await client.select().from(rateLimits).where(eq(rateLimits.key, key)).limit(1);
+  const now = new Date();
+  const windowEnd = new Date(now.getTime() + windowMs);
 
-    if (rows.length === 0 || !rows[0]) {
-      await client.insert(rateLimits).values({
+  try {
+    await client
+      .insert(rateLimits)
+      .values({
         key,
         count: 1,
         lastAttemptAt: now,
-        expiresAt: new Date(now.getTime() + windowMs),
+        expiresAt: windowEnd,
+      })
+      .onConflictDoUpdate({
+        target: rateLimits.key,
+        set: {
+          count: sql`CASE WHEN ${rateLimits.expiresAt} <= now() THEN 1 ELSE ${rateLimits.count} + 1 END`,
+          expiresAt: sql`CASE WHEN ${rateLimits.expiresAt} <= now() THEN ${windowEnd} ELSE ${rateLimits.expiresAt} END`,
+          lastAttemptAt: sql`now()`,
+        },
       });
-      return;
+  } catch (err) {
+    if (err instanceof RateLimitUnavailableError) {
+      throw err;
     }
-
-    const record = rows[0];
-    if (record.expiresAt.getTime() <= now.getTime()) {
-      // Reset window
-      await client
-        .update(rateLimits)
-        .set({
-          count: 1,
-          lastAttemptAt: now,
-          expiresAt: new Date(now.getTime() + windowMs),
-        })
-        .where(eq(rateLimits.key, key));
-    } else {
-      // Increment existing count
-      await client
-        .update(rateLimits)
-        .set({
-          count: record.count + 1,
-          lastAttemptAt: now,
-        })
-        .where(eq(rateLimits.key, key));
-    }
-  } catch {
-    // Fail gracefully if DB is offline or not configured
+    throw new RateLimitUnavailableError(
+      err instanceof Error ? err.message : 'Database error during recordFailedAttempt',
+    );
   }
 }
 
 /**
  * Resets the rate limit counter for a key (e.g. after successful authentication).
+ * Fail-closed: throws RateLimitUnavailableError on database error.
  */
 export async function resetRateLimit(key: string, client: DbClient = defaultDb): Promise<void> {
   try {
     await client.delete(rateLimits).where(eq(rateLimits.key, key));
-  } catch {
-    // Fail gracefully if DB is offline or not configured
+  } catch (err) {
+    throw new RateLimitUnavailableError(
+      err instanceof Error ? err.message : 'Database error during rate limit reset',
+    );
   }
 }
 
@@ -266,6 +344,17 @@ export async function recordSignInSuccess(
 }
 
 /**
+ * Consumes a setup attempt atomically (counts every request).
+ */
+export async function consumeSetupRateLimit(
+  ip: string,
+  client: DbClient = defaultDb,
+): Promise<RateLimitCheckResult> {
+  const key = `setup:${anonymizeIp(ip)}`;
+  return await consumeRateLimit(key, SETUP_IP_MAX_ATTEMPTS, SETUP_IP_WINDOW_MS, client);
+}
+
+/**
  * Checks rate limits for studio owner bootstrap ceremony.
  */
 export async function checkSetupRateLimit(
@@ -282,6 +371,46 @@ export async function checkSetupRateLimit(
 export async function recordSetupFailure(ip: string, client: DbClient = defaultDb): Promise<void> {
   const key = `setup:${anonymizeIp(ip)}`;
   await recordFailedAttempt(key, SETUP_IP_WINDOW_MS, client);
+}
+
+/**
+ * Consumes a password reset request attempt atomically across both IP and account (counts every request).
+ */
+export async function consumePasswordResetRequestRateLimit(
+  email: string,
+  ip: string,
+  client: DbClient = defaultDb,
+): Promise<RateLimitCheckResult> {
+  const ipKey = `reset_req_ip:${anonymizeIp(ip)}`;
+  const acctKey = `reset_req_acct:${crypto.createHash('sha256').update(email.toLowerCase().trim()).digest('hex').slice(0, 32)}`;
+
+  // Consume IP limit
+  const ipCheck = await consumeRateLimit(
+    ipKey,
+    RESET_REQ_IP_MAX_ATTEMPTS,
+    RESET_REQ_WINDOW_MS,
+    client,
+  );
+  if (!ipCheck.allowed) {
+    return { ...ipCheck, reason: 'ip' };
+  }
+
+  // Consume Account limit
+  const acctCheck = await consumeRateLimit(
+    acctKey,
+    RESET_REQ_ACCOUNT_MAX_ATTEMPTS,
+    RESET_REQ_WINDOW_MS,
+    client,
+  );
+  if (!acctCheck.allowed) {
+    return { ...acctCheck, reason: 'account' };
+  }
+
+  return {
+    allowed: true,
+    remaining: Math.min(ipCheck.remaining, acctCheck.remaining),
+    resetAt: new Date(Math.max(ipCheck.resetAt.getTime(), acctCheck.resetAt.getTime())),
+  };
 }
 
 /**

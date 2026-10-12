@@ -19,13 +19,14 @@ import {
   recordSignInFailure,
   recordSignInSuccess,
   anonymizeIp,
-  checkSetupRateLimit,
-  recordSetupFailure,
-  checkPasswordResetRequestRateLimit,
-  recordPasswordResetRequest,
+  consumeSetupRateLimit,
+  consumePasswordResetRequestRateLimit,
   checkPasswordResetActionRateLimit,
   recordPasswordResetActionFailure,
+  RateLimitUnavailableError,
 } from './rate-limiter';
+import { resolveClientIp } from '@/server/http/client-ip';
+import { logger } from '@/server/log';
 import {
   rotateSession,
   revokeSession,
@@ -45,22 +46,14 @@ export type ActionResult<T = unknown> =
   { success: true; data?: T; error?: never } | { success: false; error: string; data?: never };
 
 /**
- * Helper to determine client IP address from Next.js request headers.
+ * Helper to determine client IP address from Next.js request headers via trusted proxy resolver.
  */
 async function getClientIp(): Promise<string> {
   try {
     const h = await headers();
-    const realIp = h.get('x-real-ip');
-    if (realIp) return realIp.trim();
-
-    const forwarded = h.get('x-forwarded-for');
-    if (forwarded) {
-      const firstIp = forwarded.split(',')[0];
-      if (firstIp) return firstIp.trim();
-    }
-    return '127.0.0.1';
+    return resolveClientIp(h) ?? 'unknown';
   } catch {
-    return '127.0.0.1';
+    return 'unknown';
   }
 }
 
@@ -104,8 +97,8 @@ export async function setupOwnerAction(
   const ip = await getClientIp();
 
   try {
-    // Rate limiting on setup (I1-S04)
-    const rateLimitStatus = await checkSetupRateLimit(ip, client);
+    // Rate limiting on setup (TASK-0023: atomic single-statement consumption)
+    const rateLimitStatus = await consumeSetupRateLimit(ip, client);
     if (!rateLimitStatus.allowed) {
       return {
         success: false,
@@ -151,10 +144,12 @@ export async function setupOwnerAction(
       },
     };
   } catch (err) {
-    try {
-      await recordSetupFailure(ip, client);
-    } catch {
-      // Ignore database connection errors during failure recording
+    if (err instanceof RateLimitUnavailableError) {
+      logger.error({ errorClass: 'RateLimitUnavailableError', err }, 'Rate limiter unavailable');
+      return {
+        success: false,
+        error: 'Setup failed.',
+      };
     }
     return {
       success: false,
@@ -201,93 +196,171 @@ export async function signInAction(
   },
   client: DbClient = db,
 ): Promise<ActionResult<SignInResult>> {
-  const normalizedEmail = formData.email.toLowerCase().trim();
-  const ip = await getClientIp();
+  try {
+    const normalizedEmail = formData.email.toLowerCase().trim();
+    const ip = await getClientIp();
 
-  // 1. Rate limiting check (survives restarts)
-  const rateLimitStatus = await checkSignInRateLimit(normalizedEmail, ip, client);
-  if (!rateLimitStatus.allowed) {
-    return {
-      success: false,
-      error: 'Too many failed attempts. Please try again later.',
-    };
-  }
+    // 1. Rate limiting check (survives restarts)
+    const rateLimitStatus = await checkSignInRateLimit(normalizedEmail, ip, client);
+    if (!rateLimitStatus.allowed) {
+      return {
+        success: false,
+        error: 'Too many failed attempts. Please try again later.',
+      };
+    }
 
-  // 2. Query user by email
-  const userRows = await client.select().from(user).where(eq(user.email, normalizedEmail)).limit(1);
+    // 2. Query user by email
+    const userRows = await client
+      .select()
+      .from(user)
+      .where(eq(user.email, normalizedEmail))
+      .limit(1);
 
-  if (userRows.length === 0) {
-    await recordSignInFailure(normalizedEmail, ip, client);
-    await recordSignInAuditFailure(ip, client);
-    // Generic error to prevent enumeration
-    return {
-      success: false,
-      error: 'Invalid email or password.',
-    };
-  }
+    if (userRows.length === 0) {
+      await recordSignInFailure(normalizedEmail, ip, client);
+      await recordSignInAuditFailure(ip, client);
+      // Generic error to prevent enumeration
+      return {
+        success: false,
+        error: 'Invalid email or password.',
+      };
+    }
 
-  const existingUser = userRows[0];
-  if (!existingUser) {
-    await recordSignInFailure(normalizedEmail, ip, client);
-    await recordSignInAuditFailure(ip, client);
-    return {
-      success: false,
-      error: 'Invalid email or password.',
-    };
-  }
+    const existingUser = userRows[0];
+    if (!existingUser) {
+      await recordSignInFailure(normalizedEmail, ip, client);
+      await recordSignInAuditFailure(ip, client);
+      return {
+        success: false,
+        error: 'Invalid email or password.',
+      };
+    }
 
-  // 3. Query password hash from account
-  const accountRows = await client
-    .select()
-    .from(account)
-    .where(eq(account.userId, existingUser.id))
-    .limit(1);
+    // 3. Query password hash from account
+    const accountRows = await client
+      .select()
+      .from(account)
+      .where(eq(account.userId, existingUser.id))
+      .limit(1);
 
-  const acc = accountRows[0];
-  if (!acc?.password) {
-    await recordSignInFailure(normalizedEmail, ip, client);
-    await recordSignInAuditFailure(ip, client);
-    return {
-      success: false,
-      error: 'Invalid email or password.',
-    };
-  }
+    const acc = accountRows[0];
+    if (!acc?.password) {
+      await recordSignInFailure(normalizedEmail, ip, client);
+      await recordSignInAuditFailure(ip, client);
+      return {
+        success: false,
+        error: 'Invalid email or password.',
+      };
+    }
 
-  // 4. Verify password with Argon2id
-  const passwordMatch = await verifyPasswordArgon2id(acc.password, formData.password);
+    // 4. Verify password with Argon2id
+    const passwordMatch = await verifyPasswordArgon2id(acc.password, formData.password);
 
-  if (!passwordMatch) {
-    await recordSignInFailure(normalizedEmail, ip, client);
-    await recordSignInAuditFailure(ip, client);
-    return {
-      success: false,
-      error: 'Invalid email or password.',
-    };
-  }
+    if (!passwordMatch) {
+      await recordSignInFailure(normalizedEmail, ip, client);
+      await recordSignInAuditFailure(ip, client);
+      return {
+        success: false,
+        error: 'Invalid email or password.',
+      };
+    }
 
-  // 5. Successful authentication
-  await recordSignInSuccess(normalizedEmail, client);
+    // 5. Successful authentication
+    await recordSignInSuccess(normalizedEmail, client);
 
-  // 5b. Multi-Factor Authentication enforcement (AC-2)
-  // If TOTP is active on this account, challenge for second factor before establishing session
-  const activeTotp = await client
-    .select()
-    .from(totpCredential)
-    .where(and(eq(totpCredential.userId, existingUser.id), eq(totpCredential.verified, true)))
-    .limit(1);
+    // 5b. Multi-Factor Authentication enforcement (AC-2)
+    // If TOTP is active on this account, challenge for second factor before establishing session
+    const activeTotp = await client
+      .select()
+      .from(totpCredential)
+      .where(and(eq(totpCredential.userId, existingUser.id), eq(totpCredential.verified, true)))
+      .limit(1);
 
-  if (activeTotp.length > 0) {
-    const mfaTicket = crypto.randomBytes(32).toString('hex');
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000);
+    if (activeTotp.length > 0) {
+      const mfaTicket = crypto.randomBytes(32).toString('hex');
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 5 * 60 * 1000);
 
-    await client.insert(verification).values({
-      identifier: `mfa_ticket:${mfaTicket}`,
-      value: existingUser.id,
-      expiresAt,
-      createdAt: now,
-      updatedAt: now,
+      await client.insert(verification).values({
+        identifier: `mfa_ticket:${mfaTicket}`,
+        value: existingUser.id,
+        expiresAt,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      return {
+        success: true,
+        data: {
+          user: {
+            id: existingUser.id,
+            email: existingUser.email,
+            name: existingUser.name,
+          },
+          mfaRequired: true,
+          mfaTicket,
+        },
+      };
+    }
+
+    // Retrieve any pre-existing cookie to rotate session
+    let oldToken: string | undefined;
+    try {
+      const cookieStore = await cookies();
+      oldToken =
+        cookieStore.get(SECURE_SESSION_COOKIE_NAME)?.value ??
+        cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    } catch {
+      oldToken = undefined;
+    }
+
+    const newSession = await rotateSession(oldToken, existingUser.id, client, {
+      ipAddress: anonymizeIp(ip),
     });
+    await setSessionCookie(newSession.token);
+
+    try {
+      await audit(
+        {
+          actorType: 'owner',
+          actorId: existingUser.id,
+          action: 'auth.sign_in.success',
+          targetType: 'session',
+          targetId: newSession.id,
+          outcome: 'success',
+          metadata: {
+            session_id: newSession.id,
+            auth_method: 'password',
+            ip_anonymized: anonymizeIp(ip),
+          },
+        },
+        client,
+      );
+    } catch {
+      // Non-fatal if audit logging encounters a transient error
+    }
+
+    let mfaEnforced = false;
+    try {
+      const settings = await getStudioSettings(client);
+      if (settings.mfa_required) {
+        const now = Date.now();
+        const postponementExpired =
+          !settings.mfa_postponed_until || settings.mfa_postponed_until.getTime() <= now;
+        if (postponementExpired) {
+          const passkeys = await client
+            .select()
+            .from(passkeyCredential)
+            .where(eq(passkeyCredential.userId, existingUser.id))
+            .limit(1);
+          if (passkeys.length === 0) {
+            mfaEnforced = true;
+          }
+        }
+      }
+    } catch {
+      // Non-fatal if settings query encounters a transient error
+    }
 
     return {
       success: true,
@@ -297,82 +370,19 @@ export async function signInAction(
           email: existingUser.email,
           name: existingUser.name,
         },
-        mfaRequired: true,
-        mfaTicket,
+        mfaEnforced,
       },
     };
-  }
-
-  // Retrieve any pre-existing cookie to rotate session
-  let oldToken: string | undefined;
-  try {
-    const cookieStore = await cookies();
-    oldToken =
-      cookieStore.get(SECURE_SESSION_COOKIE_NAME)?.value ??
-      cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  } catch {
-    oldToken = undefined;
-  }
-
-  const newSession = await rotateSession(oldToken, existingUser.id, client, {
-    ipAddress: anonymizeIp(ip),
-  });
-  await setSessionCookie(newSession.token);
-
-  try {
-    await audit(
-      {
-        actorType: 'owner',
-        actorId: existingUser.id,
-        action: 'auth.sign_in.success',
-        targetType: 'session',
-        targetId: newSession.id,
-        outcome: 'success',
-        metadata: {
-          session_id: newSession.id,
-          auth_method: 'password',
-          ip_anonymized: anonymizeIp(ip),
-        },
-      },
-      client,
-    );
-  } catch {
-    // Non-fatal if audit logging encounters a transient error
-  }
-
-  let mfaEnforced = false;
-  try {
-    const settings = await getStudioSettings(client);
-    if (settings.mfa_required) {
-      const now = Date.now();
-      const postponementExpired =
-        !settings.mfa_postponed_until || settings.mfa_postponed_until.getTime() <= now;
-      if (postponementExpired) {
-        const passkeys = await client
-          .select()
-          .from(passkeyCredential)
-          .where(eq(passkeyCredential.userId, existingUser.id))
-          .limit(1);
-        if (passkeys.length === 0) {
-          mfaEnforced = true;
-        }
-      }
+  } catch (err) {
+    if (err instanceof RateLimitUnavailableError) {
+      logger.error({ errorClass: 'RateLimitUnavailableError', err }, 'Rate limiter unavailable');
+      return {
+        success: false,
+        error: 'Invalid email or password.',
+      };
     }
-  } catch {
-    // Non-fatal if settings query encounters a transient error
+    throw err;
   }
-
-  return {
-    success: true,
-    data: {
-      user: {
-        id: existingUser.id,
-        email: existingUser.email,
-        name: existingUser.name,
-      },
-      mfaEnforced,
-    },
-  };
 }
 
 /**
@@ -482,15 +492,14 @@ export async function requestPasswordResetAction(
     const client = options.client ?? db;
     const ip = await getClientIp();
 
-    // 2. Rate limiting for password reset requests (I1-S04)
-    const rateLimitStatus = await checkPasswordResetRequestRateLimit(email, ip, client);
+    // 2. Rate limiting for password reset requests (TASK-0023: atomic single-statement consumption)
+    const rateLimitStatus = await consumePasswordResetRequestRateLimit(email, ip, client);
     if (!rateLimitStatus.allowed) {
       return {
         success: false,
         error: 'Too many password reset requests. Please try again later.',
       };
     }
-    await recordPasswordResetRequest(email, ip, client);
 
     let baseUrl = 'http://localhost:3000';
     try {
@@ -526,6 +535,13 @@ export async function requestPasswordResetAction(
       data: { message: result.message },
     };
   } catch (err) {
+    if (err instanceof RateLimitUnavailableError) {
+      logger.error({ errorClass: 'RateLimitUnavailableError', err }, 'Rate limiter unavailable');
+      return {
+        success: false,
+        error: 'Password reset request failed.',
+      };
+    }
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Password reset request failed.',
@@ -586,6 +602,13 @@ export async function resetPasswordAction(
 
     return { success: true };
   } catch (err) {
+    if (err instanceof RateLimitUnavailableError) {
+      logger.error({ errorClass: 'RateLimitUnavailableError', err }, 'Rate limiter unavailable');
+      return {
+        success: false,
+        error: 'Password reset failed.',
+      };
+    }
     try {
       const ip = await getClientIp();
       await recordPasswordResetActionFailure(formData.email, ip, client);

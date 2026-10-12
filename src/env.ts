@@ -246,6 +246,45 @@ export const serverSchema = z.object({
     .transform((val) => val === 'true'),
   MINIO_PORT: z.coerce.number().int().default(9000),
   MINIO_CONSOLE_PORT: z.coerce.number().int().default(9001),
+
+  // Credential vault & external integrations (ADR-0014)
+  ENCRYPTION_KEY: z
+    .string()
+    .optional()
+    .superRefine((val, ctx) => {
+      if (val !== undefined && val !== '') {
+        try {
+          validateSecretStrength(val, 'ENCRYPTION_KEY');
+        } catch (err) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: err instanceof Error ? err.message : 'Invalid ENCRYPTION_KEY',
+          });
+          return;
+        }
+
+        const isHex = /^[0-9a-fA-F]{64}$/.test(val);
+        const isBase64 = /^[A-Za-z0-9+/]{43}=$/.test(val) || /^[A-Za-z0-9+/]{44}$/.test(val);
+        let base64Bytes = 0;
+        if (isBase64) {
+          try {
+            base64Bytes = Buffer.from(val, 'base64').byteLength;
+          } catch {
+            base64Bytes = 0;
+          }
+        }
+
+        if (!isHex && (!isBase64 || base64Bytes !== 32)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              'ENCRYPTION_KEY must be a 32-byte secret encoded as 64 hex characters or 44 base64 characters.',
+          });
+        }
+      }
+    }),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
@@ -368,4 +407,32 @@ try {
   }
 } catch {
   // Deferred to runtime property access
+}
+
+/**
+ * Checks whether Google OAuth 2.0 integration and credential vault are fully configured.
+ * Returns true only when ENCRYPTION_KEY, GOOGLE_OAUTH_CLIENT_ID, and GOOGLE_OAUTH_CLIENT_SECRET are all provided.
+ */
+export function isGoogleOAuthConfigured(envSource?: Partial<ServerEnv>): boolean {
+  const encryptionKey =
+    envSource?.ENCRYPTION_KEY ??
+    process.env.ENCRYPTION_KEY ??
+    (process.env.NODE_ENV === 'test' ? undefined : env.ENCRYPTION_KEY);
+  const clientId =
+    envSource?.GOOGLE_OAUTH_CLIENT_ID ??
+    process.env.GOOGLE_OAUTH_CLIENT_ID ??
+    (process.env.NODE_ENV === 'test' ? undefined : env.GOOGLE_OAUTH_CLIENT_ID);
+  const clientSecret =
+    envSource?.GOOGLE_OAUTH_CLIENT_SECRET ??
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET ??
+    (process.env.NODE_ENV === 'test' ? undefined : env.GOOGLE_OAUTH_CLIENT_SECRET);
+
+  return Boolean(
+    encryptionKey &&
+    encryptionKey.trim().length > 0 &&
+    clientId &&
+    clientId.trim().length > 0 &&
+    clientSecret &&
+    clientSecret.trim().length > 0,
+  );
 }

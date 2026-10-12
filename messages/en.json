@@ -228,6 +228,48 @@
         "failedToVerify": "Verification failed.",
         "failedToRegenerate": "Failed to regenerate codes."
       }
+    },
+    "integrations": {
+      "title": "Integrations",
+      "description": "Connect external studio tools and cloud services.",
+      "manage": "Configure",
+      "google": {
+        "title": "Google Workspace",
+        "description": "Connect your studio's Google Workspace to synchronize client contacts for caller identification during shoot days.",
+        "badgeConnected": "Connected",
+        "badgeDisconnected": "Disconnected",
+        "badgeUnconfigured": "Setup Required",
+        "unconfiguredAlertTitle": "Integration Setup Required",
+        "unconfiguredAlertDescription": "To enable Google Workspace integration, configure your studio's Google Cloud OAuth credentials and credential vault encryption key in your server environment.",
+        "step1Title": "1. Create Google Cloud Project & OAuth Client",
+        "step1Description": "Create a project in the Google Cloud Console, enable the Google People API, and configure an OAuth 2.0 Web Application client.",
+        "step2Title": "2. Configure Redirect URI",
+        "step2Description": "Add the authorized redirect URI: {redirectUri}",
+        "step3Title": "3. Add Environment Variables",
+        "step3Description": "Set ENCRYPTION_KEY (32 random bytes), GOOGLE_OAUTH_CLIENT_ID, and GOOGLE_OAUTH_CLIENT_SECRET in your .env file, then restart the studio server.",
+        "connectButton": "Connect Google Workspace",
+        "connectingButton": "Connecting...",
+        "disconnectButton": "Disconnect",
+        "connectedSince": "Connected on {date}",
+        "grantedScopes": "Granted permissions",
+        "contactsScopeLabel": "Google Contacts (Caller ID)",
+        "disconnectDialogTitle": "Disconnect Google Workspace?",
+        "disconnectDialogDescription": "Disconnecting will revoke Ownlight's access to your Google account and remove stored credentials from your server.",
+        "disconnectDeleteContactsLabel": "Delete synced studio contacts from Google Contacts",
+        "disconnectDeleteContactsHint": "Recommended. Contacts created by Ownlight will be removed from your Google account. Your local Ownlight client records remain intact.",
+        "confirmDisconnectButton": "Confirm Disconnect",
+        "disconnectingButton": "Disconnecting...",
+        "cancelButton": "Cancel",
+        "successConnectedAlert": "Google Workspace connected successfully.",
+        "successDisconnectedAlert": "Google Workspace disconnected and credentials removed.",
+        "errorGeneric": "An error occurred with the Google integration. Please try again.",
+        "errorUnconfigured": "Google Workspace integration is not configured.",
+        "featuresTitle": "Integration Features",
+        "featureCallerIdTitle": "Caller ID on Shoot Days",
+        "featureCallerIdDescription": "Synchronizes names and phone numbers of clients with active shoots to your Google Contacts so incoming calls display client names.",
+        "privacyNoticeTitle": "Privacy & Data Minimization",
+        "privacyNoticeDescription": "Ownlight only transmits client names and phone numbers when explicitly opted-in per client. Client email addresses, notes, contracts, and private studio data are never sent to Google."
+      }
     }
   },
   "clients": {

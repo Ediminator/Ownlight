@@ -138,6 +138,7 @@ function createSampleClient(): ClientWithRelations {
       kind: 'company',
       displayName: 'Acme Photo Studio GmbH',
       preferredLocale: 'de',
+      googleContactsSyncEnabled: false,
       createdAt,
       lastActivityAt,
       updatedAt: lastActivityAt,

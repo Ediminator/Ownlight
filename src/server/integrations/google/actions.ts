@@ -23,6 +23,9 @@ import {
 } from './service';
 import { getGoogleOAuthToken, deleteGoogleOAuthToken } from './repo';
 import { GOOGLE_OAUTH_PURPOSE } from './constants';
+import { purgeAllGoogleContacts } from './outbox';
+import { googleContactsLinks } from '@/server/db/schema/google-contacts-links';
+import { googleContactsOutbox } from '@/server/db/schema/google-contacts-outbox';
 
 const disconnectInputSchema = z
   .object({
@@ -132,8 +135,20 @@ export async function disconnectGoogleAction(
     };
   }
 
+  const shouldDeleteContacts = parsed.data?.deleteSyncedContacts ?? true;
   const tokenRecord = await getGoogleOAuthToken(client);
   if (tokenRecord) {
+    if (shouldDeleteContacts) {
+      try {
+        await purgeAllGoogleContacts(client);
+      } catch {
+        // Continue disconnect even if purge has warnings
+      }
+    } else {
+      await client.delete(googleContactsLinks);
+      await client.delete(googleContactsOutbox);
+    }
+
     try {
       const refreshToken = await decryptSecret(
         tokenRecord.encryptedRefreshToken,

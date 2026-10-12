@@ -59,6 +59,7 @@ export async function createClient(
     kind: ClientKind;
     displayName: string;
     preferredLocale?: ClientLocale;
+    googleContactsSyncEnabled?: boolean;
     primaryContact: {
       givenName?: string | null;
       familyName?: string | null;
@@ -106,6 +107,7 @@ export async function createClient(
       kind: input.kind,
       displayName: input.displayName,
       preferredLocale: locale,
+      googleContactsSyncEnabled: input.googleContactsSyncEnabled,
     },
     {
       givenName: input.primaryContact.givenName,
@@ -156,6 +158,7 @@ export async function updateClient(
     kind?: ClientKind;
     displayName?: string;
     preferredLocale?: ClientLocale;
+    googleContactsSyncEnabled?: boolean;
   },
   auth: AuthContext,
   client: DbClient = defaultDb,
@@ -182,6 +185,12 @@ export async function updateClient(
   ) {
     changedFields.push('preferred_locale');
   }
+  if (
+    input.googleContactsSyncEnabled !== undefined &&
+    input.googleContactsSyncEnabled !== existing.client.googleContactsSyncEnabled
+  ) {
+    changedFields.push('google_contacts_sync_enabled');
+  }
 
   await updateClientRecord(
     input.clientId,
@@ -189,6 +198,7 @@ export async function updateClient(
       kind: input.kind,
       displayName: input.displayName,
       preferredLocale: input.preferredLocale,
+      googleContactsSyncEnabled: input.googleContactsSyncEnabled,
     },
     client,
   );

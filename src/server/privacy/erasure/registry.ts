@@ -6,6 +6,7 @@ import { clientNotes, clientTimelineEvents } from '@/server/db/schema/timeline';
 import { consentRecords } from '@/server/db/schema/consents';
 import { clientLegalHolds, isHoldActive } from '@/server/db/schema/client-legal-holds';
 import type { ErasureProvider, ErasureHoldProvider } from './types';
+import { googleContactsErasureProvider } from '@/server/integrations/google/erasure-provider';
 
 const erasureProviders = new Map<string, ErasureProvider>();
 const holdProviders = new Map<string, ErasureHoldProvider>();
@@ -261,6 +262,7 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
       return 0;
     },
   },
+  googleContactsErasureProvider,
   {
     id: 'contacts',
     category: 'contacts',

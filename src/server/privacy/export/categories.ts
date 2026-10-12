@@ -324,6 +324,39 @@ export const INITIAL_CATEGORIES: readonly CategoryDefinition[] = [
       de: 'Vom Studio-Inhaber erfasst.',
     },
   },
+  {
+    id: 'google_contacts',
+    titleKey: 'privacy.export.categories.google_contacts.title',
+    purposeKey: 'privacy.export.categories.google_contacts.purpose',
+    lawfulBasisKey: 'privacy.export.categories.google_contacts.lawful_basis',
+    retentionKey: 'privacy.export.categories.google_contacts.retention',
+    recipientsKey: 'privacy.export.categories.google_contacts.recipients',
+    sourceKey: 'privacy.export.categories.google_contacts.source',
+    title: {
+      en: 'Third-Party Sync: Google Contacts',
+      de: 'Drittanbieter-Synchronisierung: Google Kontakte',
+    },
+    purpose: {
+      en: 'Caller ID identification on mobile devices during shoot days.',
+      de: 'Anruferkennung auf Mobilgeräten an Drehtagen.',
+    },
+    lawfulBasis: {
+      en: 'Art. 6(1)(f) GDPR (Legitimate interests: operational shoot day communication).',
+      de: 'Art. 6 Abs. 1 lit. f DSGVO (Berechtigte Interessen: operative Kommunikation an Drehtagen).',
+    },
+    retention: {
+      en: 'Synchronized during active opt-in; deleted upon toggle off, contact deletion, or erasure.',
+      de: 'Synchronisiert während aktivem Opt-in; gelöscht bei Deaktivierung, Kontaktaufhebung oder Löschantrag.',
+    },
+    recipients: {
+      en: 'Google LLC (1600 Amphitheatre Pkwy, Mountain View, CA 94043, USA). Transfer safeguards: EU-U.S. Data Privacy Framework (DPF) and Standard Contractual Clauses (SCCs). Categories transmitted: Given name, family name, phone number(s).',
+      de: 'Google LLC (1600 Amphitheatre Pkwy, Mountain View, CA 94043, USA). Garantien: EU-U.S. Data Privacy Framework (DPF) und Standardvertragsklauseln (SCCs). Übermittelte Datenkategorien: Vorname, Nachname, Telefonnummer(n).',
+    },
+    source: {
+      en: 'Synchronized from Ownlight contact details upon explicit client opt-in.',
+      de: 'Synchronisiert aus Ownlight-Kontaktdaten nach ausdrücklichem Opt-in.',
+    },
+  },
 ];
 
 const categoryRegistry = new Map<string, CategoryDefinition>();

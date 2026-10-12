@@ -71,6 +71,10 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
     'integration.google.disconnected',
     ['provider', 'delete_synced_contacts', 'remote_revoked', 'user_id', 'ip_anonymized'],
   ],
+  [
+    'integration.google.contacts_synced',
+    ['batchSize', 'syncedCount', 'failedCount', 'batch_size', 'synced_count', 'failed_count'],
+  ],
 ]);
 
 /**

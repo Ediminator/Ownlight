@@ -143,6 +143,7 @@ function sampleClientWithRelations(): ClientWithRelations {
       kind: 'person',
       displayName: 'Anna Schmidt',
       preferredLocale: 'de',
+      googleContactsSyncEnabled: false,
       createdAt: now,
       lastActivityAt: now,
       updatedAt: now,

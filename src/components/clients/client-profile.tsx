@@ -18,8 +18,10 @@ import {
   CheckCircle2,
   Download,
   UserX,
+  Cloud,
 } from 'lucide-react';
 import type { ClientWithRelations, ClientTagItem } from '@/server/clients/repo';
+import type { ClientGoogleSyncStatus } from '@/server/integrations/google/outbox';
 import type { ErasureSubject } from '@/server/privacy/erasure/types';
 import type {
   Client,
@@ -75,6 +77,7 @@ export function ClientProfile({
   const tErrors = useTranslations('clients.errors');
   const tDanger = useTranslations('clients.dangerZone');
   const tErasure = useTranslations('privacy.erasure');
+  const tGoogleSync = useTranslations('clients.googleSync');
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -106,7 +109,9 @@ export function ClientProfile({
   const erasureTriggerRef = React.useRef<HTMLElement | null>(null);
 
   // Dialog open states
-  const [editDetailsOpen, setEditDetailsOpen] = React.useState(false);
+  const [editDetailsOpen, setEditDetailsOpen] = React.useState(
+    () => searchParams.get('edit') === 'true' || searchParams.get('edit') === '1',
+  );
   const [contactDialogOpen, setContactDialogOpen] = React.useState(false);
   const [editingContact, setEditingContact] = React.useState<ClientContact | null>(null);
   const [addressDialogOpen, setAddressDialogOpen] = React.useState(false);
@@ -136,6 +141,12 @@ export function ClientProfile({
     initialLegalHold ?? null,
   );
   const isHoldActive = currentHold ? isHoldActiveDate(currentHold.until, studioTimezone) : false;
+
+  // Google Contacts sync status (TASK-0021)
+  const [syncStatus, setSyncStatus] = React.useState<ClientGoogleSyncStatus>(
+    clientData.googleSyncStatus ??
+      (clientData.client.googleContactsSyncEnabled ? 'synced' : 'not_synced'),
+  );
 
   // Focus announcement on mount if created (AC-1)
   React.useEffect(() => {
@@ -174,13 +185,19 @@ export function ClientProfile({
     kind: ClientKind;
     displayName: string;
     preferredLocale: ClientLocale;
+    googleContactsSyncEnabled?: boolean;
   }) => {
     setClient((prev) => ({
       ...prev,
       kind: updated.kind,
       displayName: updated.displayName,
       preferredLocale: updated.preferredLocale,
+      googleContactsSyncEnabled:
+        updated.googleContactsSyncEnabled ?? prev.googleContactsSyncEnabled,
     }));
+    if (updated.googleContactsSyncEnabled !== undefined) {
+      setSyncStatus(updated.googleContactsSyncEnabled ? 'pending' : 'not_synced');
+    }
     announceAndFocus(tForm('savedSuccess'), detailsHeadingRef);
   };
 
@@ -321,6 +338,29 @@ export function ClientProfile({
               >
                 {t('preferredLanguage')}:{' '}
                 {client.preferredLocale === 'de' ? t('language.de') : t('language.en')}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium border ${
+                  syncStatus === 'synced'
+                    ? 'bg-emerald-50 text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : syncStatus === 'pending'
+                      ? 'bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                      : syncStatus === 'failed'
+                        ? 'bg-destructive/10 text-destructive border-destructive/20'
+                        : 'bg-muted text-muted-foreground border-border'
+                }`}
+                data-testid="google-sync-status-badge"
+              >
+                <Cloud className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>
+                  {syncStatus === 'synced'
+                    ? tGoogleSync('statusSynced')
+                    : syncStatus === 'pending'
+                      ? tGoogleSync('statusPending')
+                      : syncStatus === 'failed'
+                        ? tGoogleSync('statusFailed')
+                        : tGoogleSync('statusNotSynced')}
+                </span>
               </span>
             </div>
 

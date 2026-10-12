@@ -12,8 +12,17 @@ import {
   type AddressType,
 } from '@/server/db/schema/clients';
 import { tags, clientTags } from '@/server/db/schema/tags';
+import { googleContactsLinks } from '@/server/db/schema/google-contacts-links';
 import type { ActorType } from '@/server/db/schema/audit';
 import { recordTimelineEvent } from '@/server/timeline/service';
+import {
+  enqueueContactUpsert,
+  enqueueContactDelete,
+  enqueueClientContactsUpsert,
+  enqueueClientContactsDelete,
+  getGoogleContactsSyncStatusForClient,
+  type ClientGoogleSyncStatus,
+} from '@/server/integrations/google/outbox';
 import { escapeLikeWildcards } from './schema';
 import { generateUuidV7 } from '@/lib/id';
 
@@ -38,6 +47,7 @@ export interface ClientWithRelations {
   contacts: ClientContact[];
   addresses: ClientAddress[];
   tags: ClientTagItem[];
+  googleSyncStatus?: ClientGoogleSyncStatus;
 }
 
 export interface ClientListItem {
@@ -106,6 +116,7 @@ export async function getClientById(
       kind: clients.kind,
       displayName: clients.displayName,
       preferredLocale: clients.preferredLocale,
+      googleContactsSyncEnabled: clients.googleContactsSyncEnabled,
       lastActivityAt: clients.lastActivityAt,
       createdAt: clients.createdAt,
       updatedAt: clients.updatedAt,
@@ -163,11 +174,14 @@ export async function getClientById(
     .where(eq(clientTags.clientId, clientId))
     .orderBy(asc(tags.name), asc(tags.id));
 
+  const googleSyncStatus = await getGoogleContactsSyncStatusForClient(clientId, client);
+
   return {
     client: clientRow,
     contacts,
     addresses,
     tags: clientTagRows,
+    googleSyncStatus,
   };
 }
 
@@ -484,6 +498,7 @@ export async function insertClientWithPrimaryContact(
     kind: ClientKind;
     displayName: string;
     preferredLocale: ClientLocale;
+    googleContactsSyncEnabled?: boolean;
   },
   contactData: {
     givenName?: string | null;
@@ -499,12 +514,14 @@ export async function insertClientWithPrimaryContact(
     const clientId = generateUuidV7();
     const contactId = generateUuidV7();
     const now = new Date();
+    const syncEnabled = Boolean(clientData.googleContactsSyncEnabled);
 
     await tx.insert(clients).values({
       id: clientId,
       kind: clientData.kind,
       displayName: clientData.displayName,
       preferredLocale: clientData.preferredLocale,
+      googleContactsSyncEnabled: syncEnabled,
       lastActivityAt: now,
       createdAt: now,
       updatedAt: now,
@@ -522,6 +539,10 @@ export async function insertClientWithPrimaryContact(
       createdAt: now,
       updatedAt: now,
     });
+
+    if (syncEnabled) {
+      await enqueueContactUpsert(contactId, tx);
+    }
 
     await recordTimelineEvent(tx, {
       clientId,
@@ -547,10 +568,21 @@ export async function updateClientRecord(
     kind?: ClientKind;
     displayName?: string;
     preferredLocale?: ClientLocale;
+    googleContactsSyncEnabled?: boolean;
   },
   dbClient: DbClient = defaultDb,
 ): Promise<Client | null> {
   return await dbClient.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ googleContactsSyncEnabled: clients.googleContactsSyncEnabled })
+      .from(clients)
+      .where(eq(clients.id, clientId))
+      .limit(1);
+
+    if (!existing) {
+      return null;
+    }
+
     const now = new Date();
     const [updated] = await tx
       .update(clients)
@@ -561,6 +593,17 @@ export async function updateClientRecord(
       })
       .where(eq(clients.id, clientId))
       .returning();
+
+    if (
+      updates.googleContactsSyncEnabled !== undefined &&
+      updates.googleContactsSyncEnabled !== existing.googleContactsSyncEnabled
+    ) {
+      if (updates.googleContactsSyncEnabled) {
+        await enqueueClientContactsUpsert(clientId, tx);
+      } else {
+        await enqueueClientContactsDelete(clientId, tx);
+      }
+    }
 
     return updated ?? null;
   });
@@ -635,6 +678,17 @@ export async function insertContact(
       .set({ lastActivityAt: now, updatedAt: now })
       .where(eq(clients.id, clientId));
 
+    // If client has Google Contacts sync enabled, enqueue an UPSERT outbox entry
+    const [clientRow] = await tx
+      .select({ syncEnabled: clients.googleContactsSyncEnabled })
+      .from(clients)
+      .where(eq(clients.id, clientId))
+      .limit(1);
+
+    if (clientRow?.syncEnabled) {
+      await enqueueContactUpsert(contactId, tx);
+    }
+
     await recordTimelineEvent(tx, {
       clientId,
       type: 'client.contact.added',
@@ -704,6 +758,17 @@ export async function updateContactRecord(
       .set({ lastActivityAt: now, updatedAt: now })
       .where(eq(clients.id, clientId));
 
+    // If client has Google Contacts sync enabled, enqueue an UPSERT outbox entry
+    const [clientRow] = await tx
+      .select({ syncEnabled: clients.googleContactsSyncEnabled })
+      .from(clients)
+      .where(eq(clients.id, clientId))
+      .limit(1);
+
+    if (clientRow?.syncEnabled) {
+      await enqueueContactUpsert(contactId, tx);
+    }
+
     return updated ?? null;
   });
 }
@@ -728,6 +793,17 @@ export async function deleteContactRecord(
 
     if (!existing) {
       return null;
+    }
+
+    // Check if contact has a linked Google Contact; if so, enqueue DELETE outbox entry
+    const [link] = await tx
+      .select({ resourceName: googleContactsLinks.googleResourceName })
+      .from(googleContactsLinks)
+      .where(eq(googleContactsLinks.contactId, contactId))
+      .limit(1);
+
+    if (link) {
+      await enqueueContactDelete(contactId, link.resourceName, tx);
     }
 
     const now = new Date();

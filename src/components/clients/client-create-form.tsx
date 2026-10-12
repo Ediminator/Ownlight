@@ -19,6 +19,7 @@ export interface ClientCreateFormProps {
 export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateFormProps) {
   const t = useTranslations('clients.form');
   const tErrors = useTranslations('clients.errors');
+  const tGoogleSync = useTranslations('clients.googleSync');
   const router = useRouter();
 
   // Form State
@@ -41,6 +42,7 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
   const [duplicateMatches, setDuplicateMatches] = React.useState<DuplicateEmailMatch[] | null>(
     null,
   );
+  const [googleContactsSyncEnabled, setGoogleContactsSyncEnabled] = React.useState(false);
 
   // Refs for accessibility focus management (AC-2, AC-13)
   const errorSummaryRef = React.useRef<HTMLDivElement>(null);
@@ -120,6 +122,7 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
         kind,
         displayName: trimmedDisplayName,
         preferredLocale,
+        googleContactsSyncEnabled,
         primaryContact: {
           givenName: trimmedGiven.length > 0 ? trimmedGiven : null,
           familyName: trimmedFamily.length > 0 ? trimmedFamily : null,
@@ -449,6 +452,41 @@ export function ClientCreateForm({ locale, defaultLocale = 'en' }: ClientCreateF
             <option value="en">English</option>
             <option value="de">Deutsch</option>
           </select>
+        </div>
+
+        {/* Google Contacts Sync Opt-In (AC-1) */}
+        <div className="rounded-lg border bg-card p-4 space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1 flex-1">
+              <label
+                htmlFor="googleContactsSyncEnabled"
+                className="text-sm font-medium text-foreground block cursor-pointer select-none"
+              >
+                {tGoogleSync('toggleLabel')}
+              </label>
+              <p
+                id="google-sync-description"
+                data-testid="google-sync-desc"
+                className="text-xs text-muted-foreground leading-relaxed"
+              >
+                {tGoogleSync('toggleDescription')}
+              </p>
+            </div>
+            <div className="flex items-center pt-0.5">
+              <input
+                id="googleContactsSyncEnabled"
+                name="googleContactsSyncEnabled"
+                type="checkbox"
+                checked={googleContactsSyncEnabled}
+                onChange={(e) => {
+                  setGoogleContactsSyncEnabled(e.target.checked);
+                }}
+                aria-describedby="google-sync-description"
+                data-testid="google-sync-toggle"
+                className="h-5 w-5 rounded border-input text-primary focus:ring-primary cursor-pointer min-h-[24px] min-w-[24px]"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Primary Contact Section */}

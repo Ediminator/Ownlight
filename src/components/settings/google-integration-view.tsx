@@ -219,6 +219,25 @@ export function GoogleIntegrationView({
         </div>
       )}
 
+      {/* Localized failed sync warning (AC-5) */}
+      {Boolean(status.failedSyncCount && status.failedSyncCount > 0) && (
+        <div
+          role="alert"
+          aria-live="polite"
+          data-testid="sync-failed-warning"
+          className="p-4 rounded-lg border text-sm flex items-start gap-3 bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900"
+        >
+          <AlertTriangle
+            className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5"
+            aria-hidden="true"
+          />
+          <div className="space-y-1">
+            <span className="font-semibold block">{t('syncFailedWarningTitle')}</span>
+            <p className="text-xs text-muted-foreground">{t('syncFailedWarningDescription')}</p>
+          </div>
+        </div>
+      )}
+
       {/* Main card state rendering */}
       {status.status === 'unconfigured' && (
         <div

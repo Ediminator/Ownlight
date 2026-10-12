@@ -24,6 +24,7 @@ export interface GoogleIntegrationDetails {
   connected: boolean;
   connectedAt?: Date | null;
   scope?: string | null;
+  failedSyncCount?: number;
 }
 
 /**
@@ -38,8 +39,12 @@ export async function getGoogleIntegrationStatus(
       status: 'unconfigured',
       configured: false,
       connected: false,
+      failedSyncCount: 0,
     };
   }
+
+  const { getFailedOutboxCount } = await import('./outbox');
+  const failedSyncCount = await getFailedOutboxCount(client);
 
   const tokenRecord = await getGoogleOAuthToken(client);
   if (!tokenRecord) {
@@ -47,6 +52,7 @@ export async function getGoogleIntegrationStatus(
       status: 'disconnected',
       configured: true,
       connected: false,
+      failedSyncCount,
     };
   }
 
@@ -56,6 +62,7 @@ export async function getGoogleIntegrationStatus(
     connected: true,
     connectedAt: tokenRecord.createdAt,
     scope: tokenRecord.scope,
+    failedSyncCount,
   };
 }
 

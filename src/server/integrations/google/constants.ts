@@ -16,3 +16,13 @@ export function getGoogleTokenUrl(): string {
 export function getGoogleRevokeUrl(): string {
   return process.env.GOOGLE_REVOKE_URL_OVERRIDE ?? DEFAULT_GOOGLE_REVOKE_URL;
 }
+
+export const DEFAULT_GOOGLE_PEOPLE_API_BASE = 'https://people.googleapis.com/v1';
+
+export function getGooglePeopleApiBase(): string {
+  return (
+    process.env.GOOGLE_PEOPLE_API_BASE_OVERRIDE ??
+    process.env.GOOGLE_PEOPLE_API_BASE_URL ??
+    DEFAULT_GOOGLE_PEOPLE_API_BASE
+  );
+}

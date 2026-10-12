@@ -14,6 +14,7 @@ import type {
   ExportCollectedData,
   DsarSubjectExport,
 } from './types';
+import { googleContactsExportProvider } from '@/server/integrations/google/export-provider';
 
 const providerRegistry = new Map<string, ExportProvider>();
 
@@ -244,6 +245,7 @@ const DEFAULT_PROVIDERS: ExportProvider[] = [
       }));
     },
   },
+  googleContactsExportProvider,
 ];
 
 function initDefaultProviders(): void {

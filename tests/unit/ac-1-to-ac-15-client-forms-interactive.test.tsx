@@ -155,6 +155,7 @@ function sampleClient(): Client {
     kind: 'person',
     displayName: 'Anna Schmidt',
     preferredLocale: 'de',
+    googleContactsSyncEnabled: false,
     createdAt: now,
     lastActivityAt: now,
     updatedAt: now,
@@ -255,6 +256,7 @@ describe('TASK-0012: Comprehensive Interactive & Branch Coverage for Forms and D
         kind: 'person',
         displayName: 'Valid Studio',
         preferredLocale: 'de',
+        googleContactsSyncEnabled: false,
         primaryContact: {
           givenName: 'Anna',
           familyName: 'Schmidt',
@@ -468,6 +470,7 @@ describe('TASK-0012: Comprehensive Interactive & Branch Coverage for Forms and D
         kind: 'company',
         displayName: 'Updated Studio',
         preferredLocale: 'en',
+        googleContactsSyncEnabled: false,
       });
       expect(mockSuccess).toHaveBeenCalled();
       expect(mockClose).toHaveBeenCalled();

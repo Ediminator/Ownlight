@@ -70,11 +70,22 @@ export async function sendEmail({
   }
 
   const mailer = transporter ?? getMailTransporter();
-  await mailer.sendMail({
+  const mailOptions: {
+    from: string;
+    to: string;
+    subject: string;
+    text: string;
+    html?: string;
+  } = {
     from: from ?? defaultFrom,
     to,
     subject,
     text,
-    html: html ?? text,
-  });
+  };
+
+  if (html !== undefined) {
+    mailOptions.html = html;
+  }
+
+  await mailer.sendMail(mailOptions);
 }

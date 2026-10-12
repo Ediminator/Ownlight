@@ -1,8 +1,8 @@
 /**
- * Exponential Backoff with Jitter for Google People API Retries (TASK-0021, AC-5).
+ * Shared Exponential Backoff with Jitter for Background Job Retries (TASK-0022, AC-9).
  *
  * Implements exponential backoff: base * 2^(attempt - 1) + jitter,
- * capped at maxDelayMs, with a maximum cap of 5 retry attempts.
+ * capped at maxDelayMs, with a default maximum cap of 5 retry attempts.
  */
 
 export const DEFAULT_BASE_DELAY_MS = 1000; // 1 second

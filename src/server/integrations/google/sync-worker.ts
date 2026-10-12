@@ -13,7 +13,11 @@ import {
   updateOutboxItemRetry,
 } from './outbox';
 import { GooglePeopleClient, PeopleApiError } from './people-client';
-import { calculateNextAttemptDate, isTerminalRetry, type BackoffOptions } from './backoff';
+import {
+  calculateNextAttemptDate,
+  isTerminalRetry,
+  type BackoffOptions,
+} from '@/server/jobs/backoff';
 
 export interface SyncBatchOptions {
   batchSize?: number;

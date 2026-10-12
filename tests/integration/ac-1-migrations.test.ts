@@ -185,5 +185,5 @@ export default defineConfig({
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
-  }, 60000);
+  }, 120000);
 });

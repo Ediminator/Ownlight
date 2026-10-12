@@ -12,9 +12,11 @@ const rootDir = path.resolve(__dirname, '..');
 const distWorker = path.resolve(rootDir, 'dist/retention/worker.mjs');
 
 let WorkerClass;
+let exportedRegistry;
 try {
   const mod = await import('../src/server/retention/worker.ts');
   WorkerClass = mod.BackgroundWorker;
+  exportedRegistry = mod.jobRegistry;
 } catch {
   if (!existsSync(distWorker)) {
     const { buildRetention } = await import('./build-retention.mjs');
@@ -22,9 +24,11 @@ try {
   }
   const mod = await import('../dist/retention/worker.mjs');
   WorkerClass = mod.BackgroundWorker;
+  exportedRegistry = mod.jobRegistry;
 }
 
 export const BackgroundWorker = WorkerClass;
+export const jobRegistry = exportedRegistry;
 
 if (
   process.argv[1] &&

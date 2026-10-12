@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   calculateBackoffDelayMs,
   calculateNextAttemptDate,
   isTerminalRetry,
   MAX_RETRY_ATTEMPTS,
-} from '@/server/integrations/google/backoff';
+} from '@/server/jobs/backoff';
 
 describe('TASK-0021: Exponential Backoff with Jitter (AC-5)', () => {
   it('AC-5: increases delay exponentially with attempt number', () => {
@@ -70,5 +72,10 @@ describe('TASK-0021: Exponential Backoff with Jitter (AC-5)', () => {
     expect(isTerminalRetry(5)).toBe(true);
     expect(isTerminalRetry(6)).toBe(true);
     expect(MAX_RETRY_ATTEMPTS).toBe(5);
+  });
+
+  it('AC-9: shared backoff module moved to @/server/jobs/backoff and old location does not exist', () => {
+    const oldPath = path.resolve(__dirname, '../../src/server/integrations/google/backoff.ts');
+    expect(fs.existsSync(oldPath)).toBe(false);
   });
 });

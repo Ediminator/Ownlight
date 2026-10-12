@@ -76,6 +76,11 @@ test.describe('TASK-0017: Google OAuth & Workspace Integration Settings E2E', ()
     const heading = page.locator('h1');
     await expect(heading).toContainText('Google Workspace');
 
+    // Verify localized back button (I1-V01, I1-U01)
+    const backLink = page.locator('[data-testid="back-to-settings-link"]');
+    await expect(backLink).toBeVisible();
+    await expect(backLink).toContainText('Zurück zu Einstellungen');
+
     // Run axe accessibility audit
     const accessibilityScanResults = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
@@ -114,6 +119,42 @@ test.describe('TASK-0017: Google OAuth & Workspace Integration Settings E2E', ()
     const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
+
+    // Run axe scan on mobile viewport
+    const accessibilityScanResults = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+
+    const seriousOrCritical = accessibilityScanResults.violations.filter(
+      (v) => v.impact === 'serious' || v.impact === 'critical',
+    );
+    expect(seriousOrCritical).toEqual([]);
+  });
+
+  test('AC-8, I1-U02: Mobile responsive layout at 320px viewport without clipping in German', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto('/de/settings/integrations/google');
+
+    const viewContainer = page.locator('[data-testid="google-integration-view"]');
+    await expect(viewContainer).toBeVisible();
+
+    // Verify German unconfigured heading is visible and rendered
+    const germanHeading = page.locator('h2').first();
+    await expect(germanHeading).toBeVisible();
+    await expect(germanHeading).toContainText('Integrationseinrichtung erforderlich');
+
+    // Verify no horizontal overflow beyond viewport width
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
+
+    // Verify no element overflow clipping on heading
+    const isHeadingClipped = await germanHeading.evaluate((el) => {
+      return el.scrollWidth > el.clientWidth;
+    });
+    expect(isHeadingClipped).toBe(false);
 
     // Run axe scan on mobile viewport
     const accessibilityScanResults = await new AxeBuilder({ page })

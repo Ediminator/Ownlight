@@ -35,6 +35,7 @@ interface GoogleIntegrationViewProps {
 
 export function GoogleIntegrationView({
   initialStatus,
+  locale,
   redirectUri,
   initialNotification,
 }: GoogleIntegrationViewProps) {
@@ -123,14 +124,14 @@ export function GoogleIntegrationView({
   const formattedDate = React.useMemo(() => {
     if (!status.connectedAt) return '';
     try {
-      return new Intl.DateTimeFormat(undefined, {
+      return new Intl.DateTimeFormat(locale, {
         dateStyle: 'medium',
         timeStyle: 'short',
       }).format(new Date(status.connectedAt));
     } catch {
       return String(status.connectedAt);
     }
-  }, [status.connectedAt]);
+  }, [status.connectedAt, locale]);
 
   return (
     <div
@@ -141,21 +142,24 @@ export function GoogleIntegrationView({
       <div>
         <Link
           href="/settings"
+          data-testid="back-to-settings-link"
           className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors min-h-[36px] py-1"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          <span>Back to Settings</span>
+          <span>{t('backToSettings')}</span>
         </Link>
       </div>
 
       {/* Header and status badge */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-6">
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0 flex-1">
           <div className="flex items-center gap-3">
             <Cloud className="h-7 w-7 text-primary shrink-0" aria-hidden="true" />
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('title')}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground break-words">
+              {t('title')}
+            </h1>
           </div>
-          <p className="text-sm text-muted-foreground">{t('description')}</p>
+          <p className="text-sm text-muted-foreground break-words">{t('description')}</p>
         </div>
 
         <div>
@@ -219,26 +223,28 @@ export function GoogleIntegrationView({
       {status.status === 'unconfigured' && (
         <div
           data-testid="unconfigured-card"
-          className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-6 min-w-0 max-w-full overflow-hidden"
+          className="rounded-lg border bg-card p-4 sm:p-6 text-card-foreground shadow-sm space-y-6 min-w-0 max-w-full overflow-hidden"
         >
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 min-w-0">
             <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-foreground">
+            <div className="space-y-1 min-w-0 flex-1">
+              <h2 className="text-base sm:text-lg font-semibold text-foreground break-words hyphens-auto">
                 {t('unconfiguredAlertTitle')}
               </h2>
-              <p className="text-sm text-muted-foreground">{t('unconfiguredAlertDescription')}</p>
+              <p className="text-sm text-muted-foreground break-words">
+                {t('unconfiguredAlertDescription')}
+              </p>
             </div>
           </div>
 
           <div className="rounded-md bg-muted/60 p-4 space-y-4 text-sm min-w-0 max-w-full overflow-hidden">
-            <div className="space-y-1">
-              <h3 className="font-medium text-foreground">{t('step1Title')}</h3>
-              <p className="text-muted-foreground">{t('step1Description')}</p>
+            <div className="space-y-1 min-w-0">
+              <h3 className="font-medium text-foreground break-words">{t('step1Title')}</h3>
+              <p className="text-muted-foreground break-words">{t('step1Description')}</p>
             </div>
 
-            <div className="space-y-1">
-              <h3 className="font-medium text-foreground">{t('step2Title')}</h3>
+            <div className="space-y-1 min-w-0">
+              <h3 className="font-medium text-foreground break-words">{t('step2Title')}</h3>
               <p className="text-muted-foreground break-all">
                 {t('step2Description', { redirectUri })}
               </p>
@@ -252,9 +258,9 @@ export function GoogleIntegrationView({
               </div>
             </div>
 
-            <div className="space-y-1">
-              <h3 className="font-medium text-foreground">{t('step3Title')}</h3>
-              <p className="text-muted-foreground">{t('step3Description')}</p>
+            <div className="space-y-1 min-w-0">
+              <h3 className="font-medium text-foreground break-words">{t('step3Title')}</h3>
+              <p className="text-muted-foreground break-words">{t('step3Description')}</p>
             </div>
           </div>
 
@@ -275,11 +281,13 @@ export function GoogleIntegrationView({
       {status.status === 'disconnected' && (
         <div
           data-testid="disconnected-card"
-          className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-6 min-w-0 max-w-full overflow-hidden"
+          className="rounded-lg border bg-card p-4 sm:p-6 text-card-foreground shadow-sm space-y-6 min-w-0 max-w-full overflow-hidden"
         >
-          <div className="space-y-2">
-            <h2 className="text-lg font-semibold text-foreground">{t('title')}</h2>
-            <p className="text-sm text-muted-foreground">{t('description')}</p>
+          <div className="space-y-2 min-w-0">
+            <h2 className="text-base sm:text-lg font-semibold text-foreground break-words">
+              {t('title')}
+            </h2>
+            <p className="text-sm text-muted-foreground break-words">{t('description')}</p>
           </div>
 
           <div className="rounded-md border p-4 bg-muted/30 space-y-2 text-sm min-w-0 max-w-full overflow-hidden">
@@ -321,13 +329,18 @@ export function GoogleIntegrationView({
       {status.status === 'connected' && (
         <div
           data-testid="connected-card"
-          className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-6 min-w-0 max-w-full overflow-hidden"
+          className="rounded-lg border bg-card p-4 sm:p-6 text-card-foreground shadow-sm space-y-6 min-w-0 max-w-full overflow-hidden"
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold text-foreground">{t('title')}</h2>
+            <div className="space-y-1 min-w-0 flex-1">
+              <h2 className="text-base sm:text-lg font-semibold text-foreground break-words">
+                {t('title')}
+              </h2>
               {status.connectedAt && (
-                <p className="text-sm text-muted-foreground" data-testid="connected-since-text">
+                <p
+                  className="text-sm text-muted-foreground break-words"
+                  data-testid="connected-since-text"
+                >
                   {t('connectedSince', { date: formattedDate })}
                 </p>
               )}

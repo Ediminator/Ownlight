@@ -234,6 +234,7 @@
       "description": "Connect external studio tools and cloud services.",
       "manage": "Configure",
       "google": {
+        "backToSettings": "Back to Settings",
         "title": "Google Workspace",
         "description": "Connect your studio's Google Workspace to synchronize client contacts for caller identification during shoot days.",
         "badgeConnected": "Connected",

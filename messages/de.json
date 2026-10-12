@@ -234,6 +234,7 @@
       "description": "Verbinden Sie externe Studio-Werkzeuge und Cloud-Dienste.",
       "manage": "Konfigurieren",
       "google": {
+        "backToSettings": "Zurück zu Einstellungen",
         "title": "Google Workspace",
         "description": "Verbinden Sie Ihr Google Workspace-Konto, um Kundenkontakte für die Anrufererkennung an Drehtagen zu synchronisieren.",
         "badgeConnected": "Verbunden",

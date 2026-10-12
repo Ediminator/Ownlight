@@ -160,4 +160,68 @@ describe('GoogleIntegrationView Component (AC-1, AC-8)', () => {
     // Buttons and links must have touch target utility classes (min-h-[44px] or min-h-[40px] or py-2.5)
     expect(html).toContain('min-h-');
   });
+
+  it('AC-8, I1-V01, I1-U01: renders localized back to settings link without hardcoded English copy', () => {
+    const unconfiguredStatus: GoogleIntegrationDetails = {
+      status: 'unconfigured',
+      configured: false,
+      connected: false,
+      scope: null,
+    };
+
+    const html = renderToStaticMarkup(
+      <GoogleIntegrationView
+        initialStatus={unconfiguredStatus}
+        locale="de"
+        redirectUri={redirectUri}
+      />,
+    );
+
+    expect(html).toContain('translated-backToSettings');
+    expect(html).not.toContain('<span>Back to Settings</span>');
+  });
+
+  it('AC-8, I1-V03, I1-U03: formats connection timestamp using the provided locale prop', () => {
+    const connectedStatus: GoogleIntegrationDetails = {
+      status: 'connected',
+      configured: true,
+      connected: true,
+      scope: 'https://www.googleapis.com/auth/contacts',
+      connectedAt: new Date('2026-10-12T12:00:00Z'),
+    };
+
+    const dateTimeSpy = vi.spyOn(Intl, 'DateTimeFormat');
+
+    renderToStaticMarkup(
+      <GoogleIntegrationView
+        initialStatus={connectedStatus}
+        locale="de"
+        redirectUri={redirectUri}
+      />,
+    );
+
+    expect(dateTimeSpy).toHaveBeenCalledWith('de', expect.any(Object));
+    dateTimeSpy.mockRestore();
+  });
+
+  it('AC-8, I1-U02: applies break-words, hyphens-auto, and responsive padding to prevent 320px clipping', () => {
+    const unconfiguredStatus: GoogleIntegrationDetails = {
+      status: 'unconfigured',
+      configured: false,
+      connected: false,
+      scope: null,
+    };
+
+    const html = renderToStaticMarkup(
+      <GoogleIntegrationView
+        initialStatus={unconfiguredStatus}
+        locale="de"
+        redirectUri={redirectUri}
+      />,
+    );
+
+    expect(html).toContain('break-words');
+    expect(html).toContain('hyphens-auto');
+    expect(html).toContain('p-4 sm:p-6');
+  });
 });

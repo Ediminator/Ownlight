@@ -269,11 +269,22 @@
         "featureCallerIdTitle": "Caller ID on Shoot Days",
         "featureCallerIdDescription": "Synchronizes names and phone numbers of clients with active shoots to your Google Contacts so incoming calls display client names.",
         "privacyNoticeTitle": "Privacy & Data Minimization",
-        "privacyNoticeDescription": "Ownlight only transmits client names and phone numbers when explicitly opted-in per client. Client email addresses, notes, contracts, and private studio data are never sent to Google."
+        "privacyNoticeDescription": "Ownlight only transmits client names and phone numbers when explicitly opted-in per client. Client email addresses, notes, contracts, and private studio data are never sent to Google.",
+        "syncFailedWarningTitle": "Some Contacts Failed to Sync",
+        "syncFailedWarningDescription": "One or more contacts could not be synchronized with Google Contacts. The sync worker will automatically retry, or you can update the contact to re-trigger sync."
       }
     }
   },
   "clients": {
+    "googleSync": {
+      "toggleLabel": "Sync to Google Contacts",
+      "toggleDescription": "One-way sync of names and phone numbers to Google Contacts for mobile caller ID during shoot days. Emails, addresses, notes, and photos are never sent.",
+      "statusLabel": "Google Contacts Sync",
+      "statusSynced": "Synced to Google Contacts",
+      "statusPending": "Sync pending",
+      "statusNotSynced": "Not synced",
+      "statusFailed": "Sync failed"
+    },
     "list": {
       "title": "Clients",
       "description": "Directory of clients and contact history.",

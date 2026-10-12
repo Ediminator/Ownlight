@@ -27,7 +27,11 @@ vi.mock('react', async (importOriginal) => {
         const val = mockStateQueue.shift() as T;
         return [val, vi.fn()];
       }
-      return actual.useState(initial);
+      try {
+        return actual.useState(initial);
+      } catch {
+        return [initial, vi.fn()];
+      }
     },
   };
 });
@@ -196,6 +200,7 @@ function sampleClientData(): ClientWithRelations {
       kind: 'person',
       displayName: 'Anna Schmidt',
       preferredLocale: 'en',
+      googleContactsSyncEnabled: false,
       createdAt: now,
       lastActivityAt: now,
       updatedAt: now,

@@ -35,6 +35,7 @@ export const clients = pgTable(
     kind: varchar('kind', { length: 20 }).notNull().$type<ClientKind>(),
     displayName: varchar('display_name', { length: 200 }).notNull(),
     preferredLocale: varchar('preferred_locale', { length: 10 }).notNull().$type<ClientLocale>(),
+    googleContactsSyncEnabled: boolean('google_contacts_sync_enabled').notNull().default(false),
     lastActivityAt: timestamp('last_activity_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),

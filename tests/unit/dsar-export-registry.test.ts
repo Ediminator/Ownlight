@@ -344,6 +344,7 @@ describe('TASK-0015: DSAR export provider registry', () => {
       kind: 'person' as const,
       displayName: 'Fallback Client',
       preferredLocale: 'en' as const,
+      googleContactsSyncEnabled: false,
       createdAt: new Date(),
       updatedAt: new Date(),
       lastActivityAt: new Date(),

@@ -91,6 +91,7 @@ function createMockClientWithRelations(
       kind: 'person',
       displayName: 'Test Client',
       preferredLocale: 'en',
+      googleContactsSyncEnabled: false,
       createdAt: new Date(),
       updatedAt: new Date(),
       lastActivityAt: new Date(),

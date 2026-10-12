@@ -269,11 +269,22 @@
         "featureCallerIdTitle": "Anrufererkennung an Drehtagen",
         "featureCallerIdDescription": "Synchronisiert Namen und Telefonnummern von Kunden mit aktiven Aufträgen mit Ihren Google Kontakten, damit eingehende Anrufe den Kundennamen anzeigen.",
         "privacyNoticeTitle": "Datenschutz & Datenminimierung",
-        "privacyNoticeDescription": "Ownlight überträgt ausschließlich Namen und Telefonnummern nach ausdrücklicher Aktivierung pro Kunde. E-Mail-Adressen, Notizen, Verträge und vertrauliche Studio-Daten werden niemals an Google übermittelt."
+        "privacyNoticeDescription": "Ownlight überträgt ausschließlich Namen und Telefonnummern nach ausdrücklicher Aktivierung pro Kunde. E-Mail-Adressen, Notizen, Verträge und vertrauliche Studio-Daten werden niemals an Google übermittelt.",
+        "syncFailedWarningTitle": "Einige Kontakte konnten nicht synchronisiert werden",
+        "syncFailedWarningDescription": "Ein oder mehrere Kontakte konnten nicht mit Google Kontakte synchronisiert werden. Der Synchronisationsdienst versucht es automatisch erneut, oder Sie können den Kontakt bearbeiten, um die Synchronisation neu auszulösen."
       }
     }
   },
   "clients": {
+    "googleSync": {
+      "toggleLabel": "Zu Google Kontakte synchronisieren",
+      "toggleDescription": "Einweg-Synchronisation von Namen und Telefonnummern mit Google Kontakte für mobile Anruferkennung an Drehtagen. E-Mails, Adressen, Notizen und Fotos werden niemals übertragen.",
+      "statusLabel": "Google Kontakte Synchronisation",
+      "statusSynced": "Mit Google Kontakte synchronisiert",
+      "statusPending": "Synchronisation ausstehend",
+      "statusNotSynced": "Nicht synchronisiert",
+      "statusFailed": "Synchronisation fehlgeschlagen"
+    },
     "list": {
       "title": "Kund:innen",
       "description": "Verzeichnis der Kund:innen und Kontakthistorie.",

@@ -11,14 +11,9 @@ export interface ExportCoverageExemption {
 }
 
 export const EXPORT_COVERAGE_ALLOWLIST: readonly ExportCoverageExemption[] = [
-  // All current tables with client_id or contact_id columns are fully covered
-  // by domain export providers:
-  // - client_contacts -> subject, client
-  // - client_addresses -> addresses
-  // - client_tags -> tags
-  // - client_notes -> notes
-  // - client_timeline_events -> timeline
-  // - consent_records -> consents
-  // When future epics introduce ephemeral/internal tables with client_id or contact_id
-  // that do not hold exportable personal data, register an exemption here with reasoning.
+  {
+    tableName: 'google_contacts_outbox',
+    reason:
+      'Internal ephemeral queue for asynchronous Google Contacts API operations, containing no independent personal data not already reflected in client_contacts and google_contacts_links.',
+  },
 ];

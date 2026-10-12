@@ -8,6 +8,7 @@
 export const CLIENT_PII_COLUMNS = [
   'clients.display_name',
   'clients.preferred_locale',
+  'clients.google_contacts_sync_enabled',
   'client_contacts.given_name',
   'client_contacts.family_name',
   'client_contacts.email',

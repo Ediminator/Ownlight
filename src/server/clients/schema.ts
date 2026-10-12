@@ -110,6 +110,7 @@ export const createClientInputSchema = z
     }),
     displayName: singleLineString(200, 1),
     preferredLocale: z.enum(CLIENT_LOCALES).optional(),
+    googleContactsSyncEnabled: z.boolean().optional(),
     primaryContact: primaryContactInputSchema,
     acknowledgeDuplicates: z.boolean().optional(),
   })
@@ -126,6 +127,7 @@ export const updateClientInputSchema = z
     kind: z.enum(CLIENT_KINDS).optional(),
     displayName: singleLineString(200, 1).optional(),
     preferredLocale: z.enum(CLIENT_LOCALES).optional(),
+    googleContactsSyncEnabled: z.boolean().optional(),
   })
   .strict();
 

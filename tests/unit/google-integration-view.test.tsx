@@ -245,4 +245,27 @@ describe('GoogleIntegrationView Component (AC-1, AC-8)', () => {
     expect(html).toContain('dark:text-red-400');
     expect(html).toContain('dark:hover:bg-red-950/30');
   });
+
+  it('AC-5: renders localized warning banner when failedSyncCount is greater than zero', () => {
+    const statusWithFailedSync: GoogleIntegrationDetails = {
+      status: 'connected',
+      configured: true,
+      connected: true,
+      scope: 'https://www.googleapis.com/auth/contacts',
+      connectedAt: new Date('2026-10-12T12:00:00Z'),
+      failedSyncCount: 2,
+    };
+
+    const html = renderToStaticMarkup(
+      <GoogleIntegrationView
+        initialStatus={statusWithFailedSync}
+        locale="en"
+        redirectUri={redirectUri}
+      />,
+    );
+
+    expect(html).toContain('data-testid="sync-failed-warning"');
+    expect(html).toContain('translated-syncFailedWarningTitle');
+    expect(html).toContain('translated-syncFailedWarningDescription');
+  });
 });

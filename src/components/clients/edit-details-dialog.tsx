@@ -24,6 +24,7 @@ export interface EditDetailsDialogProps {
     kind: ClientKind;
     displayName: string;
     preferredLocale: ClientLocale;
+    googleContactsSyncEnabled?: boolean;
   }) => void;
 }
 
@@ -34,12 +35,14 @@ interface EditDetailsFormProps {
     kind: ClientKind;
     displayName: string;
     preferredLocale: ClientLocale;
+    googleContactsSyncEnabled?: boolean;
   }) => void;
 }
 
 export function EditDetailsForm({ client, onClose, onSuccess }: EditDetailsFormProps) {
   const t = useTranslations('clients.form');
   const tErrors = useTranslations('clients.errors');
+  const tGoogleSync = useTranslations('clients.googleSync');
 
   const [kind, setKind] = React.useState<ClientKind>(client.kind);
   const [displayName, setDisplayName] = React.useState(client.displayName);
@@ -49,6 +52,9 @@ export function EditDetailsForm({ client, onClose, onSuccess }: EditDetailsFormP
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [displayNameError, setDisplayNameError] = React.useState<string | null>(null);
+  const [googleContactsSyncEnabled, setGoogleContactsSyncEnabled] = React.useState<boolean>(
+    client.googleContactsSyncEnabled,
+  );
 
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
@@ -70,6 +76,7 @@ export function EditDetailsForm({ client, onClose, onSuccess }: EditDetailsFormP
         kind,
         displayName: trimmedName,
         preferredLocale,
+        googleContactsSyncEnabled,
       });
 
       if (!res.success) {
@@ -77,7 +84,7 @@ export function EditDetailsForm({ client, onClose, onSuccess }: EditDetailsFormP
         return;
       }
 
-      onSuccess({ kind, displayName: trimmedName, preferredLocale });
+      onSuccess({ kind, displayName: trimmedName, preferredLocale, googleContactsSyncEnabled });
       onClose();
     } catch {
       setErrorMessage(tErrors('GENERIC_ERROR'));
@@ -192,6 +199,41 @@ export function EditDetailsForm({ client, onClose, onSuccess }: EditDetailsFormP
           <option value="en">English</option>
           <option value="de">Deutsch</option>
         </select>
+      </div>
+
+      {/* Google Contacts Sync Opt-In (AC-1, AC-6) */}
+      <div className="rounded-lg border bg-card p-4 space-y-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1 flex-1">
+            <label
+              htmlFor="edit-googleContactsSyncEnabled"
+              className="text-sm font-medium text-foreground block cursor-pointer select-none"
+            >
+              {tGoogleSync('toggleLabel')}
+            </label>
+            <p
+              id="edit-google-sync-description"
+              data-testid="edit-google-sync-desc"
+              className="text-xs text-muted-foreground leading-relaxed"
+            >
+              {tGoogleSync('toggleDescription')}
+            </p>
+          </div>
+          <div className="flex items-center pt-0.5">
+            <input
+              id="edit-googleContactsSyncEnabled"
+              name="googleContactsSyncEnabled"
+              type="checkbox"
+              checked={googleContactsSyncEnabled}
+              onChange={(e) => {
+                setGoogleContactsSyncEnabled(e.target.checked);
+              }}
+              aria-describedby="edit-google-sync-description"
+              data-testid="edit-google-sync-toggle"
+              className="h-5 w-5 rounded border-input text-primary focus:ring-primary cursor-pointer min-h-[24px] min-w-[24px]"
+            />
+          </div>
+        </div>
       </div>
 
       <DialogFooter className="sticky bottom-0 bg-background/95 backdrop-blur-sm pt-3 pb-1 border-t mt-4 gap-2 flex flex-col-reverse sm:flex-row sm:justify-end z-10">

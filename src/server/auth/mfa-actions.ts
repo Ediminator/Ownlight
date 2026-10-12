@@ -25,7 +25,15 @@ import {
   SESSION_COOKIE_NAME,
   SECURE_SESSION_COOKIE_NAME,
 } from './session';
-import { checkMfaRateLimit, recordMfaFailure, recordMfaSuccess, anonymizeIp } from './rate-limiter';
+import {
+  checkMfaRateLimit,
+  recordMfaFailure,
+  recordMfaSuccess,
+  anonymizeIp,
+  RateLimitUnavailableError,
+} from './rate-limiter';
+import { resolveClientIp } from '@/server/http/client-ip';
+import { logger } from '@/server/log';
 import {
   generateTotpSecret,
   encryptTotpSecret,
@@ -126,22 +134,14 @@ const revokeSessionSchema = z
   .strict();
 
 /**
- * Helper to determine client IP address from Next.js request headers.
+ * Helper to determine client IP address from Next.js request headers via trusted proxy resolver.
  */
 async function getClientIp(): Promise<string> {
   try {
     const h = await headers();
-    const realIp = h.get('x-real-ip');
-    if (realIp) return realIp.trim();
-
-    const forwarded = h.get('x-forwarded-for');
-    if (forwarded) {
-      const firstIp = forwarded.split(',')[0];
-      if (firstIp) return firstIp.trim();
-    }
-    return '127.0.0.1';
+    return resolveClientIp(h) ?? 'unknown';
   } catch {
-    return '127.0.0.1';
+    return 'unknown';
   }
 }
 
@@ -277,118 +277,134 @@ export async function verifyAndEnableTotpAction(
     return { success: false, error: 'Invalid verification code.', code: 'INVALID_CODE' };
   }
 
-  const context = await requireOwner({ client });
-  const ip = await getClientIp();
-
-  // Rate limiting check (AC-4)
-  const rateLimitStatus = await checkMfaRateLimit(context.user.email, ip, client);
-  if (!rateLimitStatus.allowed) {
-    return {
-      success: false,
-      error: 'Too many failed MFA verification attempts. Please try again later.',
-      code: 'RATE_LIMITED',
-    };
-  }
-
-  const totpRows = await client
-    .select()
-    .from(totpCredential)
-    .where(eq(totpCredential.userId, context.user.id))
-    .limit(1);
-
-  const cred = totpRows[0];
-  if (!cred) {
-    return { success: false, error: 'No TOTP enrolment in progress.', code: 'ENROLMENT_NOT_FOUND' };
-  }
-
-  let plainSecret: string;
   try {
-    plainSecret = decryptTotpSecret(cred.secretEncrypted);
-  } catch {
-    return { success: false, error: 'Failed to decrypt TOTP secret.', code: 'DECRYPT_FAILED' };
-  }
+    const context = await requireOwner({ client });
+    const ip = await getClientIp();
 
-  const verificationResult = verifyTotpCode(plainSecret, parsed.data.code, cred.lastUsedStep);
-  if (!verificationResult.valid || verificationResult.step === undefined) {
-    await recordMfaFailure(context.user.email, ip, client);
-    return {
-      success: false,
-      error: 'Invalid verification code. Please check your authenticator app and try again.',
-      code: 'INVALID_CODE',
-    };
-  }
+    // Rate limiting check (AC-4)
+    const rateLimitStatus = await checkMfaRateLimit(context.user.email, ip, client);
+    if (!rateLimitStatus.allowed) {
+      return {
+        success: false,
+        error: 'Too many failed MFA verification attempts. Please try again later.',
+        code: 'RATE_LIMITED',
+      };
+    }
 
-  // Clear rate limits upon successful verification
-  await recordMfaSuccess(context.user.email, client);
+    const totpRows = await client
+      .select()
+      .from(totpCredential)
+      .where(eq(totpCredential.userId, context.user.id))
+      .limit(1);
 
-  const now = new Date();
+    const cred = totpRows[0];
+    if (!cred) {
+      return {
+        success: false,
+        error: 'No TOTP enrolment in progress.',
+        code: 'ENROLMENT_NOT_FOUND',
+      };
+    }
 
-  // 1. Mark TOTP credential active and verified
-  await client
-    .update(totpCredential)
-    .set({
-      verified: true,
-      lastUsedStep: verificationResult.step,
-      updatedAt: now,
-    })
-    .where(eq(totpCredential.id, cred.id));
+    let plainSecret: string;
+    try {
+      plainSecret = decryptTotpSecret(cred.secretEncrypted);
+    } catch {
+      return { success: false, error: 'Failed to decrypt TOTP secret.', code: 'DECRYPT_FAILED' };
+    }
 
-  // 2. Generate 10 single-use recovery codes
-  // Remove any obsolete recovery codes first
-  await client.delete(recoveryCode).where(eq(recoveryCode.userId, context.user.id));
+    const verificationResult = verifyTotpCode(plainSecret, parsed.data.code, cred.lastUsedStep);
+    if (!verificationResult.valid || verificationResult.step === undefined) {
+      await recordMfaFailure(context.user.email, ip, client);
+      return {
+        success: false,
+        error: 'Invalid verification code. Please check your authenticator app and try again.',
+        code: 'INVALID_CODE',
+      };
+    }
 
-  const { plaintext, records } = generateRecoveryCodes(10);
-  for (const r of records) {
-    await client.insert(recoveryCode).values({
-      userId: context.user.id,
-      codeHash: r.codeHash,
-      salt: r.salt,
-      usedAt: null,
-      createdAt: now,
-    });
-  }
+    // Clear rate limits upon successful verification
+    await recordMfaSuccess(context.user.email, client);
 
-  // 3. Update studio settings: default MFA requirement on
-  try {
-    const currentSettings = await getStudioSettings(client);
+    const now = new Date();
+
+    // 1. Mark TOTP credential active and verified
     await client
-      .update(studioSettings)
+      .update(totpCredential)
       .set({
-        mfa_required: true,
-        updated_at: now,
+        verified: true,
+        lastUsedStep: verificationResult.step,
+        updatedAt: now,
       })
-      .where(eq(studioSettings.id, currentSettings.id));
-  } catch {
-    // Non-fatal if studioSettings record is not yet present
-  }
+      .where(eq(totpCredential.id, cred.id));
 
-  // 4. Audit logging
-  try {
-    await audit(
-      {
-        actorType: 'owner',
-        actorId: context.user.id,
-        action: 'auth.mfa.totp_enabled',
-        targetType: 'user',
-        targetId: context.user.id,
-        outcome: 'success',
-        metadata: {
-          user_id: context.user.id,
-          ip_anonymized: anonymizeIp(ip),
+    // 2. Generate 10 single-use recovery codes
+    // Remove any obsolete recovery codes first
+    await client.delete(recoveryCode).where(eq(recoveryCode.userId, context.user.id));
+
+    const { plaintext, records } = generateRecoveryCodes(10);
+    for (const r of records) {
+      await client.insert(recoveryCode).values({
+        userId: context.user.id,
+        codeHash: r.codeHash,
+        salt: r.salt,
+        usedAt: null,
+        createdAt: now,
+      });
+    }
+
+    // 3. Update studio settings: default MFA requirement on
+    try {
+      const currentSettings = await getStudioSettings(client);
+      await client
+        .update(studioSettings)
+        .set({
+          mfa_required: true,
+          updated_at: now,
+        })
+        .where(eq(studioSettings.id, currentSettings.id));
+    } catch {
+      // Non-fatal if studioSettings record is not yet present
+    }
+
+    // 4. Audit logging
+    try {
+      await audit(
+        {
+          actorType: 'owner',
+          actorId: context.user.id,
+          action: 'auth.mfa.totp_enabled',
+          targetType: 'user',
+          targetId: context.user.id,
+          outcome: 'success',
+          metadata: {
+            user_id: context.user.id,
+            ip_anonymized: anonymizeIp(ip),
+          },
         },
-      },
-      client,
-    );
-  } catch {
-    // Non-fatal
-  }
+        client,
+      );
+    } catch {
+      // Non-fatal
+    }
 
-  return {
-    success: true,
-    data: {
-      recoveryCodes: plaintext,
-    },
-  };
+    return {
+      success: true,
+      data: {
+        recoveryCodes: plaintext,
+      },
+    };
+  } catch (err) {
+    if (err instanceof RateLimitUnavailableError) {
+      logger.error({ errorClass: 'RateLimitUnavailableError', err }, 'Rate limiter unavailable');
+      return {
+        success: false,
+        error: 'Too many failed MFA verification attempts. Please try again later.',
+        code: 'RATE_LIMITED',
+      };
+    }
+    throw err;
+  }
 }
 
 /**
@@ -516,135 +532,147 @@ export async function verifyMfaTotpAction(
       code: 'INVALID_CODE',
     };
   }
-  const ip = await getClientIp();
-
-  // 1. Look up mfaTicket in verification table
-  const ticketRows = await client
-    .select()
-    .from(verification)
-    .where(eq(verification.identifier, `mfa_ticket:${parsed.data.mfaTicket}`))
-    .limit(1);
-
-  const ticket = ticketRows[0];
-  if (!ticket || ticket.expiresAt.getTime() <= Date.now()) {
-    return {
-      success: false,
-      error: 'MFA verification session has expired. Please sign in again.',
-      code: 'MFA_EXPIRED',
-    };
-  }
-
-  const userId = ticket.value;
-  const userRows = await client.select().from(user).where(eq(user.id, userId)).limit(1);
-  const existingUser = userRows[0];
-  if (!existingUser) {
-    return { success: false, error: 'User not found.', code: 'INVALID_INPUT' };
-  }
-
-  // 2. Check MFA rate limits (AC-4)
-  const rateLimitStatus = await checkMfaRateLimit(existingUser.email, ip, client);
-  if (!rateLimitStatus.allowed) {
-    return {
-      success: false,
-      error: 'Too many failed MFA verification attempts. Please try again later.',
-      code: 'RATE_LIMITED',
-    };
-  }
-
-  // 3. Look up active TOTP credential
-  const credRows = await client
-    .select()
-    .from(totpCredential)
-    .where(and(eq(totpCredential.userId, existingUser.id), eq(totpCredential.verified, true)))
-    .limit(1);
-
-  const cred = credRows[0];
-  if (!cred) {
-    return {
-      success: false,
-      error: 'No active TOTP credential found.',
-      code: 'INVALID_CREDENTIAL',
-    };
-  }
-
-  let plainSecret: string;
   try {
-    plainSecret = decryptTotpSecret(cred.secretEncrypted);
-  } catch {
-    return { success: false, error: 'Failed to decrypt TOTP secret.', code: 'DECRYPT_FAILED' };
-  }
+    const ip = await getClientIp();
 
-  // 4. Verify code with ±1 tolerance window and replay check (AC-2)
-  const result = verifyTotpCode(plainSecret, parsed.data.code, cred.lastUsedStep);
-  if (!result.valid || result.step === undefined) {
-    await recordMfaFailure(existingUser.email, ip, client);
+    // 1. Look up mfaTicket in verification table
+    const ticketRows = await client
+      .select()
+      .from(verification)
+      .where(eq(verification.identifier, `mfa_ticket:${parsed.data.mfaTicket}`))
+      .limit(1);
+
+    const ticket = ticketRows[0];
+    if (!ticket || ticket.expiresAt.getTime() <= Date.now()) {
+      return {
+        success: false,
+        error: 'MFA verification session has expired. Please sign in again.',
+        code: 'MFA_EXPIRED',
+      };
+    }
+
+    const userId = ticket.value;
+    const userRows = await client.select().from(user).where(eq(user.id, userId)).limit(1);
+    const existingUser = userRows[0];
+    if (!existingUser) {
+      return { success: false, error: 'User not found.', code: 'INVALID_INPUT' };
+    }
+
+    // 2. Check MFA rate limits (AC-4)
+    const rateLimitStatus = await checkMfaRateLimit(existingUser.email, ip, client);
+    if (!rateLimitStatus.allowed) {
+      return {
+        success: false,
+        error: 'Too many failed MFA verification attempts. Please try again later.',
+        code: 'RATE_LIMITED',
+      };
+    }
+
+    // 3. Look up active TOTP credential
+    const credRows = await client
+      .select()
+      .from(totpCredential)
+      .where(and(eq(totpCredential.userId, existingUser.id), eq(totpCredential.verified, true)))
+      .limit(1);
+
+    const cred = credRows[0];
+    if (!cred) {
+      return {
+        success: false,
+        error: 'No active TOTP credential found.',
+        code: 'INVALID_CREDENTIAL',
+      };
+    }
+
+    let plainSecret: string;
+    try {
+      plainSecret = decryptTotpSecret(cred.secretEncrypted);
+    } catch {
+      return { success: false, error: 'Failed to decrypt TOTP secret.', code: 'DECRYPT_FAILED' };
+    }
+
+    // 4. Verify code with ±1 tolerance window and replay check (AC-2)
+    const result = verifyTotpCode(plainSecret, parsed.data.code, cred.lastUsedStep);
+    if (!result.valid || result.step === undefined) {
+      await recordMfaFailure(existingUser.email, ip, client);
+      return {
+        success: false,
+        error: 'Invalid or replayed verification code.',
+        code: 'INVALID_CODE',
+      };
+    }
+
+    // 5. Success: update lastUsedStep to prevent replay (AC-2)
+    await recordMfaSuccess(existingUser.email, client);
+    await client
+      .update(totpCredential)
+      .set({
+        lastUsedStep: result.step,
+        updatedAt: new Date(),
+      })
+      .where(eq(totpCredential.id, cred.id));
+
+    // 6. Consume ticket
+    await client.delete(verification).where(eq(verification.id, ticket.id));
+
+    // 7. Establish authenticated session
+    let oldToken: string | undefined;
+    try {
+      const cookieStore = await cookies();
+      oldToken =
+        cookieStore.get(SECURE_SESSION_COOKIE_NAME)?.value ??
+        cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    } catch {
+      oldToken = undefined;
+    }
+
+    const newSession = await rotateSession(oldToken, existingUser.id, client, {
+      ipAddress: anonymizeIp(ip),
+    });
+    await setSessionCookie(newSession.token);
+
+    try {
+      await audit(
+        {
+          actorType: 'owner',
+          actorId: existingUser.id,
+          action: 'auth.sign_in.success',
+          targetType: 'session',
+          targetId: newSession.id,
+          outcome: 'success',
+          metadata: {
+            session_id: newSession.id,
+            auth_method: 'totp',
+            ip_anonymized: anonymizeIp(ip),
+          },
+        },
+        client,
+      );
+    } catch {
+      // Non-fatal
+    }
+
     return {
-      success: false,
-      error: 'Invalid or replayed verification code.',
-      code: 'INVALID_CODE',
-    };
-  }
-
-  // 5. Success: update lastUsedStep to prevent replay (AC-2)
-  await recordMfaSuccess(existingUser.email, client);
-  await client
-    .update(totpCredential)
-    .set({
-      lastUsedStep: result.step,
-      updatedAt: new Date(),
-    })
-    .where(eq(totpCredential.id, cred.id));
-
-  // 6. Consume ticket
-  await client.delete(verification).where(eq(verification.id, ticket.id));
-
-  // 7. Establish authenticated session
-  let oldToken: string | undefined;
-  try {
-    const cookieStore = await cookies();
-    oldToken =
-      cookieStore.get(SECURE_SESSION_COOKIE_NAME)?.value ??
-      cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  } catch {
-    oldToken = undefined;
-  }
-
-  const newSession = await rotateSession(oldToken, existingUser.id, client, {
-    ipAddress: anonymizeIp(ip),
-  });
-  await setSessionCookie(newSession.token);
-
-  try {
-    await audit(
-      {
-        actorType: 'owner',
-        actorId: existingUser.id,
-        action: 'auth.sign_in.success',
-        targetType: 'session',
-        targetId: newSession.id,
-        outcome: 'success',
-        metadata: {
-          session_id: newSession.id,
-          auth_method: 'totp',
-          ip_anonymized: anonymizeIp(ip),
+      success: true,
+      data: {
+        user: {
+          id: existingUser.id,
+          email: existingUser.email,
+          name: existingUser.name,
         },
       },
-      client,
-    );
-  } catch {
-    // Non-fatal
+    };
+  } catch (err) {
+    if (err instanceof RateLimitUnavailableError) {
+      logger.error({ errorClass: 'RateLimitUnavailableError', err }, 'Rate limiter unavailable');
+      return {
+        success: false,
+        error: 'Too many failed MFA verification attempts. Please try again later.',
+        code: 'RATE_LIMITED',
+      };
+    }
+    throw err;
   }
-
-  return {
-    success: true,
-    data: {
-      user: {
-        id: existingUser.id,
-        email: existingUser.email,
-        name: existingUser.name,
-      },
-    },
-  };
 }
 
 /**
@@ -662,129 +690,141 @@ export async function verifyMfaRecoveryCodeAction(
       code: 'INVALID_RECOVERY_CODE',
     };
   }
-  const ip = await getClientIp();
-
-  const ticketRows = await client
-    .select()
-    .from(verification)
-    .where(eq(verification.identifier, `mfa_ticket:${parsed.data.mfaTicket}`))
-    .limit(1);
-
-  const ticket = ticketRows[0];
-  if (!ticket || ticket.expiresAt.getTime() <= Date.now()) {
-    return {
-      success: false,
-      error: 'MFA verification session has expired. Please sign in again.',
-      code: 'MFA_EXPIRED',
-    };
-  }
-
-  const userId = ticket.value;
-  const userRows = await client.select().from(user).where(eq(user.id, userId)).limit(1);
-  const existingUser = userRows[0];
-  if (!existingUser) {
-    return { success: false, error: 'User not found.', code: 'INVALID_INPUT' };
-  }
-
-  const rateLimitStatus = await checkMfaRateLimit(existingUser.email, ip, client);
-  if (!rateLimitStatus.allowed) {
-    return {
-      success: false,
-      error: 'Too many failed MFA verification attempts. Please try again later.',
-      code: 'RATE_LIMITED',
-    };
-  }
-
-  // Look up unused recovery codes
-  const unusedCodes = await client
-    .select()
-    .from(recoveryCode)
-    .where(and(eq(recoveryCode.userId, existingUser.id), isNull(recoveryCode.usedAt)));
-
-  const result = verifyRecoveryCode(parsed.data.recoveryCode, unusedCodes);
-  if (!result.valid || !result.matchedId) {
-    await recordMfaFailure(existingUser.email, ip, client);
-    return {
-      success: false,
-      error: 'Invalid recovery code. Each recovery code can only be used once.',
-      code: 'INVALID_RECOVERY_CODE',
-    };
-  }
-
-  // Consume code
-  const now = new Date();
-  await client
-    .update(recoveryCode)
-    .set({ usedAt: now })
-    .where(eq(recoveryCode.id, result.matchedId));
-
-  await recordMfaSuccess(existingUser.email, client);
-  await client.delete(verification).where(eq(verification.id, ticket.id));
-
-  // Establish session
-  let oldToken: string | undefined;
   try {
-    const cookieStore = await cookies();
-    oldToken =
-      cookieStore.get(SECURE_SESSION_COOKIE_NAME)?.value ??
-      cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  } catch {
-    oldToken = undefined;
-  }
+    const ip = await getClientIp();
 
-  const newSession = await rotateSession(oldToken, existingUser.id, client, {
-    ipAddress: anonymizeIp(ip),
-  });
-  await setSessionCookie(newSession.token);
+    const ticketRows = await client
+      .select()
+      .from(verification)
+      .where(eq(verification.identifier, `mfa_ticket:${parsed.data.mfaTicket}`))
+      .limit(1);
 
-  try {
-    await audit(
-      {
-        actorType: 'owner',
-        actorId: existingUser.id,
-        action: 'auth.mfa.recovery_code_used',
-        targetType: 'user',
-        targetId: existingUser.id,
-        outcome: 'success',
-        metadata: {
-          user_id: existingUser.id,
-          code_id: result.matchedId,
-          ip_anonymized: anonymizeIp(ip),
+    const ticket = ticketRows[0];
+    if (!ticket || ticket.expiresAt.getTime() <= Date.now()) {
+      return {
+        success: false,
+        error: 'MFA verification session has expired. Please sign in again.',
+        code: 'MFA_EXPIRED',
+      };
+    }
+
+    const userId = ticket.value;
+    const userRows = await client.select().from(user).where(eq(user.id, userId)).limit(1);
+    const existingUser = userRows[0];
+    if (!existingUser) {
+      return { success: false, error: 'User not found.', code: 'INVALID_INPUT' };
+    }
+
+    const rateLimitStatus = await checkMfaRateLimit(existingUser.email, ip, client);
+    if (!rateLimitStatus.allowed) {
+      return {
+        success: false,
+        error: 'Too many failed MFA verification attempts. Please try again later.',
+        code: 'RATE_LIMITED',
+      };
+    }
+
+    // Look up unused recovery codes
+    const unusedCodes = await client
+      .select()
+      .from(recoveryCode)
+      .where(and(eq(recoveryCode.userId, existingUser.id), isNull(recoveryCode.usedAt)));
+
+    const result = verifyRecoveryCode(parsed.data.recoveryCode, unusedCodes);
+    if (!result.valid || !result.matchedId) {
+      await recordMfaFailure(existingUser.email, ip, client);
+      return {
+        success: false,
+        error: 'Invalid recovery code. Each recovery code can only be used once.',
+        code: 'INVALID_RECOVERY_CODE',
+      };
+    }
+
+    // Consume code
+    const now = new Date();
+    await client
+      .update(recoveryCode)
+      .set({ usedAt: now })
+      .where(eq(recoveryCode.id, result.matchedId));
+
+    await recordMfaSuccess(existingUser.email, client);
+    await client.delete(verification).where(eq(verification.id, ticket.id));
+
+    // Establish session
+    let oldToken: string | undefined;
+    try {
+      const cookieStore = await cookies();
+      oldToken =
+        cookieStore.get(SECURE_SESSION_COOKIE_NAME)?.value ??
+        cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    } catch {
+      oldToken = undefined;
+    }
+
+    const newSession = await rotateSession(oldToken, existingUser.id, client, {
+      ipAddress: anonymizeIp(ip),
+    });
+    await setSessionCookie(newSession.token);
+
+    try {
+      await audit(
+        {
+          actorType: 'owner',
+          actorId: existingUser.id,
+          action: 'auth.mfa.recovery_code_used',
+          targetType: 'user',
+          targetId: existingUser.id,
+          outcome: 'success',
+          metadata: {
+            user_id: existingUser.id,
+            code_id: result.matchedId,
+            ip_anonymized: anonymizeIp(ip),
+          },
+        },
+        client,
+      );
+
+      await audit(
+        {
+          actorType: 'owner',
+          actorId: existingUser.id,
+          action: 'auth.sign_in.success',
+          targetType: 'session',
+          targetId: newSession.id,
+          outcome: 'success',
+          metadata: {
+            session_id: newSession.id,
+            auth_method: 'recovery_code',
+            ip_anonymized: anonymizeIp(ip),
+          },
+        },
+        client,
+      );
+    } catch {
+      // Non-fatal
+    }
+
+    return {
+      success: true,
+      data: {
+        user: {
+          id: existingUser.id,
+          email: existingUser.email,
+          name: existingUser.name,
         },
       },
-      client,
-    );
-
-    await audit(
-      {
-        actorType: 'owner',
-        actorId: existingUser.id,
-        action: 'auth.sign_in.success',
-        targetType: 'session',
-        targetId: newSession.id,
-        outcome: 'success',
-        metadata: {
-          session_id: newSession.id,
-          auth_method: 'recovery_code',
-          ip_anonymized: anonymizeIp(ip),
-        },
-      },
-      client,
-    );
-  } catch {
-    // Non-fatal
+    };
+  } catch (err) {
+    if (err instanceof RateLimitUnavailableError) {
+      logger.error({ errorClass: 'RateLimitUnavailableError', err }, 'Rate limiter unavailable');
+      return {
+        success: false,
+        error: 'Too many failed MFA verification attempts. Please try again later.',
+        code: 'RATE_LIMITED',
+      };
+    }
+    throw err;
   }
-
-  return {
-    success: true,
-    data: {
-      user: {
-        id: existingUser.id,
-        email: existingUser.email,
-        name: existingUser.name,
-      },
-    },
-  };
 }
 
 /**

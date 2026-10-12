@@ -175,6 +175,22 @@ export const serverSchema = z.object({
     .default('false')
     .transform((val) => val === 'true' || val === 'require'),
 
+  // Reverse proxy configuration (TASK-0023)
+  TRUSTED_PROXY_COUNT: z.preprocess(
+    (val) => {
+      if (val === undefined || val === null) return 1;
+      if (typeof val === 'string' && val.trim() === '') return 1;
+      return val;
+    },
+    z.coerce
+      .number({
+        invalid_type_error: 'TRUSTED_PROXY_COUNT must be an integer in the allowed range 0-5',
+      })
+      .int({ message: 'TRUSTED_PROXY_COUNT must be an integer in the allowed range 0-5' })
+      .min(0, { message: 'TRUSTED_PROXY_COUNT must be an integer in the allowed range 0-5' })
+      .max(5, { message: 'TRUSTED_PROXY_COUNT must be an integer in the allowed range 0-5' }),
+  ),
+
   // Retention framework configuration
   RETENTION_PERIOD_MONTHS: z.coerce.number().int().positive().default(24),
   CONSENT_PROOF_RETENTION_MONTHS: z.coerce.number().int().positive().default(36),
@@ -360,6 +376,7 @@ const NUMERIC_ENV_DEFAULTS: Record<string, number> = {
   CONSENT_PROOF_RETENTION_MONTHS: 36,
   DB_MAX_CONNECTIONS: 10,
   DB_STATEMENT_TIMEOUT: 30,
+  TRUSTED_PROXY_COUNT: 1,
 };
 
 /**
@@ -377,7 +394,9 @@ export const env: ServerEnv = new Proxy({} as ServerEnv, {
       const defaultNum = NUMERIC_ENV_DEFAULTS[prop];
       if (defaultNum !== undefined) {
         const raw = Number(process.env[prop]);
-        return Number.isFinite(raw) && raw > 0 ? raw : defaultNum;
+        return Number.isFinite(raw) && raw >= (prop === 'TRUSTED_PROXY_COUNT' ? 0 : 1)
+          ? raw
+          : defaultNum;
       }
       return process.env[prop] ?? '';
     }

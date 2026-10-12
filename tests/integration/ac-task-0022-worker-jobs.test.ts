@@ -166,9 +166,8 @@ describe('TASK-0022: Worker Job Loop and Google Contacts Outbox Integration', ()
   });
 
   it('AC-3: running worker with fake timers runs google-contacts-outbox every 15s while retention-sweep has not run a second time before 24h', async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'] });
 
-    const dbClient = getDb();
     const testRegistry = new JobRegistry();
 
     let sweepCount = 0;
@@ -193,38 +192,40 @@ describe('TASK-0022: Worker Job Loop and Google Contacts Outbox Integration', ()
     });
 
     const worker = new BackgroundWorker({
-      db: dbClient,
       registry: testRegistry,
       runOnce: false,
+      mockAdvisoryLock: true,
     });
 
-    // Start worker (runs initial cycle at t = 0)
-    const startPromise = worker.start();
-    await vi.advanceTimersByTimeAsync(0);
-    await startPromise;
+    try {
+      // Start worker (runs initial cycle at t = 0)
+      const startResult = await worker.start();
+      expect(startResult.success).toBe(true);
 
-    expect(sweepCount).toBe(1);
-    expect(outboxCount).toBe(1);
+      expect(sweepCount).toBe(1);
+      expect(outboxCount).toBe(1);
 
-    // Advance by 15 seconds: google-contacts-outbox runs once more, retention-sweep does NOT
-    await vi.advanceTimersByTimeAsync(15_000);
-    expect(outboxCount).toBe(2);
-    expect(sweepCount).toBe(1);
+      // Advance by 15 seconds: google-contacts-outbox runs once more, retention-sweep does NOT
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(outboxCount).toBe(2);
+      expect(sweepCount).toBe(1);
 
-    // Advance by another 15 seconds: google-contacts-outbox runs 3rd time, retention-sweep still 1
-    await vi.advanceTimersByTimeAsync(15_000);
-    expect(outboxCount).toBe(3);
-    expect(sweepCount).toBe(1);
+      // Advance by another 15 seconds: google-contacts-outbox runs 3rd time, retention-sweep still 1
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(outboxCount).toBe(3);
+      expect(sweepCount).toBe(1);
 
-    // Advance up to 23 hours, 59 minutes: retention-sweep still has not run a 2nd time
-    await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000 - 30_000 - 1);
-    expect(sweepCount).toBe(1);
+      // Advance up to 23 hours, 59 minutes: retention-sweep still has not run a 2nd time
+      await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000 - 30_000 - 1);
+      expect(sweepCount).toBe(1);
 
-    // Advance final millisecond to complete 24 hours: retention-sweep runs 2nd time
-    await vi.advanceTimersByTimeAsync(1);
-    expect(sweepCount).toBe(2);
-
-    await worker.stop();
+      // Advance final millisecond to complete 24 hours: retention-sweep runs 2nd time
+      await vi.advanceTimersByTimeAsync(1);
+      expect(sweepCount).toBe(2);
+    } finally {
+      vi.useRealTimers();
+      await worker.stop();
+    }
   });
 
   it('AC-4: given google-contacts-outbox throws on its run, retention-sweep still runs and error is logged with job ID and error class only (zero PII/payload)', async () => {
@@ -295,9 +296,8 @@ describe('TASK-0022: Worker Job Loop and Google Contacts Outbox Integration', ()
   });
 
   it('AC-5: in-progress job does not start a second concurrent run when next interval fires', async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'] });
 
-    const dbClient = getDb();
     const testRegistry = new JobRegistry();
 
     let runCount = 0;
@@ -324,46 +324,50 @@ describe('TASK-0022: Worker Job Loop and Google Contacts Outbox Integration', ()
     });
 
     const worker = new BackgroundWorker({
-      db: dbClient,
       registry: testRegistry,
       runOnce: false,
+      mockAdvisoryLock: true,
     });
 
-    // Start worker: initial run (run 1) completes during runCycle
-    await worker.start();
-    expect(runCount).toBe(1);
+    try {
+      // Start worker: initial run (run 1) completes during runCycle
+      const startResult = await worker.start();
+      expect(startResult.success).toBe(true);
+      expect(runCount).toBe(1);
 
-    // 1st interval fires at 15s: run 2 starts and remains in-flight
-    await vi.advanceTimersByTimeAsync(15_000);
-    expect(runCount).toBe(2);
-    expect(isSlowRunActive).toBe(true);
+      // 1st interval fires at 15s: run 2 starts and remains in-flight
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(runCount).toBe(2);
+      expect(isSlowRunActive).toBe(true);
 
-    // 2nd interval fires at 30s while run 2 is still in-flight: concurrent run MUST NOT start
-    await vi.advanceTimersByTimeAsync(15_000);
-    expect(runCount).toBe(2); // Still 2: concurrency guard prevented overlapping execution
+      // 2nd interval fires at 30s while run 2 is still in-flight: concurrent run MUST NOT start
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(runCount).toBe(2); // Still 2: concurrency guard prevented overlapping execution
 
-    // 3rd interval fires at 45s: still in-flight, still no overlapping run
-    await vi.advanceTimersByTimeAsync(15_000);
-    expect(runCount).toBe(2);
+      // 3rd interval fires at 45s: still in-flight, still no overlapping run
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(runCount).toBe(2);
 
-    // Direct invocation during active run also returns immediately without starting
-    const slowJob = testRegistry.get('slow-job');
-    expect(slowJob).toBeDefined();
-    if (slowJob) {
-      await worker.runJob(slowJob);
+      // Direct invocation during active run also returns immediately without starting
+      const slowJob = testRegistry.get('slow-job');
+      expect(slowJob).toBeDefined();
+      if (slowJob) {
+        await worker.runJob(slowJob);
+      }
+      expect(runCount).toBe(2);
+
+      // Complete in-flight run 2
+      finishSlowRun();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(isSlowRunActive).toBe(false);
+
+      // 4th interval fires at 60s: now that previous run completed, run 3 starts
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(runCount).toBe(3);
+    } finally {
+      vi.useRealTimers();
+      await worker.stop();
     }
-    expect(runCount).toBe(2);
-
-    // Complete in-flight run 2
-    finishSlowRun();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(isSlowRunActive).toBe(false);
-
-    // 4th interval fires at 60s: now that previous run completed, run 3 starts
-    await vi.advanceTimersByTimeAsync(15_000);
-    expect(runCount).toBe(3);
-
-    await worker.stop();
   });
 
   it('AC-6: worker waits for in-flight job to finish on stop(), releases advisory lock, and starts no new runs', async () => {

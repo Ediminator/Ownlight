@@ -26,6 +26,7 @@ export interface BackgroundWorkerOptions {
   runOnce?: boolean;
   intervalMs?: number;
   logger?: typeof logger;
+  mockAdvisoryLock?: boolean;
 }
 
 export class BackgroundWorker {
@@ -39,6 +40,7 @@ export class BackgroundWorker {
   public timer: NodeJS.Timeout | null;
   public sql: postgres.Sql | null;
   public registry: JobRegistry;
+  public mockAdvisoryLock: boolean;
 
   private runningJobs = new Set<string>();
   private activeJobPromises = new Map<string, Promise<unknown>>();
@@ -47,12 +49,17 @@ export class BackgroundWorker {
 
   constructor(options: BackgroundWorkerOptions = {}) {
     const isCli = typeof process !== 'undefined' && Array.isArray(process.argv);
+    this.mockAdvisoryLock = options.mockAdvisoryLock ?? options.connectionUrl === '';
+
     const resolvedUrl =
-      options.connectionUrl ?? process.env.DATABASE_RETENTION_URL ?? process.env.DATABASE_URL;
+      options.connectionUrl ??
+      (this.mockAdvisoryLock
+        ? ''
+        : (process.env.DATABASE_RETENTION_URL ?? process.env.DATABASE_URL));
 
     this.db = options.db ?? options.dbClient ?? null;
 
-    if (!resolvedUrl && !this.db) {
+    if (!resolvedUrl && !this.db && !this.mockAdvisoryLock) {
       throw new Error(
         'Database connection URL missing. Set DATABASE_RETENTION_URL or DATABASE_URL in environment.',
       );
@@ -71,7 +78,7 @@ export class BackgroundWorker {
   }
 
   async start(): Promise<{ success: boolean; reason?: string }> {
-    if (!this.sql && this.connectionUrl) {
+    if (!this.mockAdvisoryLock && !this.sql && !this.db && this.connectionUrl) {
       this.sql = postgres(this.connectionUrl, {
         max: 1,
         onnotice: () => undefined,
@@ -80,7 +87,9 @@ export class BackgroundWorker {
 
     let isLocked = false;
 
-    if (this.sql) {
+    if (this.mockAdvisoryLock) {
+      isLocked = true;
+    } else if (this.sql) {
       const lockRes = await this.sql<
         { locked: boolean }[]
       >`SELECT pg_try_advisory_lock(${WORKER_ADVISORY_LOCK_ID}) as locked`;
@@ -234,7 +243,9 @@ export class BackgroundWorker {
     }
 
     // Release advisory lock and close raw connection
-    if (this.sql) {
+    if (this.mockAdvisoryLock) {
+      // In-memory mock advisory lock; no remote connection to release
+    } else if (this.sql) {
       try {
         await this.sql`SELECT pg_advisory_unlock(${WORKER_ADVISORY_LOCK_ID})`;
         await this.sql.end();

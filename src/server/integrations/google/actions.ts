@@ -73,7 +73,14 @@ export async function initiateGoogleConnectAction(
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = computeCodeChallenge(codeVerifier);
 
-  const baseUrl = redirectBaseUrl ?? process.env.AUTH_URL ?? env.AUTH_URL;
+  let baseUrl = redirectBaseUrl ?? process.env.AUTH_URL;
+  if (!baseUrl) {
+    try {
+      baseUrl = env.AUTH_URL;
+    } catch {
+      baseUrl = 'http://localhost:3000';
+    }
+  }
   const redirectUri = `${baseUrl.replace(/\/$/, '')}/api/integrations/google/callback`;
 
   // Encrypt state and verifier in session-bound cookie

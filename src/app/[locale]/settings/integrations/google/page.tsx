@@ -21,7 +21,14 @@ export default async function GoogleIntegrationPage({
   }
 
   const status = await getGoogleIntegrationStatus();
-  const baseUrl = process.env.AUTH_URL ?? env.AUTH_URL;
+  let baseUrl = process.env.AUTH_URL;
+  if (!baseUrl) {
+    try {
+      baseUrl = env.AUTH_URL;
+    } catch {
+      baseUrl = 'http://localhost:3000';
+    }
+  }
   const redirectUri = `${baseUrl.replace(/\/$/, '')}/api/integrations/google/callback`;
 
   let initialNotification: { type: 'success' | 'error'; code: string } | null = null;

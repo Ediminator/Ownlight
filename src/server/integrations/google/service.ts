@@ -68,8 +68,14 @@ export function buildGoogleAuthorizationUrl(options: {
   redirectUri: string;
   clientId?: string;
 }): string {
-  const clientId =
-    options.clientId ?? process.env.GOOGLE_OAUTH_CLIENT_ID ?? env.GOOGLE_OAUTH_CLIENT_ID;
+  let clientId = options.clientId ?? process.env.GOOGLE_OAUTH_CLIENT_ID;
+  if (!clientId) {
+    try {
+      clientId = env.GOOGLE_OAUTH_CLIENT_ID;
+    } catch {
+      // Ignore env validation failure
+    }
+  }
 
   if (!clientId || clientId.trim().length === 0) {
     throw new GoogleOAuthError('GOOGLE_OAUTH_CLIENT_ID is not configured.');
@@ -106,8 +112,17 @@ export async function exchangeGoogleAuthorizationCode(options: {
   redirectUri: string;
   fetchFn?: typeof fetch;
 }): Promise<GoogleTokenResponse> {
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID ?? env.GOOGLE_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? env.GOOGLE_OAUTH_CLIENT_SECRET;
+  let clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  let clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    try {
+      clientId ??= env.GOOGLE_OAUTH_CLIENT_ID;
+      clientSecret ??= env.GOOGLE_OAUTH_CLIENT_SECRET;
+    } catch {
+      // Ignore env validation failure
+    }
+  }
 
   if (!clientId || !clientSecret) {
     throw new GoogleOAuthError('Google OAuth credentials not configured on server.');

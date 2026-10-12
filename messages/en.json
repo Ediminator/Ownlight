@@ -672,5 +672,8 @@
         "other": "Other legal grounds"
       }
     }
+  },
+  "inquiryForms": {
+    "defaultAcknowledgement": "I have read and acknowledge the privacy policy."
   }
 }

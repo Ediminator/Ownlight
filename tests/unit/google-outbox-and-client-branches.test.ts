@@ -603,11 +603,12 @@ describe('TASK-0021: Google Outbox and PeopleClient Branch Coverage', () => {
         attempts: 0,
       });
 
-      // Mock dbClient.update to throw a non-Error string during markOutboxItemProcessing
-      vi.spyOn(dbClient, 'update').mockImplementationOnce(() => {
-        // eslint-disable-next-line @typescript-eslint/only-throw-error -- test non-Error string exception branch in worker catch block
-        throw 'raw-string-exception';
-      });
+      // Mock dbClient.update chain to reject with Error during markOutboxItemProcessing
+      vi.spyOn(dbClient, 'update').mockReturnValueOnce({
+        set: () => ({
+          where: () => Promise.reject(new Error('db-update-failure')),
+        }),
+      } as unknown as ReturnType<typeof dbClient.update>);
 
       const result = await processOutboxBatch({ dbClient });
       expect(result.failedCount).toBe(1);
@@ -616,7 +617,7 @@ describe('TASK-0021: Google Outbox and PeopleClient Branch Coverage', () => {
         .select()
         .from(googleContactsOutbox)
         .where(eq(googleContactsOutbox.contactId, contactId));
-      expect(item?.lastError).toContain('raw-string-exception');
+      expect(item?.lastError).toContain('db-update-failure');
     });
 
     it('processOutboxBatch: discards UPSERT item when contact row does not exist', async () => {

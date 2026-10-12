@@ -229,7 +229,7 @@ describe('Google Integration Service Branch Coverage (service.ts)', () => {
         status: 200,
         json: () =>
           Promise.resolve({
-            refresh_token: 'refresh-default-scope',
+            refresh_token: 'scope-test',
           }),
       });
 
@@ -240,7 +240,7 @@ describe('Google Integration Service Branch Coverage (service.ts)', () => {
         fetchFn: mockFetch,
       });
 
-      expect(res.refresh_token).toBe('refresh-default-scope');
+      expect(res.refresh_token).toBe('scope-test');
       expect(res.scope).toBe('https://www.googleapis.com/auth/contacts');
       expect(res.access_token).toBeUndefined();
     });

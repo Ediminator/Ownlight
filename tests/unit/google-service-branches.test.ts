@@ -129,7 +129,7 @@ describe('Google Integration Service Branch Coverage (service.ts)', () => {
           code: 'code-123',
           codeVerifier: 'verifier-456',
           redirectUri: 'https://studio.example.com/callback',
-          fetchFn: mockFetch as unknown as typeof fetch,
+          fetchFn: mockFetch,
         }),
       ).rejects.toThrow(GoogleOAuthError);
     });
@@ -149,7 +149,7 @@ describe('Google Integration Service Branch Coverage (service.ts)', () => {
           code: 'code-123',
           codeVerifier: 'verifier-456',
           redirectUri: 'https://studio.example.com/callback',
-          fetchFn: mockFetch500 as unknown as typeof fetch,
+          fetchFn: mockFetch500,
         }),
       ).rejects.toMatchObject({ statusCode: 502 });
 
@@ -164,7 +164,7 @@ describe('Google Integration Service Branch Coverage (service.ts)', () => {
           code: 'code-123',
           codeVerifier: 'verifier-456',
           redirectUri: 'https://studio.example.com/callback',
-          fetchFn: mockFetch400 as unknown as typeof fetch,
+          fetchFn: mockFetch400,
         }),
       ).rejects.toMatchObject({ statusCode: 400 });
     });
@@ -176,7 +176,7 @@ describe('Google Integration Service Branch Coverage (service.ts)', () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({ access_token: 'acc-token' }), // No refresh_token
+        json: () => Promise.resolve({ access_token: 'acc-token' }), // No refresh_token
       });
 
       await expect(
@@ -184,7 +184,7 @@ describe('Google Integration Service Branch Coverage (service.ts)', () => {
           code: 'code-123',
           codeVerifier: 'verifier-456',
           redirectUri: 'https://studio.example.com/callback',
-          fetchFn: mockFetch as unknown as typeof fetch,
+          fetchFn: mockFetch,
         }),
       ).rejects.toThrow('Google did not return a refresh token');
     });
@@ -196,20 +196,21 @@ describe('Google Integration Service Branch Coverage (service.ts)', () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({
-          refresh_token: 'refresh-xyz',
-          access_token: 'acc-xyz',
-          expires_in: 3600,
-          scope: 'https://www.googleapis.com/auth/contacts',
-          token_type: 'Bearer',
-        }),
+        json: () =>
+          Promise.resolve({
+            refresh_token: 'refresh-xyz',
+            access_token: 'acc-xyz',
+            expires_in: 3600,
+            scope: 'https://www.googleapis.com/auth/contacts',
+            token_type: 'Bearer',
+          }),
       });
 
       const res = await exchangeGoogleAuthorizationCode({
         code: 'code-123',
         codeVerifier: 'verifier-456',
         redirectUri: 'https://studio.example.com/callback',
-        fetchFn: mockFetch as unknown as typeof fetch,
+        fetchFn: mockFetch,
       });
 
       expect(res.refresh_token).toBe('refresh-xyz');
@@ -226,16 +227,17 @@ describe('Google Integration Service Branch Coverage (service.ts)', () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({
-          refresh_token: 'refresh-default-scope',
-        }),
+        json: () =>
+          Promise.resolve({
+            refresh_token: 'refresh-default-scope',
+          }),
       });
 
       const res = await exchangeGoogleAuthorizationCode({
         code: 'code-123',
         codeVerifier: 'verifier-456',
         redirectUri: 'https://studio.example.com/callback',
-        fetchFn: mockFetch as unknown as typeof fetch,
+        fetchFn: mockFetch,
       });
 
       expect(res.refresh_token).toBe('refresh-default-scope');
@@ -248,21 +250,21 @@ describe('Google Integration Service Branch Coverage (service.ts)', () => {
     it('returns true when revocation request succeeds with 200 OK', async () => {
       const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
 
-      const result = await revokeGoogleToken('test-token', mockFetch as unknown as typeof fetch);
+      const result = await revokeGoogleToken('test-token', mockFetch);
       expect(result).toBe(true);
     });
 
     it('returns true when revocation returns non-200 status', async () => {
       const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 400 });
 
-      const result = await revokeGoogleToken('test-token', mockFetch as unknown as typeof fetch);
+      const result = await revokeGoogleToken('test-token', mockFetch);
       expect(result).toBe(true);
     });
 
     it('returns true and catches error when revocation encounters network failure', async () => {
       const mockFetch = vi.fn().mockRejectedValue(new Error('Network offline'));
 
-      const result = await revokeGoogleToken('test-token', mockFetch as unknown as typeof fetch);
+      const result = await revokeGoogleToken('test-token', mockFetch);
       expect(result).toBe(true);
     });
   });

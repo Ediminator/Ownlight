@@ -605,6 +605,7 @@ describe('TASK-0021: Google Outbox and PeopleClient Branch Coverage', () => {
 
       // Mock dbClient.update to throw a non-Error string during markOutboxItemProcessing
       vi.spyOn(dbClient, 'update').mockImplementationOnce(() => {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error -- test non-Error string exception branch in worker catch block
         throw 'raw-string-exception';
       });
 
@@ -655,7 +656,7 @@ describe('TASK-0021: Google Outbox and PeopleClient Branch Coverage', () => {
             from: () => ({
               innerJoin: () => ({
                 where: () => ({
-                  limit: async () => [],
+                  limit: () => Promise.resolve([]),
                 }),
               }),
             }),

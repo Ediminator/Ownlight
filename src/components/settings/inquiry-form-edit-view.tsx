@@ -41,6 +41,21 @@ import type {
   InquiryFormEventType,
 } from '@/server/db/schema/inquiry-forms';
 
+export function swapArrayItems<T>(items: readonly T[], fromIndex: number, toIndex: number): T[] {
+  if (fromIndex < 0 || toIndex < 0 || fromIndex >= items.length || toIndex >= items.length) {
+    return [...items];
+  }
+  const fromItem = items.at(fromIndex);
+  const toItem = items.at(toIndex);
+  if (!fromItem || !toItem) return [...items];
+
+  return items.map((item, idx) => {
+    if (idx === fromIndex) return toItem;
+    if (idx === toIndex) return fromItem;
+    return item;
+  });
+}
+
 interface InquiryFormEditViewProps {
   form: InquiryForm;
   noticeVersions: InquiryFormNoticeVersion[];
@@ -221,21 +236,6 @@ export function InquiryFormEditView({
     if (key === 'given_name' || key === 'email') return;
     setFields((prev) => prev.map((f) => (f.key === key ? { ...f, required } : f)));
   };
-
-  function swapArrayItems<T>(items: readonly T[], fromIndex: number, toIndex: number): T[] {
-    if (fromIndex < 0 || toIndex < 0 || fromIndex >= items.length || toIndex >= items.length) {
-      return [...items];
-    }
-    const fromItem = items[fromIndex];
-    const toItem = items[toIndex];
-    if (!fromItem || !toItem) return [...items];
-
-    return items.map((item, idx) => {
-      if (idx === fromIndex) return toItem;
-      if (idx === toIndex) return fromItem;
-      return item;
-    });
-  }
 
   const handleMoveField = (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
@@ -736,6 +736,7 @@ export function InquiryFormEditView({
         </div>
 
         <form
+          data-testid="general-form"
           onSubmit={(e) => {
             void handleSaveGeneral(e);
           }}
@@ -1339,6 +1340,7 @@ export function InquiryFormEditView({
 
         {/* Create New Version Form */}
         <form
+          data-testid="notice-version-form"
           onSubmit={(e) => {
             void handleSaveNoticeVersion(e);
           }}

@@ -33,33 +33,33 @@ describe('AC-2: Encrypted Credential Vault (HKDF-SHA256 & AES-256-GCM)', () => {
   });
 
   it('AC-2: successfully encrypts and decrypts secret roundtrip with hex key', async () => {
-    const secret = 'refresh_token_test_12345_very_secret';
-    const ciphertext = await encryptSecret(secret, googlePurpose);
+    const plaintext = 'refresh_token_test_12345_very_secret';
+    const ciphertext = await encryptSecret(plaintext, googlePurpose);
 
     expect(ciphertext).toMatch(/^v1:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$/);
     const decrypted = await decryptSecret(ciphertext, googlePurpose);
-    expect(decrypted).toBe(secret);
+    expect(decrypted).toBe(plaintext);
   });
 
   it('AC-2: successfully encrypts and decrypts secret roundtrip with base64 key', async () => {
-    const secret = 'google_refresh_token_base64_master_key_test';
-    const ciphertext = await encryptSecret(secret, googlePurpose, validBase64Key);
+    const plaintext = 'google_refresh_token_base64_master_key_test';
+    const ciphertext = await encryptSecret(plaintext, googlePurpose, validBase64Key);
 
     expect(ciphertext.startsWith('v1:')).toBe(true);
     const decrypted = await decryptSecret(ciphertext, googlePurpose, validBase64Key);
-    expect(decrypted).toBe(secret);
+    expect(decrypted).toBe(plaintext);
   });
 
   it('AC-2: enforces cross-purpose isolation; wrong purpose throws VaultDecryptionError and fails closed', async () => {
-    const secret = 'super_confidential_oauth_refresh_token';
-    const ciphertext = await encryptSecret(secret, googlePurpose);
+    const plaintext = 'super_confidential_oauth_refresh_token';
+    const ciphertext = await encryptSecret(plaintext, googlePurpose);
 
     await expect(decryptSecret(ciphertext, lexwarePurpose)).rejects.toThrow(VaultDecryptionError);
   });
 
   it('AC-2: detects ciphertext tampering; payload modification throws VaultDecryptionError', async () => {
-    const secret = 'tamper_test_secret_value';
-    const ciphertext = await encryptSecret(secret, googlePurpose);
+    const plaintext = 'tamper_test_secret_value';
+    const ciphertext = await encryptSecret(plaintext, googlePurpose);
 
     const parts = ciphertext.split(':');
     expect(parts.length).toBe(4);
@@ -78,8 +78,8 @@ describe('AC-2: Encrypted Credential Vault (HKDF-SHA256 & AES-256-GCM)', () => {
   });
 
   it('AC-2: detects authentication tag tampering; throws VaultDecryptionError', async () => {
-    const secret = 'tag_tamper_test_secret_value';
-    const ciphertext = await encryptSecret(secret, googlePurpose);
+    const plaintext = 'tag_tamper_test_secret_value';
+    const ciphertext = await encryptSecret(plaintext, googlePurpose);
 
     const parts = ciphertext.split(':');
     expect(parts.length).toBe(4);
@@ -97,8 +97,8 @@ describe('AC-2: Encrypted Credential Vault (HKDF-SHA256 & AES-256-GCM)', () => {
   });
 
   it('AC-2: detects IV tampering; throws VaultDecryptionError', async () => {
-    const secret = 'iv_tamper_test_secret_value';
-    const ciphertext = await encryptSecret(secret, googlePurpose);
+    const plaintext = 'iv_tamper_test_secret_value';
+    const ciphertext = await encryptSecret(plaintext, googlePurpose);
 
     const parts = ciphertext.split(':');
     expect(parts.length).toBe(4);

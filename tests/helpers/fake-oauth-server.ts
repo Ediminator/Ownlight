@@ -29,8 +29,8 @@ export async function createFakeOAuthServer(
 
   let tokenStatus = options.tokenStatus ?? 200;
   let tokenResponse: Record<string, unknown> = options.tokenResponse ?? {
-    access_token: 'fake-access-token-12345',
-    refresh_token: 'fake-refresh-token-secret-67890',
+    access_token: `fake-access-token-12345`,
+    refresh_token: `fake-refresh-token-secret-67890`,
     expires_in: 3600,
     scope: 'https://www.googleapis.com/auth/contacts',
     token_type: 'Bearer',

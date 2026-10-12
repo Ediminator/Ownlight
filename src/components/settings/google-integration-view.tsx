@@ -133,7 +133,10 @@ export function GoogleIntegrationView({
   }, [status.connectedAt]);
 
   return (
-    <div className="space-y-6 max-w-4xl" data-testid="google-integration-view">
+    <div
+      className="space-y-6 max-w-4xl w-full min-w-0 overflow-hidden"
+      data-testid="google-integration-view"
+    >
       {/* Back navigation */}
       <div>
         <Link
@@ -216,7 +219,7 @@ export function GoogleIntegrationView({
       {status.status === 'unconfigured' && (
         <div
           data-testid="unconfigured-card"
-          className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-6"
+          className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-6 min-w-0 max-w-full overflow-hidden"
         >
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
@@ -228,7 +231,7 @@ export function GoogleIntegrationView({
             </div>
           </div>
 
-          <div className="rounded-md bg-muted/60 p-4 space-y-4 text-sm">
+          <div className="rounded-md bg-muted/60 p-4 space-y-4 text-sm min-w-0 max-w-full overflow-hidden">
             <div className="space-y-1">
               <h3 className="font-medium text-foreground">{t('step1Title')}</h3>
               <p className="text-muted-foreground">{t('step1Description')}</p>
@@ -236,11 +239,13 @@ export function GoogleIntegrationView({
 
             <div className="space-y-1">
               <h3 className="font-medium text-foreground">{t('step2Title')}</h3>
-              <p className="text-muted-foreground">{t('step2Description', { redirectUri })}</p>
+              <p className="text-muted-foreground break-all">
+                {t('step2Description', { redirectUri })}
+              </p>
               <div className="mt-1">
                 <code
                   data-testid="redirect-uri-display"
-                  className="block rounded bg-background px-3 py-2 font-mono text-xs text-foreground border overflow-x-auto"
+                  className="block rounded bg-background px-3 py-2 font-mono text-xs text-foreground border overflow-x-auto break-all"
                 >
                   {redirectUri}
                 </code>
@@ -270,19 +275,19 @@ export function GoogleIntegrationView({
       {status.status === 'disconnected' && (
         <div
           data-testid="disconnected-card"
-          className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-6"
+          className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-6 min-w-0 max-w-full overflow-hidden"
         >
           <div className="space-y-2">
             <h2 className="text-lg font-semibold text-foreground">{t('title')}</h2>
             <p className="text-sm text-muted-foreground">{t('description')}</p>
           </div>
 
-          <div className="rounded-md border p-4 bg-muted/30 space-y-2 text-sm">
+          <div className="rounded-md border p-4 bg-muted/30 space-y-2 text-sm min-w-0 max-w-full overflow-hidden">
             <span className="font-medium text-foreground block">{t('grantedScopes')}:</span>
             <ul className="list-disc list-inside text-muted-foreground space-y-1">
               <li>
                 {t('contactsScopeLabel')} (
-                <code className="text-xs">https://www.googleapis.com/auth/contacts</code>)
+                <code className="text-xs break-all">https://www.googleapis.com/auth/contacts</code>)
               </li>
             </ul>
           </div>
@@ -316,7 +321,7 @@ export function GoogleIntegrationView({
       {status.status === 'connected' && (
         <div
           data-testid="connected-card"
-          className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-6"
+          className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-6 min-w-0 max-w-full overflow-hidden"
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-1">
@@ -343,12 +348,12 @@ export function GoogleIntegrationView({
             </div>
           </div>
 
-          <div className="rounded-md border p-4 bg-muted/30 space-y-2 text-sm">
+          <div className="rounded-md border p-4 bg-muted/30 space-y-2 text-sm min-w-0 max-w-full overflow-hidden">
             <span className="font-medium text-foreground block">{t('grantedScopes')}:</span>
             <ul className="list-disc list-inside text-muted-foreground space-y-1">
               <li>
                 {t('contactsScopeLabel')} (
-                <code className="text-xs">
+                <code className="text-xs break-all">
                   {status.scope ?? 'https://www.googleapis.com/auth/contacts'}
                 </code>
                 )

@@ -111,8 +111,9 @@ test.describe('TASK-0017: Google OAuth & Workspace Integration Settings E2E', ()
     await expect(viewContainer).toBeVisible();
 
     // Verify no horizontal overflow beyond viewport width
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-    expect(scrollWidth).toBeLessThanOrEqual(320);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
 
     // Run axe scan on mobile viewport
     const accessibilityScanResults = await new AxeBuilder({ page })

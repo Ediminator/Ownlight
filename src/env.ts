@@ -414,18 +414,20 @@ try {
  * Returns true only when ENCRYPTION_KEY, GOOGLE_OAUTH_CLIENT_ID, and GOOGLE_OAUTH_CLIENT_SECRET are all provided.
  */
 export function isGoogleOAuthConfigured(envSource?: Partial<ServerEnv>): boolean {
-  const encryptionKey =
-    envSource?.ENCRYPTION_KEY ??
-    process.env.ENCRYPTION_KEY ??
-    (process.env.NODE_ENV === 'test' ? undefined : env.ENCRYPTION_KEY);
-  const clientId =
-    envSource?.GOOGLE_OAUTH_CLIENT_ID ??
-    process.env.GOOGLE_OAUTH_CLIENT_ID ??
-    (process.env.NODE_ENV === 'test' ? undefined : env.GOOGLE_OAUTH_CLIENT_ID);
-  const clientSecret =
-    envSource?.GOOGLE_OAUTH_CLIENT_SECRET ??
-    process.env.GOOGLE_OAUTH_CLIENT_SECRET ??
-    (process.env.NODE_ENV === 'test' ? undefined : env.GOOGLE_OAUTH_CLIENT_SECRET);
+  let encryptionKey = envSource?.ENCRYPTION_KEY ?? process.env.ENCRYPTION_KEY;
+  let clientId = envSource?.GOOGLE_OAUTH_CLIENT_ID ?? process.env.GOOGLE_OAUTH_CLIENT_ID;
+  let clientSecret =
+    envSource?.GOOGLE_OAUTH_CLIENT_SECRET ?? process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+
+  if (!encryptionKey || !clientId || !clientSecret) {
+    try {
+      encryptionKey ??= env.ENCRYPTION_KEY;
+      clientId ??= env.GOOGLE_OAUTH_CLIENT_ID;
+      clientSecret ??= env.GOOGLE_OAUTH_CLIENT_SECRET;
+    } catch {
+      // If server environment validation fails, Google OAuth is unconfigured
+    }
+  }
 
   return Boolean(
     encryptionKey &&

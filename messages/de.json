@@ -672,5 +672,8 @@
         "other": "Sonstige rechtliche Gründe"
       }
     }
+  },
+  "inquiryForms": {
+    "defaultAcknowledgement": "Ich habe die Datenschutzerklärung zur Kenntnis genommen."
   }
 }

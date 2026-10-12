@@ -9,3 +9,4 @@ export * from './client-legal-holds';
 export * from './google-oauth-tokens';
 export * from './google-contacts-links';
 export * from './google-contacts-outbox';
+export * from './inquiry-forms';

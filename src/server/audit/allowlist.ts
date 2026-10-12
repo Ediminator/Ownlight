@@ -75,6 +75,12 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
     'integration.google.contacts_synced',
     ['batchSize', 'syncedCount', 'failedCount', 'batch_size', 'synced_count', 'failed_count'],
   ],
+  ['inquiry_form.created', ['form_id', 'changed_fields']],
+  ['inquiry_form.updated', ['form_id', 'changed_fields']],
+  ['inquiry_form.published', ['form_id', 'changed_fields']],
+  ['inquiry_form.unpublished', ['form_id', 'changed_fields']],
+  ['inquiry_form.archived', ['form_id', 'changed_fields']],
+  ['inquiry_form.notice_versioned', ['form_id', 'version']],
 ]);
 
 /**

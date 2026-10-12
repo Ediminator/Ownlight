@@ -23,7 +23,7 @@ export interface ErasureDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   triggerRef?: React.RefObject<HTMLElement | null>;
-  onSuccess?: (subjectKind: 'client' | 'contact') => void;
+  onSuccess?: (subjectKind: 'client' | 'contact' | 'lead') => void;
 }
 
 interface ErasureDialogContentProps {
@@ -32,7 +32,7 @@ interface ErasureDialogContentProps {
   contactName?: string;
   triggerRef?: React.RefObject<HTMLElement | null>;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: (subjectKind: 'client' | 'contact') => void;
+  onSuccess?: (subjectKind: 'client' | 'contact' | 'lead') => void;
 }
 
 export function ErasureDialogInner({

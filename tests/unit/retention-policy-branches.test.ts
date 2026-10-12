@@ -86,15 +86,24 @@ describe('Retention policy utility and definition branches', () => {
 
   it('createDefaultPolicies constructs policies that exercise getCandidates and deleteBatch branches', async () => {
     const policies = createDefaultPolicies();
-    expect(policies).toHaveLength(5);
+    expect(policies).toHaveLength(7);
 
-    const [auditPolicy, sessionPolicy, rateLimitPolicy, consentProofPolicy, inactiveClientsPolicy] =
-      policies;
+    const [
+      auditPolicy,
+      sessionPolicy,
+      rateLimitPolicy,
+      consentProofPolicy,
+      inactiveClientsPolicy,
+      unconvertedLeadsPolicy,
+      spamLeadsPolicy,
+    ] = policies;
     expect(auditPolicy).toBeDefined();
     expect(sessionPolicy).toBeDefined();
     expect(rateLimitPolicy).toBeDefined();
     expect(consentProofPolicy).toBeDefined();
     expect(inactiveClientsPolicy).toBeDefined();
+    expect(unconvertedLeadsPolicy).toBeDefined();
+    expect(spamLeadsPolicy).toBeDefined();
 
     // Mock DB client
     let deletedCount = 0;
@@ -319,5 +328,13 @@ describe('Retention policy utility and definition branches', () => {
     const months = getClientRetentionMonths();
     expect(typeof months).toBe('number');
     expect(months).toBeGreaterThan(0);
+  });
+
+  it('getLeadRetentionMonths returns positive integer (default 12 or env value)', async () => {
+    const { getLeadRetentionMonths } = await import('@/server/retention/policy');
+    const months = getLeadRetentionMonths();
+    expect(typeof months).toBe('number');
+    expect(months).toBeGreaterThanOrEqual(1);
+    expect(months).toBeLessThanOrEqual(36);
   });
 });

@@ -2,6 +2,7 @@ import 'server-only';
 import { eq, and, count } from 'drizzle-orm';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
 import { clients, clientContacts } from '@/server/db/schema/clients';
+import { leads } from '@/server/db/schema/leads';
 import { audit } from '@/server/audit/service';
 import { logger } from '@/server/log';
 import { getErasureProviders, getErasureHoldProviders } from './registry';
@@ -19,6 +20,7 @@ export interface ExtendedErasurePlan extends ErasurePlan {
 
 /**
  * Resolves the effective subject for erasure:
+ * - If lead subject: verifies lead existence.
  * - If client subject: verifies client existence.
  * - If contact subject: verifies client and contact existence.
  * - Invariant (AC-1): If client has <= 1 contacts, erasing that contact is treated as erasing the client.
@@ -31,6 +33,32 @@ async function resolveSubject(
   clientDisplayName: string;
   isMultiContact: boolean;
 } | null> {
+  if (subject.kind === 'lead') {
+    const [leadRow] = await tx
+      .select({
+        id: leads.id,
+        givenName: leads.givenName,
+        familyName: leads.familyName,
+        email: leads.email,
+      })
+      .from(leads)
+      .where(eq(leads.id, subject.leadId))
+      .limit(1);
+
+    if (!leadRow) {
+      return null;
+    }
+
+    const nameParts = [leadRow.givenName, leadRow.familyName].filter(Boolean);
+    const displayName = nameParts.length > 0 ? nameParts.join(' ') : (leadRow.email ?? 'Lead');
+
+    return {
+      effectiveSubject: subject,
+      clientDisplayName: displayName,
+      isMultiContact: false,
+    };
+  }
+
   const [clientRow] = await tx
     .select({ id: clients.id, displayName: clients.displayName })
     .from(clients)
@@ -117,8 +145,14 @@ export async function planErasure(
   const categoryCounts: Record<string, number> = {};
 
   for (const provider of providers) {
+    if (provider.subjectKinds && !provider.subjectKinds.includes(effectiveSubject.kind)) {
+      continue;
+    }
     const count = await provider.plan(effectiveSubject, client);
-    if (count > 0 || provider.category !== 'legal_hold') {
+    if (
+      count > 0 ||
+      (provider.category !== 'legal_hold' && provider.category !== 'converted-leads')
+    ) {
       categoryCounts[provider.category] = (categoryCounts[provider.category] ?? 0) + count;
     }
   }
@@ -126,7 +160,8 @@ export async function planErasure(
   logger.info(
     {
       subjectKind: effectiveSubject.kind,
-      clientId: subject.clientId,
+      clientId: subject.kind !== 'lead' ? subject.clientId : undefined,
+      leadId: subject.kind === 'lead' ? subject.leadId : undefined,
       contactId: subject.kind === 'contact' ? subject.contactId : undefined,
       holdCount: holds.length,
       categoryCounts,
@@ -178,7 +213,11 @@ export async function eraseSubject(
     }
 
     const targetUuid =
-      effectiveSubject.kind === 'client' ? effectiveSubject.clientId : effectiveSubject.contactId;
+      effectiveSubject.kind === 'client'
+        ? effectiveSubject.clientId
+        : effectiveSubject.kind === 'lead'
+          ? effectiveSubject.leadId
+          : effectiveSubject.contactId;
 
     if (holds.length > 0) {
       // Record audit event for blocked erasure
@@ -219,8 +258,14 @@ export async function eraseSubject(
     const categoryCounts: Record<string, number> = {};
 
     for (const provider of providers) {
+      if (provider.subjectKinds && !provider.subjectKinds.includes(effectiveSubject.kind)) {
+        continue;
+      }
       const deletedCount = await provider.erase(effectiveSubject, tx);
-      if (deletedCount > 0 || provider.category !== 'legal_hold') {
+      if (
+        deletedCount > 0 ||
+        (provider.category !== 'legal_hold' && provider.category !== 'converted-leads')
+      ) {
         categoryCounts[provider.category] = (categoryCounts[provider.category] ?? 0) + deletedCount;
       }
     }

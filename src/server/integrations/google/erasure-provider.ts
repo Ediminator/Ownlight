@@ -30,8 +30,10 @@ export const googleContactsErasureProvider: ErasureProvider = {
   id: 'google_contacts',
   category: 'google_contacts',
   coveredTables: ['google_contacts_links', 'google_contacts_outbox'],
+  subjectKinds: ['client', 'contact'] as const,
 
   plan: async (subject: ErasureSubject, tx: DbClient): Promise<number> => {
+    if (subject.kind === 'lead') return 0;
     if (subject.kind === 'client') {
       const contactIds = await getClientContactIds(subject.clientId, tx);
       if (contactIds.length === 0) return 0;
@@ -50,6 +52,7 @@ export const googleContactsErasureProvider: ErasureProvider = {
   },
 
   erase: async (subject: ErasureSubject, tx: DbClient): Promise<number> => {
+    if (subject.kind === 'lead') return 0;
     const contactIds: string[] =
       subject.kind === 'client'
         ? await getClientContactIds(subject.clientId, tx)

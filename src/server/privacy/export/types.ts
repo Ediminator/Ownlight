@@ -1,17 +1,30 @@
 import type { DbClient } from '@/server/db/client';
 import type { Client, ClientContact } from '@/server/db/schema/clients';
+import type { Lead } from '@/server/db/schema/leads';
 
-export interface ExportSubject {
+export type ExportSubjectKind = 'client' | 'contact' | 'lead';
+
+export interface ContactExportSubject {
+  kind?: 'contact';
   contactId: string;
   clientId: string;
   contact: ClientContact;
   client: Client;
 }
 
+export interface LeadExportSubject {
+  kind: 'lead';
+  leadId: string;
+  lead: Lead;
+}
+
+export type ExportSubject = ContactExportSubject | LeadExportSubject;
+
 export interface ExportProvider {
   id: string;
   category: string;
   coveredTables: readonly string[];
+  subjectKinds?: readonly ExportSubjectKind[];
   collect: (subject: ExportSubject, tx: DbClient) => Promise<unknown[] | Record<string, unknown>>;
 }
 

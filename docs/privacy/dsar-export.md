@@ -6,7 +6,7 @@ Under the General Data Protection Regulation (GDPR / DSGVO Art. 15 _Right of acc
 
 In Ownlight, the photography studio operates as the independent **Data Controller** (GDPR Art. 4(7)). The software provides built-in mechanisms for the studio owner to generate per-person data exports on demand.
 
-The export focus is always an individual **contact** (a natural person). When a client entity has multiple contacts (e.g., both partners in a couple or commercial representatives), each contact's personal data is isolated to safeguard third-party rights.
+The export focus is an individual **contact** (a natural person client contact) or an individual **lead** (a natural person who submitted an unqualified inquiry, TASK-0026 / ADR-0015 §10). When a client entity has multiple contacts (e.g., both partners in a couple or commercial representatives), each contact's personal data is isolated to safeguard third-party rights. Inquirers who have not yet converted to clients may exercise access rights under their `lead` subject identity.
 
 ---
 
@@ -137,6 +137,20 @@ The HTML export is designed to be directly printed or saved as a PDF via the bro
   - Storage retention period (e.g. 24 months, statutory 10 years for invoices, or until withdrawal of consent).
 - **Subject Rights & Supervisory Authority:** Includes a dedicated section informing the data subject of their statutory rights under GDPR Art. 16–21 (rectification, erasure, restriction, objection, portability) and their right to lodge a complaint with a supervisory authority under Art. 77.
 - **Accessibility:** Semantic HTML structure with header landmarks, descriptive tables with `<th scope="col">` headers, and WCAG 2.2 AA compliant contrast.
+
+### 3.3. Lead Subject Export & Art. 15 Disclosures (TASK-0026)
+
+When exporting an inquiry lead (`POST /api/privacy/exports` with `{ leadId, format, locale }`):
+
+- **Subject Identity:** `subject.role` is `'lead'`, identified by `leadId`.
+- **`leads` Category:** Contains the submitted inquiry fields (given name, family name, email, phone, message, event type, date, location), form name, exact notice version text and URL acknowledged, verification status, delivery mode, auto-reply status, and chronological audit actions targeting the lead.
+- **`converted_leads` Category:** Included in client/contact exports when the client originated from a converted inquiry, documenting received date, form name, event type label, date, and location.
+- **Statutory Art. 15 Disclosures for Leads:**
+  - **Purpose:** Answering the inquiry and pre-contractual communication.
+  - **Lawful Basis:** Art. 6(1)(b) GDPR (Pre-contractual measures upon request) / Art. 6(1)(f) for company contact persons.
+  - **Retention:** 12 months following last owner activity (configurable 1–36 months via `LEAD_RETENTION_MONTHS`); 30 days for spam inquiries.
+  - **Recipients:** The studio's email provider, for the confirmation email.
+  - **Source:** Inquiry form submitted by the data subject.
 
 ---
 

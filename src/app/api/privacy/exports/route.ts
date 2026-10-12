@@ -156,6 +156,7 @@ export async function POST(request: NextRequest, context?: ExportRouteContext): 
   // 6. Generate export
   const result = await generateExport({
     contactId: parsed.data.contactId,
+    leadId: parsed.data.leadId,
     format: parsed.data.format,
     locale: parsed.data.locale,
     actorId: authContext.user.id,
@@ -164,7 +165,11 @@ export async function POST(request: NextRequest, context?: ExportRouteContext): 
 
   if (!result) {
     return NextResponse.json(
-      { error: 'NOT_FOUND', code: 'NOT_FOUND', message: 'Contact not found' },
+      {
+        error: 'NOT_FOUND',
+        code: 'NOT_FOUND',
+        message: parsed.data.leadId ? 'Lead not found' : 'Contact not found',
+      },
       { status: 404 },
     );
   }

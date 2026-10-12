@@ -17,10 +17,11 @@ In Ownlight, the photography studio operates as the independent **Data Controlle
 
 ## 2. Operating Procedure: Studio Owner Erasure Workflow
 
-The studio owner can perform erasure at two scopes:
+The studio owner and system services can perform erasure at three scopes:
 
-1. **Client-Level Deletion:** Erases the entire client record and all associated contacts, addresses, tag assignments, notes, timeline events, and consent records.
+1. **Client-Level Deletion:** Erases the entire client record and all associated contacts, addresses, tag assignments, notes, timeline events, consent records, and converted leads (`converted-leads`).
 2. **Contact-Level Erasure:** Erases an individual person (contact), their consent records, and matching timeline events, leaving the client and any other contacts intact.
+3. **Lead-Level Erasure (TASK-0026):** Erases an individual unconverted inquiry lead (`eraseSubject({ kind: 'lead', leadId })` or `deleteLeads`), permanently removing the inquiry record and all personal details. Inquiries do not carry contractual legal holds. Converted leads cannot be deleted directly and must be erased through client-level deletion.
 
 ### Step 1: Open the Erasure Interface
 
@@ -83,6 +84,8 @@ Upon clicking the confirmation button:
 | **`client_notes` records**     | **Deleted (all)** | Kept                  | Client notes remain for multi-contact clients; owner is warned to review them manually.              |
 | **`client_timeline_events`**   | **Deleted (all)** | **Deleted (partial)** | In contact erasure, only timeline events targeting the contact or its consents are deleted.          |
 | **`consent_records`**          | **Deleted (all)** | **Deleted (target)**  | Consent records are deleted (ADR-0012 §4.1). No proof records kept under Art. 17(3)(e).              |
+| **`leads` (converted)**        | **Deleted (all)** | Kept                  | Converted leads linked to the client are deleted via the `converted-leads` erasure provider.         |
+| **`leads` (unconverted)**      | N/A               | N/A                   | Unconverted leads are deleted by Lead Erasure (`eraseSubject({ kind: 'lead' })` or `deleteLeads`).   |
 | **`audit_events`**             | **Kept**          | **Kept**              | Audit events (`consent.*`, `privacy.erasure.*`) retain pseudonymous UUIDs for 24 months without PII. |
 | **Database Backups**           | Rotated           | Rotated               | Erased data disappears naturally from rolling database backups as backup retention expires.          |
 

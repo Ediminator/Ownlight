@@ -203,6 +203,16 @@ export const serverSchema = z.object({
       .int({ message: 'CLIENT_RETENTION_MONTHS must be an integer >= 1' })
       .min(1, { message: 'CLIENT_RETENTION_MONTHS must be an integer >= 1' }),
   ),
+  LEAD_RETENTION_MONTHS: z.preprocess(
+    (val) => (val === undefined || val === '' ? 12 : val),
+    z.coerce
+      .number({
+        invalid_type_error: 'LEAD_RETENTION_MONTHS must be an integer in the allowed range 1-36',
+      })
+      .int({ message: 'LEAD_RETENTION_MONTHS must be an integer in the allowed range 1-36' })
+      .min(1, { message: 'LEAD_RETENTION_MONTHS must be an integer in the allowed range 1-36' })
+      .max(36, { message: 'LEAD_RETENTION_MONTHS must be an integer in the allowed range 1-36' }),
+  ),
   DATABASE_RETENTION_URL: z
     .string()
     .regex(/^postgres(ql)?:\/\/.+/, {
@@ -377,6 +387,7 @@ const NUMERIC_ENV_DEFAULTS: Record<string, number> = {
   DB_MAX_CONNECTIONS: 10,
   DB_STATEMENT_TIMEOUT: 30,
   TRUSTED_PROXY_COUNT: 1,
+  LEAD_RETENTION_MONTHS: 12,
 };
 
 /**

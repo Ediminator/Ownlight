@@ -426,7 +426,7 @@ describe('TASK-0019: Inactive Client Retention Policy Integration (AC-8 to AC-13
       coveredTables: ['client_legal_holds'],
       plan: () => Promise.resolve(0),
       erase: (subject) => {
-        if (subject.clientId === client1Id) {
+        if ('clientId' in subject && subject.clientId === client1Id) {
           throw new Error('Simulated external failure for client 1');
         }
         return Promise.resolve(0);

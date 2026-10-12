@@ -25,13 +25,24 @@ export interface RetentionPolicyDef<T = any> {
 
 ### Registered Built-In Policies
 
-| Policy ID                 | Target Entity     | Rule / Cutoff                                                                                       | Action   | Default Retention                                      |
-| ------------------------- | ----------------- | --------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------ |
-| `audit-events-retention`  | `audit_events`    | `occurred_at < NOW() - RETENTION_PERIOD_MONTHS`                                                     | `delete` | 24 months (configurable)                               |
-| `expired-sessions`        | `session`         | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 30 days)                    |
-| `expired-rate-limits`     | `rate_limits`     | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 24 hours)                   |
-| `withdrawn-consent-proof` | `consent_records` | `latest status = 'withdrawn' AND effective_on < NOW() - CONSENT_PROOF_RETENTION_MONTHS`             | `delete` | 36 months (configurable)                               |
-| `inactive-clients`        | `clients`         | `last_activity_at < NOW() - CLIENT_RETENTION_MONTHS` AND no activity reported by activity providers | `delete` | 36 months (configurable via `CLIENT_RETENTION_MONTHS`) |
+| Policy ID                 | Target Entity     | Rule / Cutoff                                                                                       | Action   | Default Retention                                         |
+| ------------------------- | ----------------- | --------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------- |
+| `audit-events-retention`  | `audit_events`    | `occurred_at < NOW() - RETENTION_PERIOD_MONTHS`                                                     | `delete` | 24 months (configurable)                                  |
+| `expired-sessions`        | `session`         | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 30 days)                       |
+| `expired-rate-limits`     | `rate_limits`     | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 24 hours)                      |
+| `withdrawn-consent-proof` | `consent_records` | `latest status = 'withdrawn' AND effective_on < NOW() - CONSENT_PROOF_RETENTION_MONTHS`             | `delete` | 36 months (configurable)                                  |
+| `inactive-clients`        | `clients`         | `last_activity_at < NOW() - CLIENT_RETENTION_MONTHS` AND no activity reported by activity providers | `delete` | 36 months (configurable via `CLIENT_RETENTION_MONTHS`)    |
+| `unconverted-leads`       | `leads`           | `status IN ('new', 'contacted', 'archived') AND last_activity_at < NOW() - LEAD_RETENTION_MONTHS`   | `delete` | 12 months (configurable 1–36 via `LEAD_RETENTION_MONTHS`) |
+| `spam-leads`              | `leads`           | `status = 'spam' AND last_activity_at < NOW() - 30 days`                                            | `delete` | 30 days                                                   |
+
+### Lead Retention Lifecycle (`unconverted-leads` & `spam-leads`)
+
+Under ADR-0015 §9 (TASK-0026), leads follow explicit storage limitation rules based on their operational status:
+
+1. **Unconverted Leads (`unconverted-leads`):** Leads with status `new`, `contacted`, or `archived` are hard-deleted when `last_activity_at` is older than the configured `LEAD_RETENTION_MONTHS` (default 12 months, valid range 1–36 months). Deletion is executed via `eraseSubject({ kind: 'lead', leadId })`.
+2. **Spam Leads (`spam-leads`):** Inquiries marked with status `spam` are hard-deleted 30 days after `last_activity_at`, also delegating to `eraseSubject({ kind: 'lead', leadId })`.
+3. **Converted Leads:** Leads converted into a client profile (`status = 'converted'`, linked to `client_id`) are exempt from lead retention sweeps and instead follow the client lifecycle. When the client is erased (via `inactive-clients` or manual erasure), the converted lead rows are deleted via the `converted-leads` erasure provider.
+4. **No Legal Holds:** Inquiries do not carry contractual or statutory tax retention obligations; no legal holds apply to unconverted leads.
 
 ### Client Activity Definition (`inactive-clients`)
 

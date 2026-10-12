@@ -1,7 +1,9 @@
 import type { DbClient } from '@/server/db/client';
 
 export type ErasureSubject =
-  { kind: 'client'; clientId: string } | { kind: 'contact'; clientId: string; contactId: string };
+  | { kind: 'client'; clientId: string }
+  | { kind: 'contact'; clientId: string; contactId: string }
+  | { kind: 'lead'; leadId: string };
 
 export interface ErasureHold {
   reason: string;
@@ -17,12 +19,13 @@ export interface ErasureProvider {
   id: string;
   category: string;
   coveredTables: readonly string[];
+  subjectKinds?: readonly ('client' | 'contact' | 'lead')[];
   plan: (subject: ErasureSubject, tx: DbClient) => Promise<number>;
   erase: (subject: ErasureSubject, tx: DbClient) => Promise<number>;
 }
 
 export interface ErasurePlan {
-  subjectKind: 'client' | 'contact';
+  subjectKind: 'client' | 'contact' | 'lead';
   categoryCounts: Record<string, number>;
   holds: ErasureHold[];
   notesMayMentionPerson: boolean;
@@ -34,7 +37,7 @@ export type ErasureActor =
 export type ErasureResult =
   | {
       success: true;
-      subjectKind: 'client' | 'contact';
+      subjectKind: 'client' | 'contact' | 'lead';
       categoryCounts: Record<string, number>;
     }
   | {
@@ -51,6 +54,7 @@ export type ErasureResult =
         | 'REAUTH_REQUIRED'
         | 'CONFIRMATION_MISMATCH'
         | 'VALIDATION_FAILED'
+        | 'CONVERTED_LEAD'
         | 'INTERNAL_ERROR';
       error: string;
     };

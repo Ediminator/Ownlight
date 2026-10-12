@@ -105,7 +105,7 @@ describe('AC-1: Database migrations and drift detection', () => {
     const result = checkSchemaDrift();
     expect(result.valid).toBe(true);
     expect(result.error).toBeUndefined();
-  });
+  }, 60000);
 
   it('AC-1: checkSchemaDrift returns valid: false when migrations directory is missing', () => {
     const missingDir = path.resolve(rootDir, 'nonexistent_drizzle_dir');

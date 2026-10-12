@@ -49,7 +49,7 @@ export const listLeadsQuerySchema = z.object({
   emailQuery: z.string().trim().max(255).optional(),
   cursor: z
     .object({
-      receivedAt: z.coerce.date(),
+      receivedAt: z.union([z.string(), z.date()]),
       id: z.string().uuid(),
     })
     .optional(),

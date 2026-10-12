@@ -145,7 +145,7 @@ describe('TASK-0026: Branch coverage boost for Leads Domain, Retention, and Priv
           {
             limit: 1,
             cursor: {
-              receivedAt: new Date(page1.nextCursor.receivedAt) as unknown as string,
+              receivedAt: new Date(page1.nextCursor.receivedAt),
               id: page1.nextCursor.id,
             },
           },
@@ -211,6 +211,7 @@ describe('TASK-0026: Branch coverage boost for Leads Domain, Retention, and Priv
     it('covers deleteLeads with empty array', async () => {
       const emptyRes = await deleteLeads([], undefined, dbClient);
       expect(emptyRes.success).toBe(true);
+      if (!emptyRes.success) throw new Error('Expected emptyRes to succeed');
       expect(emptyRes.count).toBe(0);
     });
 
@@ -305,12 +306,12 @@ describe('TASK-0026: Branch coverage boost for Leads Domain, Retention, and Priv
 
       // converted-leads plan and erase for contact kind -> returns 0
       const planContact = await convertedProvider?.plan(
-        { kind: 'contact', contactId: generateUuidV7() },
+        { kind: 'contact', clientId: generateUuidV7(), contactId: generateUuidV7() },
         dbClient,
       );
       expect(planContact).toBe(0);
       const eraseContact = await convertedProvider?.erase(
-        { kind: 'contact', contactId: generateUuidV7() },
+        { kind: 'contact', clientId: generateUuidV7(), contactId: generateUuidV7() },
         dbClient,
       );
       expect(eraseContact).toBe(0);

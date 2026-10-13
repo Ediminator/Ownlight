@@ -6,6 +6,7 @@ import { consentRecords, type ConsentRecord } from '@/server/db/schema/consents'
 import { clientTimelineEvents } from '@/server/db/schema/timeline';
 import { clients } from '@/server/db/schema/clients';
 import { leads } from '@/server/db/schema/leads';
+import { inquiryPowReplays } from '@/server/db/schema/inquiry-forms';
 import { findActiveClientIds } from '@/server/clients/activity';
 import { env } from '@/env';
 
@@ -510,6 +511,38 @@ export function createDefaultPolicies(): RetentionPolicy[] {
     },
   });
 
+  // 8. Expired PoW replays (expires_at < now) (ADR-0015 §9, TASK-0029 AC-11)
+  const expiredPowReplaysPolicy = defineRetentionPolicy<{ id: string }>({
+    id: 'expired-pow-replays',
+    entity: 'inquiry_pow_replays',
+    description: 'Purges expired proof-of-work challenge signatures',
+    action: 'delete',
+    batchSize: 500,
+    getCandidates: async (client, now, limit, excludedIds) => {
+      const basePredicate =
+        excludedIds.length > 0
+          ? and(
+              lt(inquiryPowReplays.expiresAt, now),
+              notInArray(inquiryPowReplays.signatureHash, excludedIds),
+            )
+          : lt(inquiryPowReplays.expiresAt, now);
+
+      const rows = await client
+        .select({
+          id: inquiryPowReplays.signatureHash,
+        })
+        .from(inquiryPowReplays)
+        .where(basePredicate)
+        .limit(limit);
+
+      return rows;
+    },
+    deleteBatch: async (client, ids) => {
+      if (ids.length === 0) return;
+      await client.delete(inquiryPowReplays).where(inArray(inquiryPowReplays.signatureHash, ids));
+    },
+  });
+
   return [
     auditEventsPolicy as unknown as RetentionPolicy,
     expiredSessionsPolicy as unknown as RetentionPolicy,
@@ -518,6 +551,7 @@ export function createDefaultPolicies(): RetentionPolicy[] {
     inactiveClientsPolicy as unknown as RetentionPolicy,
     unconvertedLeadsPolicy,
     spamLeadsPolicy,
+    expiredPowReplaysPolicy,
   ];
 }
 

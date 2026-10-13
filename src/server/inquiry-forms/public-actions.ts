@@ -71,6 +71,7 @@ export async function submitInquiryAction(
   delete rawInput.locale;
   delete rawInput.delivery_mode;
   delete rawInput.deliveryMode;
+  delete values.altcha_payload;
 
   const result = await submitInquiry(
     rawInput,

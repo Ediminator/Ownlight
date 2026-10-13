@@ -92,7 +92,18 @@ The public inquiry endpoint (`/{locale}/f/{slug}` and `submitInquiryAction`) rep
 ### Spoofing & Automated Spam
 
 - **Threat:** Automated bots submit mass spam, scrape photographer details, or attempt email header injection.
-- **Mitigation:** Honeypot field (`name="website"`, visually hidden, `tabindex="-1"`, `aria-hidden="true"`) returning silent success without creating leads or audit entries; atomic fail-closed rate limits per anonymized IP bucket (5 per 10 min) and per-form circuit breaker (100 per 1 hour); proof-of-work challenge support (TASK-0029); unverified submissions rejected by default on strict forms (`accept_unverified = false`).
+- **Mitigation:**
+  - Honeypot field (`name="website"`, visually hidden, `tabindex="-1"`, `aria-hidden="true"`) returning silent success without creating leads or audit entries.
+  - Two-tier atomic fail-closed rate limits per anonymized IP bucket (5 per 10 min) and per-form circuit breaker (100 per 1 hour).
+  - **First-party Proof-of-Work (ALTCHA protocol, TASK-0029):**
+    - Stateless SHA-256 challenges signed with a 32-byte cryptographically secure HMAC secret stored in `studio_settings.forms_pow_hmac_key`.
+    - Tuned difficulty (`maxnumber = 50,000`) ensuring median solve time ≤ 1.5 s on mobile CPU while imposing non-trivial computation costs on automated abuse.
+    - Native browser WebCrypto solver (`crypto.subtle.digest('SHA-256')`) yielding every 1,000 iterations to the event loop. Zero WebAssembly, zero `eval()`, preserving strict CSP without `'wasm-unsafe-eval'`.
+    - Challenge endpoint (`GET /api/public/forms/[slug]/challenge`) rate-limited to 30 requests per 10 minutes per IP bucket (`challenge_ip:{ipBucket}`).
+    - Minimum solve duration threshold: rejects submissions where challenge issue timestamp is less than 3 seconds before submission (`now - issued < 3000`).
+    - Expiration check: challenges expire after 10 minutes.
+    - Replay guard: SHA-256 hash of challenge signature atomically inserted into `inquiry_pow_replays` (`ON CONFLICT DO NOTHING`). Replays mark submission `unverified` and log structured `pow_replay`.
+    - Unverified submissions rejected by default on strict forms (`accept_unverified = false`) with `UNVERIFIED_REJECTED`. Forms with `accept_unverified = true` mark lead `unverified` and suppress auto-replies.
 
 ### Tampering & Parameter Injection
 

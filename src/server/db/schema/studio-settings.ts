@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, boolean, text } from 'drizzle-orm/pg-core';
 import { generateUuidV7 } from '@/lib/id';
 
 /**
@@ -17,6 +17,7 @@ export const studioSettings = pgTable('studio_settings', {
   currency: varchar('currency', { length: 3 }).notNull().default('EUR'),
   mfa_required: boolean('mfa_required').notNull().default(false),
   mfa_postponed_until: timestamp('mfa_postponed_until', { withTimezone: true, mode: 'date' }),
+  forms_pow_hmac_key: text('forms_pow_hmac_key'),
   created_at: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 });

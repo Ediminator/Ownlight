@@ -486,6 +486,7 @@ describe('Clients Domain & Actions Branch Coverage (Unit)', () => {
         updated_at: new Date(),
         mfa_required: false,
         mfa_postponed_until: null,
+        forms_pow_hmac_key: null,
       });
       vi.spyOn(clientRepo, 'findDuplicateEmails').mockResolvedValueOnce([]);
       vi.spyOn(clientRepo, 'insertClientWithPrimaryContact').mockResolvedValueOnce({

@@ -382,4 +382,23 @@ test.describe('TASK-0027: Public Hosted Inquiry Form E2E Tests', () => {
     });
     expect(wasmTriggered).toBe(false);
   });
+
+  test('I1-U01: early submission within 500ms intercepts, awaits minimum issuance duration, and redirects without unverified error', async ({
+    page,
+  }) => {
+    await page.goto(`/en/f/${powSlug}`);
+
+    // Fast entry (simulating browser autofill)
+    await page.fill('#field-given_name', 'Ada');
+    await page.fill('#field-family_name', 'Lovelace');
+    await page.fill('#field-email', 'ada.lovelace@example.com');
+    await page.check('#field-notice_acknowledged');
+
+    // Click submit immediately (before 3,000ms duration has elapsed)
+    await page.click('button[type="submit"]');
+
+    // Verify it awaits issuance duration and redirects to thanks page without unverified error
+    await expect(page).toHaveURL(`/en/f/${powSlug}/thanks`, { timeout: 10000 });
+    await expect(page.locator('h1')).toContainText('Thank you for your inquiry');
+  });
 });

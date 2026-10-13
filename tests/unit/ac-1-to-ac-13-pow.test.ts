@@ -10,7 +10,11 @@ import {
   getOrCreatePowSecret,
   POW_EXPIRY_MS,
 } from '@/server/inquiry-forms/pow';
-import { solveAltchaWebCrypto, fetchFormChallenge } from '@/app/[locale]/f/_components/pow-solver';
+import {
+  solveAltchaWebCrypto,
+  fetchFormChallenge,
+  createAltchaSolverController,
+} from '@/app/[locale]/f/_components/pow-solver';
 import type { DbClient } from '@/server/db/client';
 import type { StudioSettings } from '@/server/db/schema';
 
@@ -324,5 +328,114 @@ describe('TASK-0029: Proof-of-Work (ALTCHA) Unit Tests', () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
     const networkErr = await fetchFormChallenge('test-slug');
     expect(networkErr).toBeNull();
+  });
+
+  it('I1-U01: createAltchaSolverController.ensureVerifiedPayload awaits pipeline when called while fetching', async () => {
+    const challenge = await createFormChallenge(mockSecret, { maxnumber: 100 });
+    let fetchResolve: ((c: typeof challenge) => void) | undefined;
+    const slowFetch = new Promise<typeof challenge>((resolve) => {
+      fetchResolve = resolve;
+    });
+
+    const sleepCalls: number[] = [];
+    const controller = createAltchaSolverController('test-slug', {
+      fetchChallenge: () => slowFetch,
+      sleep: (ms) => {
+        sleepCalls.push(ms);
+        return Promise.resolve();
+      },
+    });
+
+    // Start background fetch pipeline
+    void controller.start();
+    expect(controller.getStatus()).toBe('fetching');
+
+    // Call ensureVerifiedPayload() while STILL FETCHING (I1-U01)
+    const payloadPromise = controller.ensureVerifiedPayload();
+    expect(controller.isWaitingForSubmit()).toBe(true);
+
+    // Resolve fetch
+    if (fetchResolve) {
+      fetchResolve(challenge);
+    }
+
+    // Should resolve with solved payload, NOT null!
+    const payload = await payloadPromise;
+    expect(payload).not.toBeNull();
+    expect(typeof payload).toBe('string');
+    expect(controller.getStatus()).toBe('verified');
+    expect(controller.isWaitingForSubmit()).toBe(false);
+  });
+
+  it('I1-U01: createAltchaSolverController.ensureVerifiedPayload awaits remaining duration if submitted under 3,000ms', async () => {
+    const fixedNow = 1700000000000;
+    let currentTime = fixedNow;
+    const challenge = await createFormChallenge(mockSecret, {
+      maxnumber: 100,
+      params: { issued: String(fixedNow) },
+    });
+
+    const sleepCalls: number[] = [];
+    const controller = createAltchaSolverController('test-slug', {
+      fetchChallenge: () => Promise.resolve(challenge),
+      now: () => currentTime,
+      sleep: (ms) => {
+        sleepCalls.push(ms);
+        currentTime += ms;
+        return Promise.resolve();
+      },
+    });
+
+    // Start and wait for solve to finish (simulating instant 100ms solve)
+    await controller.start();
+    expect(controller.getStatus()).toBe('verified');
+
+    // Submit at fixedNow + 500ms (< 3,000ms elapsed)
+    currentTime = fixedNow + 500;
+    const remainingBefore = controller.getRemainingDurationMs();
+    expect(remainingBefore).toBe(2550); // 3050 - 500
+
+    const payload = await controller.ensureVerifiedPayload();
+    expect(payload).not.toBeNull();
+    // Verify sleep was called to wait for the remaining 2,550ms
+    expect(sleepCalls).toEqual([2550]);
+  });
+
+  it('I1-U01: createAltchaSolverController.ensureVerifiedPayload does not sleep if more than 3,050ms have elapsed', async () => {
+    const fixedNow = 1700000000000;
+    const challenge = await createFormChallenge(mockSecret, {
+      maxnumber: 100,
+      params: { issued: String(fixedNow - 5000) }, // Issued 5 seconds ago
+    });
+
+    const sleepCalls: number[] = [];
+    const controller = createAltchaSolverController('test-slug', {
+      fetchChallenge: () => Promise.resolve(challenge),
+      now: () => fixedNow,
+      sleep: (ms) => {
+        sleepCalls.push(ms);
+        return Promise.resolve();
+      },
+    });
+
+    await controller.start();
+    expect(controller.getStatus()).toBe('verified');
+    expect(controller.getRemainingDurationMs()).toBe(0);
+
+    const payload = await controller.ensureVerifiedPayload();
+    expect(payload).not.toBeNull();
+    expect(sleepCalls).toHaveLength(0);
+  });
+
+  it('I1-U01: createAltchaSolverController returns null on fetch failure or aborted signal', async () => {
+    const controller = createAltchaSolverController('test-slug', {
+      fetchChallenge: () => Promise.resolve(null),
+    });
+
+    void controller.start();
+    const payload = await controller.ensureVerifiedPayload();
+    expect(payload).toBeNull();
+    expect(controller.getStatus()).toBe('error');
+    expect(controller.isWaitingForSubmit()).toBe(false);
   });
 });

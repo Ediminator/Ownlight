@@ -156,6 +156,7 @@ export function HostedInquiryForm({
     status: powStatus,
     payloadBase64,
     waitingForSubmit,
+    getRemainingDurationMs,
     ensureVerifiedPayload,
   } = useAltchaSolver(form.slug);
 
@@ -164,7 +165,13 @@ export function HostedInquiryForm({
       return;
     }
 
-    if (powStatus === 'solving' || powStatus === 'fetching') {
+    // Intercept if challenge is still fetching/solving OR if 3,000ms minimum issuance duration has not elapsed (I1-U01)
+    const isPendingSolve =
+      powStatus === 'fetching' || powStatus === 'solving' || powStatus === 'idle';
+    const isUnderDuration = getRemainingDurationMs() > 0;
+    const needsWait = isPendingSolve || (powStatus === 'verified' && isUnderDuration);
+
+    if (needsWait) {
       e.preventDefault();
       void (async () => {
         const verifiedPayload = await ensureVerifiedPayload();
@@ -185,6 +192,11 @@ export function HostedInquiryForm({
       })();
     }
   };
+
+  // Reset submission flag whenever server action state updates (e.g. on validation failure)
+  useEffect(() => {
+    isSubmittingRef.current = false;
+  }, [state]);
 
   const values = state?.values ?? {};
   const rawFieldErrors = state?.fieldErrors ?? {};

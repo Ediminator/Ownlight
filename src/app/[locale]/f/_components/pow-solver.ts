@@ -112,99 +112,180 @@ export async function fetchFormChallenge(
   }
 }
 
+export interface AltchaSolverControllerOptions {
+  fetchChallenge?: (slug: string, signal?: AbortSignal) => Promise<AltchaChallenge | null>;
+  solveChallenge?: (
+    challenge: AltchaChallenge,
+    signal?: AbortSignal,
+  ) => Promise<{ payload: AltchaPayload; base64: string } | null>;
+  sleep?: (ms: number) => Promise<void>;
+  now?: () => number;
+  onStatusChange?: (status: PowSolverStatus) => void;
+  onPayloadChange?: (base64: string) => void;
+}
+
 /**
- * React hook to run the ALTCHA WebCrypto solver in the background on form mount (AC-2, AC-3, AC-12).
+ * Headless controller for the ALTCHA challenge fetch and WebCrypto solver pipeline (AC-2, AC-3, AC-12, I1-U01).
+ * Completely decoupled from React lifecycle to enable robust unit testing and verification.
+ */
+export function createAltchaSolverController(
+  slug: string,
+  options: AltchaSolverControllerOptions = {},
+) {
+  const fetchFn = options.fetchChallenge ?? fetchFormChallenge;
+  const solveFn = options.solveChallenge ?? solveAltchaWebCrypto;
+  const sleepFn = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const nowFn = options.now ?? (() => Date.now());
+
+  let status: PowSolverStatus = 'idle';
+  let payloadBase64 = '';
+  let waitingForSubmit = false;
+  let issueTime = 0;
+  let pipelinePromise: Promise<string | null> | null = null;
+  const abortController = new AbortController();
+
+  function updateStatus(newStatus: PowSolverStatus) {
+    status = newStatus;
+    options.onStatusChange?.(newStatus);
+  }
+
+  function runPipeline(): Promise<string | null> {
+    updateStatus('fetching');
+    const promise = (async () => {
+      try {
+        const challenge = await fetchFn(slug, abortController.signal);
+        if (abortController.signal.aborted || !challenge) {
+          if (!abortController.signal.aborted) updateStatus('error');
+          return null;
+        }
+
+        let issuedAt = nowFn();
+        const saltParamMatch = /[?&]issued=(\d+)/.exec(challenge.salt);
+        const issuedStr = saltParamMatch?.[1];
+        if (issuedStr) {
+          const parsed = Number.parseInt(issuedStr, 10);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            issuedAt = parsed;
+          }
+        }
+        issueTime = issuedAt;
+        updateStatus('solving');
+
+        const solution = await solveFn(challenge, abortController.signal);
+        if (!solution) {
+          updateStatus('error');
+          return null;
+        }
+
+        payloadBase64 = solution.base64;
+        options.onPayloadChange?.(solution.base64);
+        updateStatus('verified');
+        return solution.base64;
+      } catch {
+        updateStatus('error');
+        return null;
+      }
+    })();
+
+    // solvePromiseRef/pipelinePromise encompasses BOTH challenge fetch AND solve (I1-U01)
+    pipelinePromise = promise;
+    return promise;
+  }
+
+  function getRemainingDurationMs(): number {
+    if (!issueTime) return 3050;
+    return Math.max(0, 3050 - (nowFn() - issueTime));
+  }
+
+  /**
+   * Called when the user submits the form.
+   * If the challenge is still fetching or solving, awaits completion before returning (I1-U01).
+   * Enforces the minimum 3-second elapsed time threshold (AC-6, I1-U01) before resolving.
+   */
+  async function ensureVerifiedPayload(): Promise<string | null> {
+    waitingForSubmit = true;
+    try {
+      let payload = payloadBase64;
+      if (!payload) {
+        if (status === 'error' || !pipelinePromise) {
+          return null;
+        }
+        payload = (await pipelinePromise) ?? '';
+      }
+
+      if (!payload) {
+        return null;
+      }
+
+      const remaining = getRemainingDurationMs();
+      if (remaining > 0) {
+        await sleepFn(remaining);
+      }
+
+      return payload;
+    } finally {
+      waitingForSubmit = false;
+    }
+  }
+
+  function abort() {
+    abortController.abort();
+  }
+
+  return {
+    getStatus: () => status,
+    getPayloadBase64: () => payloadBase64,
+    isWaitingForSubmit: () => waitingForSubmit,
+    getIssueTime: () => issueTime,
+    getRemainingDurationMs,
+    ensureVerifiedPayload,
+    start: runPipeline,
+    abort,
+  };
+}
+
+/**
+ * React hook to run the ALTCHA WebCrypto solver in the background on form mount (AC-2, AC-3, AC-12, I1-U01).
  * Handles fetching, background solving, yielding, and waiting for completion if submitted early.
  */
 export function useAltchaSolver(slug: string) {
   const [status, setStatus] = useState<PowSolverStatus>('idle');
   const [payloadBase64, setPayloadBase64] = useState<string>('');
   const [waitingForSubmit, setWaitingForSubmit] = useState<boolean>(false);
-
-  const challengeRef = useRef<AltchaChallenge | null>(null);
-  const payloadRef = useRef<string>('');
-  const issueTimeRef = useRef<number>(0);
-  const solvePromiseRef = useRef<Promise<string | null> | null>(null);
+  const controllerRef = useRef<ReturnType<typeof createAltchaSolverController> | null>(null);
 
   useEffect(() => {
-    let isCancelled = false;
-    const abortController = new AbortController();
-
-    async function runSolver() {
-      setStatus('fetching');
-      const challenge = await fetchFormChallenge(slug, abortController.signal);
-      if (isCancelled || !challenge) {
-        if (!isCancelled) setStatus('error');
-        return;
-      }
-
-      challengeRef.current = challenge;
-      issueTimeRef.current = Date.now();
-      setStatus('solving');
-
-      const solvePromise = solveAltchaWebCrypto(challenge, abortController.signal).then(
-        (solution) => {
-          if (isCancelled || !solution) {
-            if (!isCancelled) setStatus('error');
-            return null;
-          }
-
-          payloadRef.current = solution.base64;
-          setPayloadBase64(solution.base64);
-          setStatus('verified');
-          return solution.base64;
-        },
-      );
-
-      solvePromiseRef.current = solvePromise;
-    }
-
-    void runSolver();
+    const controller = createAltchaSolverController(slug, {
+      onStatusChange: setStatus,
+      onPayloadChange: setPayloadBase64,
+    });
+    controllerRef.current = controller;
+    void controller.start();
 
     return () => {
-      isCancelled = true;
-      abortController.abort();
+      controller.abort();
     };
   }, [slug]);
 
-  /**
-   * Called when the user clicks submit.
-   * If the solver is still solving, awaits completion before returning the payload (AC-12).
-   * Also ensures the minimum 3-second elapsed time threshold (AC-6) has passed before returning.
-   */
+  const getRemainingDurationMs = useCallback((): number => {
+    return controllerRef.current?.getRemainingDurationMs() ?? 3050;
+  }, []);
+
   const ensureVerifiedPayload = useCallback(async (): Promise<string | null> => {
-    if (payloadRef.current && status === 'verified') {
-      // Ensure at least 3 seconds have elapsed since challenge issuance (AC-6)
-      const elapsed = Date.now() - issueTimeRef.current;
-      if (elapsed < 3000) {
-        await new Promise((r) => setTimeout(r, 3000 - elapsed));
-      }
-      return payloadRef.current;
-    }
-
-    if (status === 'error' || !solvePromiseRef.current) {
-      return null;
-    }
-
+    if (!controllerRef.current) return null;
     setWaitingForSubmit(true);
-    const solved = await solvePromiseRef.current;
-    setWaitingForSubmit(false);
-
-    if (solved) {
-      const elapsed = Date.now() - issueTimeRef.current;
-      if (elapsed < 3000) {
-        await new Promise((r) => setTimeout(r, 3000 - elapsed));
-      }
-      return solved;
+    try {
+      return await controllerRef.current.ensureVerifiedPayload();
+    } finally {
+      setWaitingForSubmit(false);
     }
-
-    return null;
-  }, [status]);
+  }, []);
 
   return {
     status,
     payloadBase64,
     waitingForSubmit,
+    getRemainingDurationMs,
     ensureVerifiedPayload,
   };
 }

@@ -217,5 +217,39 @@ describe('src/server/clients/policy branch coverage', () => {
       expect(res).toBe(writeScopeContext);
       expect(mockAuditFn).not.toHaveBeenCalled();
     });
+
+    it('falls back to null actorId when apiKey has neither id nor prefix and targetId is undefined', async () => {
+      const apiKeyNoIdNoPrefix: AuthContext = {
+        user: createMockUser('owner'),
+        scopes: ['clients:read'],
+        authType: 'apiKey',
+        apiKey: {
+          id: undefined as unknown as string,
+          prefix: undefined as unknown as string,
+          tokenHash: 'mock-hash',
+          name: 'No Id Prefix Key',
+          scopes: ['clients:read'],
+          userId: 'u1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastUsedAt: null,
+          expiresAt: null,
+          revokedAt: null,
+        },
+      };
+
+      await expect(
+        authorizeClientWrite('client.delete', undefined, apiKeyNoIdNoPrefix, mockDbClient),
+      ).rejects.toThrow(ForbiddenError);
+
+      expect(mockAuditFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorType: 'token',
+          actorId: null,
+          targetId: null,
+        }),
+        mockDbClient,
+      );
+    });
   });
 });

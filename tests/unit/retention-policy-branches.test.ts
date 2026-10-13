@@ -113,9 +113,13 @@ describe('Retention policy utility and definition branches', () => {
         from: () => ({
           where: () => {
             const p = Promise.resolve([{ id: 'row-1' }]);
-            return Object.assign(p, {
+            const chain = {
               limit: (lim: number) => Promise.resolve([{ id: 'row-1' }].slice(0, lim)),
-            });
+              orderBy: () => ({
+                limit: (lim: number) => Promise.resolve([{ id: 'row-1' }].slice(0, lim)),
+              }),
+            };
+            return Object.assign(p, chain);
           },
         }),
       }),
@@ -141,6 +145,20 @@ describe('Retention policy utility and definition branches', () => {
       expect(deletedCount).toBe(0);
       await auditPolicy.deleteBatch(mockClient, ['row-1']);
       expect(deletedCount).toBe(1);
+
+      if (auditPolicy.legalHold) {
+        const asAudit = (row: { id: string; metadata?: Record<string, unknown> | null }) =>
+          row as unknown as Parameters<NonNullable<typeof auditPolicy.legalHold>>[0];
+        expect(auditPolicy.legalHold(asAudit({ id: 'a-1', metadata: { legal_hold: true } }))).toBe(
+          true,
+        );
+        expect(auditPolicy.legalHold(asAudit({ id: 'a-2', metadata: { legal_hold: false } }))).toBe(
+          false,
+        );
+        expect(auditPolicy.legalHold(asAudit({ id: 'a-3', metadata: { other: 123 } }))).toBe(false);
+        expect(auditPolicy.legalHold(asAudit({ id: 'a-4', metadata: null }))).toBe(false);
+        expect(auditPolicy.legalHold(asAudit({ id: 'a-5' }))).toBe(false);
+      }
     }
 
     if (sessionPolicy) {
@@ -291,6 +309,86 @@ describe('Retention policy utility and definition branches', () => {
 
       await inactiveClientsPolicy.deleteBatch(mockClient, []);
       await inactiveClientsPolicy.deleteBatch(mockClient, ['c-1', 'c-2']);
+    }
+
+    if (unconvertedLeadsPolicy) {
+      expect(unconvertedLeadsPolicy.after?.months).toBeGreaterThanOrEqual(1);
+
+      // getCandidates with excludedIds and without
+      const c1 = await unconvertedLeadsPolicy.getCandidates(mockClient, now, 10, ['ex-1']);
+      expect(c1).toHaveLength(1);
+      const c2 = await unconvertedLeadsPolicy.getCandidates(mockClient, now, 10, []);
+      expect(c2).toHaveLength(1);
+
+      if (unconvertedLeadsPolicy.eraseCandidate) {
+        const eraseModule = await import('@/server/privacy/erasure/service');
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: true,
+          subjectKind: 'lead',
+          categoryCounts: { lead: 1 },
+        });
+        const res1 = await unconvertedLeadsPolicy.eraseCandidate(mockClient, 'lead-1');
+        expect(res1.outcome).toBe('deleted');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'ERASURE_BLOCKED',
+          holds: [{ reason: 'legal_hold', retainUntil: null }],
+        });
+        const res2 = await unconvertedLeadsPolicy.eraseCandidate(mockClient, 'lead-1');
+        expect(res2.outcome).toBe('held');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'INTERNAL_ERROR',
+          error: 'Lead lock conflict',
+        });
+        const res3 = await unconvertedLeadsPolicy.eraseCandidate(mockClient, 'lead-1');
+        expect(res3.outcome).toBe('failed');
+        expect(res3.error).toBe('Lead lock conflict');
+      }
+
+      await unconvertedLeadsPolicy.deleteBatch(mockClient, ['lead-1', 'lead-2']);
+    }
+
+    if (spamLeadsPolicy) {
+      expect(spamLeadsPolicy.after?.days).toBe(30);
+
+      // getCandidates with excludedIds and without
+      const c1 = await spamLeadsPolicy.getCandidates(mockClient, now, 10, ['ex-1']);
+      expect(c1).toHaveLength(1);
+      const c2 = await spamLeadsPolicy.getCandidates(mockClient, now, 10, []);
+      expect(c2).toHaveLength(1);
+
+      if (spamLeadsPolicy.eraseCandidate) {
+        const eraseModule = await import('@/server/privacy/erasure/service');
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: true,
+          subjectKind: 'lead',
+          categoryCounts: { lead: 1 },
+        });
+        const res1 = await spamLeadsPolicy.eraseCandidate(mockClient, 'spam-1');
+        expect(res1.outcome).toBe('deleted');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'ERASURE_BLOCKED',
+          holds: [{ reason: 'legal_hold', retainUntil: null }],
+        });
+        const res2 = await spamLeadsPolicy.eraseCandidate(mockClient, 'spam-1');
+        expect(res2.outcome).toBe('held');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'INTERNAL_ERROR',
+          error: 'Spam lock conflict',
+        });
+        const res3 = await spamLeadsPolicy.eraseCandidate(mockClient, 'spam-1');
+        expect(res3.outcome).toBe('failed');
+        expect(res3.error).toBe('Spam lock conflict');
+      }
+
+      await spamLeadsPolicy.deleteBatch(mockClient, ['spam-1', 'spam-2']);
     }
   });
 

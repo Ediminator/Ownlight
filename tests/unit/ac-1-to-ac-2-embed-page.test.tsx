@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import type { InquiryForm, InquiryFormNoticeVersion } from '@/server/db/schema/inquiry-forms';
 
 vi.mock('server-only', () => ({}));
 
@@ -18,28 +18,27 @@ vi.mock('next/navigation', () => ({
   },
 }));
 
-const mockGetPublishedFormBySlug = vi.fn();
+const mockGetPublishedFormBySlug = vi.fn<(slug: string) => Promise<InquiryForm | null>>();
 vi.mock('@/server/inquiry-forms/service', () => ({
-  getPublishedFormBySlug: async (slug: string) => mockGetPublishedFormBySlug(slug),
+  getPublishedFormBySlug: (slug: string) => mockGetPublishedFormBySlug(slug),
 }));
 
-const mockGetNoticeVersionById = vi.fn();
+const mockGetNoticeVersionById = vi.fn<(id: string) => Promise<InquiryFormNoticeVersion | null>>();
 vi.mock('@/server/inquiry-forms/repo', () => ({
-  getNoticeVersionById: async (id: string) => mockGetNoticeVersionById(id),
+  getNoticeVersionById: (id: string) => mockGetNoticeVersionById(id),
 }));
 
-const mockGetStudioSettings = vi.fn();
+const mockGetStudioSettings = vi.fn<() => Promise<{ studio_name: string; timezone: string }>>();
 vi.mock('@/server/settings/repo', () => ({
-  getStudioSettings: async () => mockGetStudioSettings(),
+  getStudioSettings: () => mockGetStudioSettings(),
 }));
 
-const mockGetEmbedOrigins = vi.fn();
+const mockGetEmbedOrigins = vi.fn<() => string[]>();
 vi.mock('@/env', () => ({
   getEmbedOrigins: () => mockGetEmbedOrigins(),
 }));
 
 import EmbedFormPage from '@/app/[locale]/f/[slug]/embed/page';
-import type { InquiryForm, InquiryFormNoticeVersion } from '@/server/db/schema/inquiry-forms';
 
 describe('AC-1, AC-2: EmbedFormPage server component', () => {
   const mockNotice: InquiryFormNoticeVersion = {

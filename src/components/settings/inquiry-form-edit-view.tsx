@@ -249,21 +249,11 @@ export function InquiryFormEditView({
 
   const handleCopy = async (text: string, targetId: string) => {
     try {
-      if (
-        typeof navigator !== 'undefined' &&
-        navigator.clipboard &&
-        typeof navigator.clipboard.writeText === 'function'
-      ) {
-        await navigator.clipboard.writeText(text);
-      } else if (typeof document !== 'undefined') {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
+      if (typeof navigator !== 'undefined') {
+        const clipboard = (navigator as unknown as { clipboard?: Clipboard }).clipboard;
+        if (clipboard?.writeText) {
+          await clipboard.writeText(text);
+        }
       }
     } catch {
       // Ignore clipboard write failures in restricted environments
@@ -1763,6 +1753,9 @@ export function InquiryFormEditView({
             <h3 className="text-sm font-semibold">{t('shareEmbed.hostedLinkTitle')}</h3>
             <p className="text-xs text-muted-foreground">{t('shareEmbed.hostedLinkHelp')}</p>
             <div className="flex items-center gap-2">
+              <label htmlFor="share-hosted-url" className="sr-only">
+                {t('shareEmbed.hostedLinkTitle')}
+              </label>
               <input
                 id="share-hosted-url"
                 data-testid="hosted-url-input"
@@ -1805,7 +1798,7 @@ export function InquiryFormEditView({
             <h3 className="text-sm font-semibold">{t('shareEmbed.iframeTitle')}</h3>
             <p className="text-xs text-muted-foreground">{t('shareEmbed.iframeHelp')}</p>
             <div className="space-y-2">
-              <pre className="overflow-x-auto p-3 text-xs bg-muted/50 rounded-md border font-mono text-foreground whitespace-pre-wrap break-all">
+              <pre className="p-3 text-xs bg-muted/50 rounded-md border font-mono text-foreground whitespace-pre-wrap break-all">
                 <code data-testid="iframe-snippet-code">{iframeSnippet}</code>
               </pre>
               <button
@@ -1842,7 +1835,7 @@ export function InquiryFormEditView({
             <h3 className="text-sm font-semibold">{t('shareEmbed.htmlFormTitle')}</h3>
             <p className="text-xs text-muted-foreground">{t('shareEmbed.htmlFormHelp')}</p>
             <div className="space-y-2">
-              <pre className="overflow-x-auto max-h-60 p-3 text-xs bg-muted/50 rounded-md border font-mono text-foreground whitespace-pre-wrap break-all">
+              <pre className="p-3 text-xs bg-muted/50 rounded-md border font-mono text-foreground whitespace-pre-wrap break-all">
                 <code data-testid="html-form-snippet-code">{htmlFormSnippet}</code>
               </pre>
               <button

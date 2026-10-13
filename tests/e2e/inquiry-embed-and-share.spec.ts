@@ -2,10 +2,7 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 import path from 'node:path';
-import {
-  E2E_INQUIRY_PUBLISHED_SLUG,
-  E2E_INQUIRY_PUBLISHED_ID,
-} from '../helpers/e2e-inquiry-helper';
+import { E2E_INQUIRY_EMBED_SLUG, E2E_INQUIRY_EMBED_ID } from '../helpers/e2e-inquiry-helper';
 import { E2E_OWNER_EMAIL, E2E_OWNER_PASSWORD } from '../helpers/e2e-global-setup';
 
 const VALID_SETUP_TOKEN =
@@ -41,8 +38,8 @@ async function ensureOwnerSignedIn(page: import('@playwright/test').Page) {
 }
 
 test.describe('TASK-0028: Iframe Embed and Share Settings E2E Tests', () => {
-  const slug = E2E_INQUIRY_PUBLISHED_SLUG;
-  const formId = E2E_INQUIRY_PUBLISHED_ID;
+  const slug = E2E_INQUIRY_EMBED_SLUG;
+  const formId = E2E_INQUIRY_EMBED_ID;
 
   test.beforeAll(() => {
     fs.mkdirSync(UX_RUN_DIR, { recursive: true });
@@ -100,7 +97,9 @@ test.describe('TASK-0028: Iframe Embed and Share Settings E2E Tests', () => {
     await frame.locator('button[type="submit"]').click();
 
     // The iframe itself navigates to embed thanks page
-    await expect(frame.locator('h1')).toContainText('Thank you for your inquiry');
+    const thanksHeading = frame.locator('h1');
+    await thanksHeading.waitFor({ state: 'visible', timeout: 15000 });
+    await expect(thanksHeading).toContainText('Thank you for your inquiry');
     await expect(frame.locator('p')).toContainText(
       'Your inquiry has been received. We will get back to you shortly.',
     );
@@ -169,7 +168,7 @@ test.describe('TASK-0028: Iframe Embed and Share Settings E2E Tests', () => {
     await ensureOwnerSignedIn(page);
 
     await page.goto(`/en/settings/inquiry-forms/${formId}`);
-    await expect(page.locator('h1')).toContainText('General Inquiries');
+    await expect(page.locator('h1')).toContainText('Embed Inquiries');
 
     // Verify Share & embed section
     const shareSection = page.locator('[data-testid="share-embed-section"]');

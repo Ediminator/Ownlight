@@ -4,8 +4,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   E2E_INQUIRY_PUBLISHED_SLUG,
-  E2E_INQUIRY_PUBLISHED_ID,
-  E2E_INQUIRY_PUBLISHED_NOTICE_ID,
   E2E_INQUIRY_DRAFT_SLUG,
   E2E_INQUIRY_ARCHIVED_SLUG,
 } from '../helpers/e2e-inquiry-helper';
@@ -17,8 +15,6 @@ const UX_RUN_DIR = path.resolve(
 );
 
 test.describe('TASK-0027: Public Hosted Inquiry Form E2E Tests', () => {
-  const formId = E2E_INQUIRY_PUBLISHED_ID;
-  const noticeVersionId = E2E_INQUIRY_PUBLISHED_NOTICE_ID;
   const slug = E2E_INQUIRY_PUBLISHED_SLUG;
   const draftSlug = E2E_INQUIRY_DRAFT_SLUG;
   const archivedSlug = E2E_INQUIRY_ARCHIVED_SLUG;

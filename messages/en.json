@@ -898,6 +898,10 @@
         "acknowledgementRequired": "You must acknowledge the privacy notice to submit an inquiry",
         "unknownField": "Unknown field submitted"
       }
+    },
+    "autoReply": {
+      "subject": "Your inquiry to {studioName}",
+      "body": "Thank you for reaching out. We have received your inquiry and will respond to you personally as soon as possible.\n\nFor details on how we process your personal data, please review our privacy policy:\n{privacyPolicyUrl}"
     }
   }
 }

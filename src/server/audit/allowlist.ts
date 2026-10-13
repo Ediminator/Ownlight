@@ -87,6 +87,9 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
   ['lead.received', ['form_id', 'verification', 'delivery_mode']],
   ['lead.status_changed', ['from', 'to']],
   ['lead.deleted', ['count', 'bulk']],
+  ['lead.auto_reply.sent', ['reason']],
+  ['lead.auto_reply.suppressed', ['reason']],
+  ['lead.auto_reply.failed', ['reason']],
 ]);
 
 /**

@@ -53,6 +53,26 @@ export async function updateLeadStatusRecord(
 }
 
 /**
+ * Updates lead auto_reply_status without modifying last_activity_at.
+ */
+export async function updateLeadAutoReplyStatus(
+  id: string,
+  autoReplyStatus: import('@/server/db/schema/leads').LeadAutoReplyStatus,
+  client: DbClient = defaultDb,
+): Promise<Lead | null> {
+  const [updated] = await client
+    .update(leads)
+    .set({
+      autoReplyStatus,
+      updatedAt: new Date(),
+    })
+    .where(eq(leads.id, id))
+    .returning();
+
+  return updated ?? null;
+}
+
+/**
  * Lists leads with keyset pagination by (received_at DESC, id DESC).
  * Filters by status, verification, and email prefix/exact match.
  */

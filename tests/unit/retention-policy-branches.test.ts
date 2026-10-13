@@ -87,7 +87,7 @@ describe('Retention policy utility and definition branches', () => {
 
   it('createDefaultPolicies constructs policies that exercise getCandidates and deleteBatch branches', async () => {
     const policies = createDefaultPolicies();
-    expect(policies).toHaveLength(8);
+    expect(policies).toHaveLength(9);
 
     const [
       auditPolicy,
@@ -98,6 +98,7 @@ describe('Retention policy utility and definition branches', () => {
       unconvertedLeadsPolicy,
       spamLeadsPolicy,
       expiredPowReplaysPolicy,
+      failedEmailOutboxPolicy,
     ] = policies;
     expect(auditPolicy).toBeDefined();
     expect(sessionPolicy).toBeDefined();
@@ -107,6 +108,7 @@ describe('Retention policy utility and definition branches', () => {
     expect(unconvertedLeadsPolicy).toBeDefined();
     expect(spamLeadsPolicy).toBeDefined();
     expect(expiredPowReplaysPolicy).toBeDefined();
+    expect(failedEmailOutboxPolicy).toBeDefined();
 
     // Mock DB client
     let deletedCount = 0;
@@ -402,6 +404,16 @@ describe('Retention policy utility and definition branches', () => {
       expect(c2).toHaveLength(1);
       await expiredPowReplaysPolicy.deleteBatch(mockClient, []);
       await expiredPowReplaysPolicy.deleteBatch(mockClient, ['pow-1']);
+    }
+
+    if (failedEmailOutboxPolicy) {
+      expect(failedEmailOutboxPolicy.id).toBe('failed-email-outbox');
+      const c1 = await failedEmailOutboxPolicy.getCandidates(mockClient, now, 10, ['ex-1']);
+      expect(c1).toHaveLength(1);
+      const c2 = await failedEmailOutboxPolicy.getCandidates(mockClient, now, 10, []);
+      expect(c2).toHaveLength(1);
+      await failedEmailOutboxPolicy.deleteBatch(mockClient, []);
+      await failedEmailOutboxPolicy.deleteBatch(mockClient, ['outbox-1']);
     }
   });
 

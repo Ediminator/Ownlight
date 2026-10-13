@@ -2,6 +2,7 @@ import type { DbClient } from '@/server/db/client';
 import { logger } from '@/server/log';
 import { executeRetentionSweep } from '@/server/retention/runner';
 import { processOutboxBatch } from '@/server/integrations/google/sync-worker';
+import { processEmailOutboxBatch } from '@/server/email/outbox-processor';
 
 export interface JobContext {
   db: DbClient;
@@ -93,6 +94,19 @@ export function registerDefaultJobs(registry: JobRegistry): void {
       run: async (ctx: JobContext) => {
         return processOutboxBatch({
           dbClient: ctx.db,
+        });
+      },
+    });
+  }
+
+  if (!registry.has('email-outbox-processor')) {
+    registry.register({
+      id: 'email-outbox-processor',
+      intervalMs: 15_000,
+      run: async (ctx: JobContext) => {
+        return processEmailOutboxBatch({
+          dbClient: ctx.db,
+          signal: ctx.signal,
         });
       },
     });

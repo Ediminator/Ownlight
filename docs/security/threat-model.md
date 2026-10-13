@@ -135,3 +135,24 @@ The public inquiry endpoint (`/{locale}/f/{slug}` and `submitInquiryAction`) rep
   - **Cookie-free embed context:** Embed routes set no `Set-Cookie` header and do not read session cookies (ADR-0015 §2).
   - **Open redirect prevention:** `success_redirect_url` is strictly verified against `PUBLIC_FORMS_EMBED_ORIGINS` both when saving form settings and during submission redirects; unlisted origins fall back to the hosted thanks page.
   - **Script-free POST security:** `POST /api/public/forms/[slug]/submissions` enforces `Origin` allowlist matching (403 on missing/mismatched origin), `application/x-www-form-urlencoded` Content-Type check (415), 16 KiB stream body cap (413), and rejection if `accept_unverified = false` (303 to `?error=unverified`). Logging contains zero PII (ADR-0015 §12).
+
+### Email Outbox & Inquiry Auto-Reply (TASK-0030 / ADR-0015 §7)
+
+Sending automated email replies to user-supplied addresses introduces backscatter, spam abuse, and mail server reputation risks.
+
+- **Email Backscatter & Spam Relay Mitigation:**
+  - Automated replies are dispatched **only** for `verified` leads where the form configuration has `auto_reply_enabled = true`. Unverified submissions (including script-free submissions or failed proof-of-work) never receive auto-replies.
+  - Plain-text templates (en/de) strictly omit visitor-supplied names and message contents. Attackers cannot use Ownlight to deliver arbitrary text or links to third parties.
+  - Plain text only (no HTML, no external assets, no tracking pixels; compliant with BGH VI ZR 134/15).
+- **Email Bombing & Flooding Mitigation:**
+  - **Per-recipient rate limit cap:** Tracked by SHA-256 hash of normalized email, capped at 1 auto-reply per 24 hours (`auto_reply_recipient:{hash}`).
+  - **Instance-wide rate limit cap:** Capped at 30 auto-replies per 1 hour window across all recipients (`auto_reply_global`).
+  - When either cap is reached, the outbox processor marks the lead `auto_reply_status = 'suppressed'`, deletes the outbox entry, and logs/audits the suppression with zero PII.
+- **Header Injection & Mail Loop Defense:**
+  - Recipient email address is strictly validated for length, syntax, and absence of header delimiters (`\r`, `\n`, `,`, `;`, `<`, `>`, `\0`), and passed to nodemailer as `{ address }` structure without user-controlled display names.
+  - Subject line contains only the studio name with line breaks stripped and capped at 100 characters.
+  - RFC 3834 headers (`Auto-Submitted: auto-replied`, `X-Auto-Response-Suppress: All`) prevent mail loops with recipient auto-responders.
+- **Data Minimization & Error Sanitization:**
+  - `email_outbox` table stores zero copied PII; contents are rendered at dispatch time from the lead row.
+  - Successful sends and suppressed items are deleted immediately. Failed items are purged after 30 days via `failed-email-outbox` retention policy.
+  - SMTP error messages are sanitised to redact recipient addresses, URLs, credentials, and message content before storage in `last_error` or emission to structured logs.

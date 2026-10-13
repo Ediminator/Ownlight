@@ -35,6 +35,11 @@ export interface RetentionPolicyDef<T = any> {
 | `unconverted-leads`       | `leads`               | `status IN ('new', 'contacted', 'archived') AND last_activity_at < NOW() - LEAD_RETENTION_MONTHS`   | `delete` | 12 months (configurable 1–36 via `LEAD_RETENTION_MONTHS`) |
 | `spam-leads`              | `leads`               | `status = 'spam' AND last_activity_at < NOW() - 30 days`                                            | `delete` | 30 days                                                   |
 | `expired-pow-replays`     | `inquiry_pow_replays` | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 10 minutes)                    |
+| `failed-email-outbox`     | `email_outbox`        | `status = 'FAILED' AND updated_at < NOW() - 30 days`                                                | `delete` | 30 days                                                   |
+
+### Failed Transactional Email Outbox (`failed-email-outbox`)
+
+Under ADR-0015 §9 (TASK-0030), failed transactional email outbox items (`status = 'FAILED'`) are retained for 30 days following their terminal attempt to enable operator diagnosis. Successfully delivered or suppressed outbox items are deleted immediately upon processing. Rows older than 30 days are purged during scheduled retention sweeps. Outbox rows contain zero copied personal data; email contents are rendered at send time from the lead row.
 
 ### Proof-of-Work Replay Tokens (`expired-pow-replays`)
 

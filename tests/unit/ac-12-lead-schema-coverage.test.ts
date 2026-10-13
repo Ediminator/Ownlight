@@ -101,4 +101,21 @@ describe('TASK-0026: Schema coverage for leads table (AC-12)', () => {
     const unmapped = checkCoverage(subjectTables, mutatedCovered, erasureAllowlisted);
     expect(unmapped).toContain('leads');
   });
+
+  it('AC-12: email_outbox table contains zero direct client_id or contact_id columns and cascades with leads', () => {
+    const subjectTables = findTablesWithSubjectReferences(schema);
+    const outboxSubjectTable = subjectTables.find((t) => t.tableName === 'email_outbox');
+    // email_outbox stores zero copied personal data and references leads.id, not client_id or contact_id
+    expect(outboxSubjectTable).toBeUndefined();
+
+    // Verify foreign key references leads with onDelete: 'cascade'
+    const config = getTableConfig(schema.emailOutbox);
+    expect(config.foreignKeys.length).toBeGreaterThan(0);
+    const leadFk = config.foreignKeys.find((fk) => {
+      const targetTable = getTableConfig(fk.reference().foreignTable).name;
+      return targetTable === 'leads';
+    });
+    expect(leadFk).toBeDefined();
+    expect(leadFk?.onDelete).toBe('cascade');
+  });
 });

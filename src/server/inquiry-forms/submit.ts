@@ -6,6 +6,7 @@ import { getStudioSettings } from '@/server/settings/repo';
 import { consumeRateLimit, anonymizeIp } from '@/server/auth/rate-limiter';
 import { createLead } from '@/server/leads/service';
 import { logger, getRequestId } from '@/server/log';
+import { getOrCreatePowSecret, verifyPowPayload } from './pow';
 import type {
   InquiryFormFieldConfig,
   InquiryFormEventType,
@@ -25,6 +26,7 @@ export interface SubmitInquiryContext {
   deliveryMode: LeadDeliveryMode;
   verification: LeadVerification;
   clientIp: string | null;
+  altchaPayload?: string | null;
 }
 
 export type SubmitInquiryOutcome =
@@ -124,6 +126,8 @@ const SCHEMA_ERROR_MESSAGES = {
     nameTooLong: 'Field cannot exceed 100 characters',
     phoneTooLong: 'Phone number cannot exceed 32 characters',
     emailTooLong: 'Email cannot exceed 254 characters',
+    unverifiedRejected:
+      'We could not verify your submission. Please enable JavaScript and try again.',
   },
   de: {
     fieldRequired: 'Dieses Feld ist erforderlich',
@@ -139,6 +143,8 @@ const SCHEMA_ERROR_MESSAGES = {
     nameTooLong: 'Feld darf maximal 100 Zeichen lang sein',
     phoneTooLong: 'Telefonnummer darf maximal 32 Zeichen lang sein',
     emailTooLong: 'E-Mail-Adresse darf maximal 254 Zeichen lang sein',
+    unverifiedRejected:
+      'Wir konnten Ihre Anfrage nicht verifizieren. Bitte aktivieren Sie JavaScript und versuchen Sie es erneut.',
   },
 } as const;
 
@@ -366,6 +372,10 @@ export async function submitInquiry(
   // Remove honeypot field from validation input so .strict() doesn't reject it
   delete inputRecord.website;
 
+  // Extract altcha_payload if supplied (TASK-0029)
+  const altchaPayload = (inputRecord.altcha_payload as string | undefined) ?? ctx.altchaPayload;
+  delete inputRecord.altcha_payload;
+
   // Support alias 'acknowledged' if provided
   if ('acknowledged' in inputRecord && !('notice_acknowledged' in inputRecord)) {
     inputRecord.notice_acknowledged = inputRecord.acknowledged;
@@ -530,26 +540,68 @@ export async function submitInquiry(
 
   const validated = parsed.data as ValidatedInquiryData;
 
-  // Step 5: Verification check (AC-7)
-  if (ctx.verification === 'unverified' && !form.acceptUnverified) {
+  // Step 4.5: Proof-of-Work verification (TASK-0029 / ADR-0015 §4)
+  let verification: LeadVerification = ctx.verification;
+
+  if (typeof altchaPayload === 'string' && altchaPayload.trim().length > 0) {
+    let secret = '';
+    try {
+      secret = await getOrCreatePowSecret(client);
+    } catch {
+      secret = '';
+    }
+
+    if (secret) {
+      const powResult = await verifyPowPayload(altchaPayload, secret, client);
+      if (powResult.verified) {
+        verification = 'verified';
+      } else {
+        verification = 'unverified';
+        if (powResult.reason === 'pow_replay') {
+          logger.warn(
+            {
+              request_id: requestId,
+              form_id: form.id,
+              outcome: form.acceptUnverified ? 'success' : 'unverified_rejected',
+              reason: 'pow_replay',
+              verification: 'unverified',
+              delivery_mode: ctx.deliveryMode,
+              duration_ms: Date.now() - startTime,
+            },
+            'Inquiry submission contains replayed proof-of-work signature',
+          );
+        }
+      }
+    } else {
+      verification = 'unverified';
+    }
+  }
+
+  // Step 5: Verification check (AC-7, AC-8, AC-9, AC-10)
+  if (verification === 'unverified' && !form.acceptUnverified) {
     logger.warn(
       {
         request_id: requestId,
         form_id: form.id,
         outcome: 'unverified_rejected',
         reason: 'unverified_rejected',
-        verification: ctx.verification,
+        verification,
         delivery_mode: ctx.deliveryMode,
         duration_ms: Date.now() - startTime,
       },
       'Inquiry submission rejected: form does not accept unverified submissions',
     );
 
+    const unverifiedErrorMsg =
+      ctx.locale === 'de'
+        ? SCHEMA_ERROR_MESSAGES.de.unverifiedRejected
+        : SCHEMA_ERROR_MESSAGES.en.unverifiedRejected;
+
     return {
       success: false,
       outcome: 'unverified_rejected',
       code: 'UNVERIFIED_REJECTED',
-      error: 'We could not verify your submission. Please enable JavaScript and try again.',
+      error: unverifiedErrorMsg,
     };
   }
 
@@ -569,7 +621,7 @@ export async function submitInquiry(
       noticeVersionId: form.currentNoticeVersionId,
       noticeAcknowledgedAt: new Date(),
       locale: ctx.locale,
-      verification: ctx.verification,
+      verification,
       deliveryMode: ctx.deliveryMode,
       givenName: validated.given_name ?? null,
       familyName: validated.family_name ?? null,
@@ -583,7 +635,7 @@ export async function submitInquiry(
     },
     {
       deliveryMode: ctx.deliveryMode,
-      verification: ctx.verification,
+      verification,
     },
     client,
   );
@@ -604,7 +656,7 @@ export async function submitInquiry(
       form_id: form.id,
       lead_id: leadResult.data.id,
       outcome: 'success',
-      verification: ctx.verification,
+      verification,
       delivery_mode: ctx.deliveryMode,
       duration_ms: Date.now() - startTime,
     },

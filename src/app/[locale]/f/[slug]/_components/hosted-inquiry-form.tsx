@@ -3,6 +3,7 @@
 import React, { useActionState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { submitInquiryAction } from '@/server/inquiry-forms/public-actions';
+import { useAltchaSolver } from '../../_components/pow-solver';
 import type { InquiryForm, InquiryFormFieldConfig } from '@/server/db/schema/inquiry-forms';
 
 interface HostedInquiryFormProps {
@@ -148,6 +149,42 @@ export function HostedInquiryForm({
   const t = useTranslations('inquiry.public');
   const [state, formAction, isPending] = useActionState(submitInquiryAction, null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const isSubmittingRef = useRef<boolean>(false);
+
+  const {
+    status: powStatus,
+    payloadBase64,
+    waitingForSubmit,
+    ensureVerifiedPayload,
+  } = useAltchaSolver(form.slug);
+
+  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
+    if (isSubmittingRef.current) {
+      return;
+    }
+
+    if (powStatus === 'solving' || powStatus === 'fetching') {
+      e.preventDefault();
+      void (async () => {
+        const verifiedPayload = await ensureVerifiedPayload();
+        if (formRef.current) {
+          isSubmittingRef.current = true;
+          const hiddenInput = formRef.current.querySelector<HTMLInputElement>(
+            'input[name="altcha_payload"]',
+          );
+          if (hiddenInput && verifiedPayload) {
+            hiddenInput.value = verifiedPayload;
+          }
+          if (typeof formRef.current.requestSubmit === 'function') {
+            formRef.current.requestSubmit();
+          } else {
+            formRef.current.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+          }
+        }
+      })();
+    }
+  };
 
   const values = state?.values ?? {};
   const rawFieldErrors = state?.fieldErrors ?? {};
@@ -237,11 +274,18 @@ export function HostedInquiryForm({
         </div>
       )}
 
-      <form action={formAction} className="space-y-5" noValidate>
+      <form
+        ref={formRef}
+        action={formAction}
+        onSubmit={handleSubmit}
+        className="space-y-5"
+        noValidate
+      >
         {/* Hidden routing fields */}
         <input type="hidden" name="slug" value={form.slug} />
         <input type="hidden" name="locale" value={locale} />
         <input type="hidden" name="delivery_mode" value={deliveryMode} />
+        <input type="hidden" name="altcha_payload" value={payloadBase64} />
 
         {/* Honeypot field (AC-3, AC-13) */}
         <div style={{ display: 'none' }} aria-hidden="true">
@@ -593,15 +637,42 @@ export function HostedInquiryForm({
           )}
         </div>
 
-        {/* Submit button (Touch target >= 44x44 px) */}
-        <div className="pt-4">
+        {/* Submit button (Touch target >= 44x44 px) and accessible PoW status indicator */}
+        <div className="pt-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <button
             type="submit"
-            disabled={isPending}
+            disabled={isPending || waitingForSubmit}
             className="w-full sm:w-auto inline-flex min-h-[44px] min-w-[120px] items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 transition-colors"
           >
-            {isPending ? t('submitting') : t('submit')}
+            {isPending ? t('submitting') : waitingForSubmit ? t('verifying') : t('submit')}
           </button>
+
+          {/* Accessible status indicator (AC-12) */}
+          <div
+            id="pow-status"
+            role="status"
+            aria-live="polite"
+            className="text-xs text-muted-foreground flex items-center gap-1.5 min-h-[20px]"
+          >
+            {(powStatus === 'solving' || powStatus === 'fetching' || waitingForSubmit) && (
+              <>
+                <span
+                  className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse"
+                  aria-hidden="true"
+                />
+                <span>{t('verifying')}</span>
+              </>
+            )}
+            {powStatus === 'verified' && !waitingForSubmit && (
+              <>
+                <span
+                  className="inline-block h-2 w-2 rounded-full bg-emerald-500"
+                  aria-hidden="true"
+                />
+                <span>{t('verified')}</span>
+              </>
+            )}
+          </div>
         </div>
       </form>
     </div>

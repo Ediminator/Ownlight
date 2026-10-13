@@ -25,15 +25,20 @@ export interface RetentionPolicyDef<T = any> {
 
 ### Registered Built-In Policies
 
-| Policy ID                 | Target Entity     | Rule / Cutoff                                                                                       | Action   | Default Retention                                         |
-| ------------------------- | ----------------- | --------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------- |
-| `audit-events-retention`  | `audit_events`    | `occurred_at < NOW() - RETENTION_PERIOD_MONTHS`                                                     | `delete` | 24 months (configurable)                                  |
-| `expired-sessions`        | `session`         | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 30 days)                       |
-| `expired-rate-limits`     | `rate_limits`     | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 24 hours)                      |
-| `withdrawn-consent-proof` | `consent_records` | `latest status = 'withdrawn' AND effective_on < NOW() - CONSENT_PROOF_RETENTION_MONTHS`             | `delete` | 36 months (configurable)                                  |
-| `inactive-clients`        | `clients`         | `last_activity_at < NOW() - CLIENT_RETENTION_MONTHS` AND no activity reported by activity providers | `delete` | 36 months (configurable via `CLIENT_RETENTION_MONTHS`)    |
-| `unconverted-leads`       | `leads`           | `status IN ('new', 'contacted', 'archived') AND last_activity_at < NOW() - LEAD_RETENTION_MONTHS`   | `delete` | 12 months (configurable 1–36 via `LEAD_RETENTION_MONTHS`) |
-| `spam-leads`              | `leads`           | `status = 'spam' AND last_activity_at < NOW() - 30 days`                                            | `delete` | 30 days                                                   |
+| Policy ID                 | Target Entity         | Rule / Cutoff                                                                                       | Action   | Default Retention                                         |
+| ------------------------- | --------------------- | --------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------- |
+| `audit-events-retention`  | `audit_events`        | `occurred_at < NOW() - RETENTION_PERIOD_MONTHS`                                                     | `delete` | 24 months (configurable)                                  |
+| `expired-sessions`        | `session`             | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 30 days)                       |
+| `expired-rate-limits`     | `rate_limits`         | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 24 hours)                      |
+| `withdrawn-consent-proof` | `consent_records`     | `latest status = 'withdrawn' AND effective_on < NOW() - CONSENT_PROOF_RETENTION_MONTHS`             | `delete` | 36 months (configurable)                                  |
+| `inactive-clients`        | `clients`             | `last_activity_at < NOW() - CLIENT_RETENTION_MONTHS` AND no activity reported by activity providers | `delete` | 36 months (configurable via `CLIENT_RETENTION_MONTHS`)    |
+| `unconverted-leads`       | `leads`               | `status IN ('new', 'contacted', 'archived') AND last_activity_at < NOW() - LEAD_RETENTION_MONTHS`   | `delete` | 12 months (configurable 1–36 via `LEAD_RETENTION_MONTHS`) |
+| `spam-leads`              | `leads`               | `status = 'spam' AND last_activity_at < NOW() - 30 days`                                            | `delete` | 30 days                                                   |
+| `expired-pow-replays`     | `inquiry_pow_replays` | `expires_at < NOW()`                                                                                | `delete` | Immediate upon expiry (max 10 minutes)                    |
+
+### Proof-of-Work Replay Tokens (`expired-pow-replays`)
+
+Under ADR-0015 §4.3 (TASK-0029), proof-of-work signature hashes stored in `inquiry_pow_replays` are retained only for the duration of challenge validity (10 minutes). Once expired, signatures can no longer be accepted by the server under any circumstance. The `expired-pow-replays` policy purges expired signature hash records during scheduled sweeps. No personal data is stored in this table.
 
 ### Lead Retention Lifecycle (`unconverted-leads` & `spam-leads`)
 

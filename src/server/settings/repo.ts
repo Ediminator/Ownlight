@@ -12,6 +12,7 @@ export const DEFAULT_STUDIO_SETTINGS: Omit<StudioSettings, 'id' | 'created_at' |
   currency: 'EUR',
   mfa_required: false,
   mfa_postponed_until: null,
+  forms_pow_hmac_key: null,
 };
 
 // Generic database interface compatible with both PostgresJsDatabase and PgliteDatabase

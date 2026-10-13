@@ -62,9 +62,10 @@ describe('AC-1: Database migrations and drift detection', () => {
         'updated_at',
         'mfa_required',
         'mfa_postponed_until',
+        'forms_pow_hmac_key',
       ]);
 
-      // Verify MFA tables exist
+      // Verify MFA tables and PoW tables exist
       const tablesRes = await client.query<{ table_name: string }>(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name",
       );
@@ -72,6 +73,7 @@ describe('AC-1: Database migrations and drift detection', () => {
       expect(tableNames).toContain('totp_credential');
       expect(tableNames).toContain('recovery_code');
       expect(tableNames).toContain('passkey_credential');
+      expect(tableNames).toContain('inquiry_pow_replays');
     } finally {
       await client.close();
     }

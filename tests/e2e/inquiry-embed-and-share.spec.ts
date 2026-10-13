@@ -261,6 +261,8 @@ test.describe('TASK-0028: Iframe Embed and Share Settings E2E Tests', () => {
     await page.evaluate(() => {
       document.documentElement.classList.add('dark');
     });
+    // Allow CSS theme transition to complete before color contrast analysis
+    await page.waitForTimeout(200);
 
     const darkAxeResults = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
@@ -290,5 +292,30 @@ test.describe('TASK-0028: Iframe Embed and Share Settings E2E Tests', () => {
       path: path.join(UX_RUN_DIR, 'embed-thanks-1280px.png'),
       fullPage: true,
     });
+  });
+
+  test('AC-3 (R-A): visitor submits embed form with proof-of-work and redirects to embed thanks', async ({
+    page,
+  }) => {
+    await page.goto(`/en/f/${slug}/embed`);
+
+    // Verify aria-live polite status element exists
+    const statusEl = page.locator('#pow-status');
+    await expect(statusEl).toBeAttached();
+    await expect(statusEl).toHaveAttribute('role', 'status');
+    await expect(statusEl).toHaveAttribute('aria-live', 'polite');
+
+    // Fill embed form fields
+    await page.fill('#field-given_name', 'Margaret');
+    await page.fill('#field-family_name', 'Hamilton');
+    await page.fill('#field-email', 'margaret.hamilton@example.com');
+    await page.check('#field-notice_acknowledged');
+
+    // Submit form (awaits PoW completion)
+    await page.click('button[type="submit"]');
+
+    // Asserts redirect to embed thanks page
+    await expect(page).toHaveURL(`/en/f/${slug}/embed/thanks`);
+    await expect(page.locator('h1')).toContainText('Thank you for your inquiry');
   });
 });

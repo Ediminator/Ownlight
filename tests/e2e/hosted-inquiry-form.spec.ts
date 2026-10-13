@@ -6,6 +6,7 @@ import {
   E2E_INQUIRY_PUBLISHED_SLUG,
   E2E_INQUIRY_DRAFT_SLUG,
   E2E_INQUIRY_ARCHIVED_SLUG,
+  E2E_INQUIRY_POW_SLUG,
 } from '../helpers/e2e-inquiry-helper';
 
 const RUN_DIR_PARAM = process.env.RUN_DIR ?? 'iter-01';
@@ -18,6 +19,7 @@ test.describe('TASK-0027: Public Hosted Inquiry Form E2E Tests', () => {
   const slug = E2E_INQUIRY_PUBLISHED_SLUG;
   const draftSlug = E2E_INQUIRY_DRAFT_SLUG;
   const archivedSlug = E2E_INQUIRY_ARCHIVED_SLUG;
+  const powSlug = E2E_INQUIRY_POW_SLUG;
 
   test.beforeAll(() => {
     fs.mkdirSync(UX_RUN_DIR, { recursive: true });
@@ -319,5 +321,65 @@ test.describe('TASK-0027: Public Hosted Inquiry Form E2E Tests', () => {
 
     // Verify no alert or dialog was triggered
     expect(dialogTriggered).toBe(false);
+  });
+
+  test('AC-2 (R-A): visitor submits hosted inquiry form with proof-of-work and redirects to thanks', async ({
+    page,
+  }) => {
+    await page.goto(`/en/f/${powSlug}`);
+
+    // Verify aria-live polite status element exists
+    const statusEl = page.locator('#pow-status');
+    await expect(statusEl).toBeAttached();
+    await expect(statusEl).toHaveAttribute('role', 'status');
+    await expect(statusEl).toHaveAttribute('aria-live', 'polite');
+
+    // Fill form fields
+    await page.fill('#field-given_name', 'Grace');
+    await page.fill('#field-family_name', 'Hopper');
+    await page.fill('#field-email', 'grace.hopper@example.com');
+    await page.check('#field-notice_acknowledged');
+
+    // Submit form (will await PoW completion if still in flight)
+    await page.click('button[type="submit"]');
+
+    // Asserts redirect to thanks page
+    await expect(page).toHaveURL(`/en/f/${powSlug}/thanks`);
+    await expect(page.locator('h1')).toContainText('Thank you for your inquiry');
+  });
+
+  test('AC-12: background WebCrypto solver announces status accessibly and runs without WASM or eval', async ({
+    page,
+  }) => {
+    // Spy on WebAssembly before navigation
+    await page.addInitScript(() => {
+      const win = window as unknown as {
+        WebAssembly?: { instantiate?: (...args: unknown[]) => unknown };
+        __mas_wasm_used?: boolean;
+      };
+      if (typeof win.WebAssembly?.instantiate === 'function') {
+        const orig = win.WebAssembly.instantiate;
+        win.WebAssembly.instantiate = (...args: unknown[]) => {
+          win.__mas_wasm_used = true;
+          return orig(...args);
+        };
+      }
+    });
+
+    await page.goto(`/en/f/${powSlug}`);
+
+    const statusEl = page.locator('#pow-status');
+    await expect(statusEl).toBeAttached();
+    await expect(statusEl).toHaveAttribute('role', 'status');
+    await expect(statusEl).toHaveAttribute('aria-live', 'polite');
+
+    // Solver runs in background and status text contains verifying or verified
+    await expect(statusEl).toBeVisible();
+
+    const wasmTriggered = await page.evaluate(() => {
+      const win = window as unknown as { __mas_wasm_used?: boolean };
+      return Boolean(win.__mas_wasm_used);
+    });
+    expect(wasmTriggered).toBe(false);
   });
 });

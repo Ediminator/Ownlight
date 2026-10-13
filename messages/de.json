@@ -874,6 +874,8 @@
       },
       "submit": "Anfrage senden",
       "submitting": "Wird gesendet...",
+      "verifying": "Wird verifiziert...",
+      "verified": "Verifiziert",
       "thanks": {
         "title": "Vielen Dank für Ihre Anfrage",
         "description": "Ihre Nachricht wurde empfangen. Wir werden uns in Kürze bei Ihnen melden.",

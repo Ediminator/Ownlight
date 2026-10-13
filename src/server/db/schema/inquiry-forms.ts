@@ -10,6 +10,7 @@ import {
   index,
   unique,
   check,
+  char,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
@@ -102,3 +103,16 @@ export const inquiryFormNoticeVersions = pgTable(
 export const inquiry_form_notice_versions = inquiryFormNoticeVersions;
 export type InquiryFormNoticeVersion = typeof inquiryFormNoticeVersions.$inferSelect;
 export type NewInquiryFormNoticeVersion = typeof inquiryFormNoticeVersions.$inferInsert;
+
+/**
+ * Proof-of-work challenge replay table (TASK-0029 / ADR-0015 §4, §9).
+ * Stores SHA-256 hashes of challenge signatures until expiration to prevent replay attacks.
+ */
+export const inquiryPowReplays = pgTable('inquiry_pow_replays', {
+  signatureHash: char('signature_hash', { length: 64 }).primaryKey(),
+  expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const inquiry_pow_replays = inquiryPowReplays;
+export type InquiryPowReplay = typeof inquiryPowReplays.$inferSelect;
+export type NewInquiryPowReplay = typeof inquiryPowReplays.$inferInsert;

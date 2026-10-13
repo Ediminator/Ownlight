@@ -827,5 +827,57 @@
   },
   "inquiryForms": {
     "defaultAcknowledgement": "I have read and acknowledge the privacy policy."
+  },
+  "inquiry": {
+    "public": {
+      "title": "Inquiry",
+      "description": "Send an inquiry to {studioName}",
+      "studioProcessesData": "{studio} processes your data to answer your inquiry; details: {privacyPolicy}.",
+      "privacyPolicyLink": "privacy policy",
+      "sensitiveDataHint": "Please do not include sensitive information such as health or religious details.",
+      "fields": {
+        "given_name": "First name",
+        "given_namePlaceholder": "Jane",
+        "family_name": "Last name",
+        "family_namePlaceholder": "Doe",
+        "email": "Email address",
+        "emailPlaceholder": "jane@example.com",
+        "phone": "Phone number",
+        "phonePlaceholder": "+49 30 12345678",
+        "event_type": "Event type",
+        "event_typeSelect": "Select event type...",
+        "event_date": "Event date",
+        "event_location": "Location",
+        "event_locationPlaceholder": "Berlin, Germany",
+        "message": "Message",
+        "messagePlaceholder": "Tell us about your shoot...",
+        "website": "Website",
+        "notice_acknowledged": "I have read and acknowledge the privacy policy."
+      },
+      "submit": "Send inquiry",
+      "submitting": "Sending...",
+      "thanks": {
+        "title": "Thank you for your inquiry",
+        "description": "Your inquiry has been received. We will get back to you shortly.",
+        "backHome": "Back to Home"
+      },
+      "errors": {
+        "summaryTitle": "Please correct the following errors before submitting",
+        "rateLimited": "Too many attempts, please try again later",
+        "unavailable": "Service temporarily unavailable. Please try again later.",
+        "unverifiedRejected": "We could not verify your submission. Please enable JavaScript and try again.",
+        "notFound": "Inquiry form not found",
+        "fieldRequired": "This field is required",
+        "invalidEmail": "Please enter a valid email address",
+        "emailNoCrlf": "Email address cannot contain line breaks",
+        "invalidPhone": "Please enter a valid phone number (3–32 characters, numbers and basic symbols)",
+        "invalidEventType": "Please select a valid event type",
+        "invalidEventDate": "Event date must be a valid date between today and 5 years ahead",
+        "invalidLocation": "Location must not exceed 200 characters",
+        "messageTooLong": "Message must not exceed 2,000 characters",
+        "acknowledgementRequired": "You must acknowledge the privacy notice to submit an inquiry",
+        "unknownField": "Unknown field submitted"
+      }
+    }
   }
 }

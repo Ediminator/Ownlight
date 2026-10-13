@@ -82,3 +82,39 @@ This threat model identifies key assets, trust boundaries, threat actors, and ST
 
 - **Threat:** Client portal user escalates to studio admin privileges, or an agent with read scope executes write actions.
 - **Mitigation:** Strict server-side route guards (`requireOwner()`, `requireAuth({ scopes })`); granular API token permission enforcement (e.g. `clients:read` cannot invoke `clients:write` or `lexware:sync`); separate portal token authorization context.
+
+---
+
+## 5. Inquiry Form (Public) STRIDE Threat Analysis
+
+The public inquiry endpoint (`/{locale}/f/{slug}` and `submitInquiryAction`) represents the studio's first anonymous, internet-facing write path (ADR-0015).
+
+### Spoofing & Automated Spam
+
+- **Threat:** Automated bots submit mass spam, scrape photographer details, or attempt email header injection.
+- **Mitigation:** Honeypot field (`name="website"`, visually hidden, `tabindex="-1"`, `aria-hidden="true"`) returning silent success without creating leads or audit entries; atomic fail-closed rate limits per anonymized IP bucket (5 per 10 min) and per-form circuit breaker (100 per 1 hour); proof-of-work challenge support (TASK-0029); unverified submissions rejected by default on strict forms (`accept_unverified = false`).
+
+### Tampering & Parameter Injection
+
+- **Threat:** Attackers inject crafted parameters, disable field configurations, or attempt email CRLF injection.
+- **Mitigation:** Dynamic Zod schema constructed from active form configuration with `.strict()`, rejecting unexpected keys; disabled fields rejected; email strictly prohibits `\r` and `\n` to prevent SMTP header injection; phone matching `^[+0-9 ()\-/]{3,32}$`; event date constrained to [today, today + 5 years] in the studio's configured timezone; message capped at 2,000 characters.
+
+### Repudiation & Legal Compliance
+
+- **Threat:** Prospective client disputes having acknowledged the studio privacy policy or lawful basis.
+- **Mitigation:** Mandatory privacy notice acknowledgement checkbox recorded with the immutable `notice_version_id` and timestamp `notice_acknowledged_at`; localized Art. 13 notice explaining processing purpose under Art. 6(1)(b); plain-text versioned notice texts without HTML.
+
+### Information Disclosure & Form Enumeration
+
+- **Threat:** Form slug enumeration reveals unpublished or archived forms; owner session cookies or personal data leak on public pages.
+- **Mitigation:** Cryptographically unguessable 10-character base32 slugs; strict 404 response parity (identical body length ±0 bytes) for draft, archived, and unknown slugs; public form routes (`/{locale}/f/**`) set no `Set-Cookie` header and never read owner session cookies; thanks page displays only static confirmation without personal data; structured logging follows ADR-0015 §12 (no names, emails, phones, messages, locations, or IPs in logs).
+
+### Denial of Service
+
+- **Threat:** Flooding inquiry endpoints to exhaust database storage or connection pools.
+- **Mitigation:** Two-tier atomic rate limiting: 5 per 10 minutes per IP bucket (/24 IPv4, /48 IPv6), plus a 100-per-hour per-form flood circuit breaker; fail-closed behavior returning `503 UNAVAILABLE` on database errors; rejections bypass audit log persistence to prevent audit table exhaustion.
+
+### Elevation of Privilege & Framing
+
+- **Threat:** Framing attacks (clickjacking) or stored XSS execution in error re-renders.
+- **Mitigation:** Response headers enforce `frame-ancestors 'none'` and `X-Frame-Options: DENY`; Same-origin requirement on server action; React attribute encoding prevents script execution during progressive enhancement error re-renders (SC 3.3.1).

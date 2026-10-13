@@ -33,6 +33,12 @@ async function ensureOwnerBootstrappedAndSignedIn(page: import('@playwright/test
     await page.click('[data-testid="signin-submit-btn"]');
     await expect(page).not.toHaveURL(/\/sign-in$/);
   }
+
+  const postponeBtn = page.locator('[data-testid="postpone-mfa-btn"]');
+  if (await postponeBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await postponeBtn.click();
+    await page.waitForLoadState('networkidle');
+  }
 }
 
 async function createTestClient(
@@ -40,6 +46,12 @@ async function createTestClient(
   name: string,
 ): Promise<string> {
   await page.goto('/en/clients/new');
+  const postponeBtn = page.locator('[data-testid="postpone-mfa-btn"]');
+  if (await postponeBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await postponeBtn.click();
+    await page.waitForLoadState('networkidle');
+    await page.goto('/en/clients/new');
+  }
   await page.fill('[data-testid="display-name-input"]', name);
   await page.fill('[data-testid="given-name-input"]', 'Test');
   await page.fill('[data-testid="family-name-input"]', 'Client');

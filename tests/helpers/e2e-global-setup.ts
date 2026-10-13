@@ -45,31 +45,57 @@ export async function setE2eStudioMfaSettings(
   mfaRequired: boolean,
   postponedUntil: Date | null = null,
 ) {
-  const pglite = new PGlite(path.resolve('./.pglite-e2e'));
-  await pglite.waitReady;
-  const check = await pglite.query('SELECT id FROM studio_settings LIMIT 1');
-  const now = new Date().toISOString();
-  if (check.rows.length === 0) {
-    const id = '018f0000-0000-7000-8000-000000000001';
-    await pglite.query(
-      `INSERT INTO studio_settings (id, studio_name, default_locale, timezone, currency, mfa_required, mfa_postponed_until, created_at, updated_at)
-       VALUES ($1, 'Photo Studio', 'en', 'UTC', 'EUR', $2, $3, $4, $4)`,
-      [id, mfaRequired, postponedUntil ? postponedUntil.toISOString() : null, now],
-    );
-  } else {
-    await pglite.query(
-      'UPDATE studio_settings SET mfa_required = $1, mfa_postponed_until = $2, updated_at = $3',
-      [mfaRequired, postponedUntil ? postponedUntil.toISOString() : null, now],
-    );
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+      const pglite = new PGlite(path.resolve('./.pglite-e2e'));
+      await pglite.waitReady;
+      try {
+        const check = await pglite.query('SELECT id FROM studio_settings LIMIT 1');
+        const now = new Date().toISOString();
+        if (check.rows.length === 0) {
+          const id = '018f0000-0000-7000-8000-000000000001';
+          await pglite.query(
+            `INSERT INTO studio_settings (id, studio_name, default_locale, timezone, currency, mfa_required, mfa_postponed_until, created_at, updated_at)
+             VALUES ($1, 'Photo Studio', 'en', 'UTC', 'EUR', $2, $3, $4, $4)`,
+            [id, mfaRequired, postponedUntil ? postponedUntil.toISOString() : null, now],
+          );
+        } else {
+          await pglite.query(
+            'UPDATE studio_settings SET mfa_required = $1, mfa_postponed_until = $2, updated_at = $3',
+            [mfaRequired, postponedUntil ? postponedUntil.toISOString() : null, now],
+          );
+        }
+        return;
+      } finally {
+        await pglite.close();
+      }
+    } catch (err) {
+      if (attempt === 4) throw err;
+    }
   }
-  await pglite.close();
 }
 
 export async function clearE2eUserMfaCredentials() {
-  const pglite = new PGlite(path.resolve('./.pglite-e2e'));
-  await pglite.waitReady;
-  await pglite.query('DELETE FROM totp_credential');
-  await pglite.query('DELETE FROM passkey_credential');
-  await pglite.query('DELETE FROM recovery_code');
-  await pglite.close();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+      const pglite = new PGlite(path.resolve('./.pglite-e2e'));
+      await pglite.waitReady;
+      try {
+        await pglite.query('DELETE FROM totp_credential');
+        await pglite.query('DELETE FROM passkey_credential');
+        await pglite.query('DELETE FROM recovery_code');
+        return;
+      } finally {
+        await pglite.close();
+      }
+    } catch (err) {
+      if (attempt === 4) throw err;
+    }
+  }
 }

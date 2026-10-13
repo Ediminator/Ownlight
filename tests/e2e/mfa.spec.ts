@@ -237,50 +237,52 @@ test.describe('TASK-0008: Multi-Factor Authentication (MFA) & Passkeys E2E', () 
     page,
     context,
   }) => {
-    // 1. Configure studio settings with mfa_required=true and postponement expired in the past (AC-8, I2-V01, I2-V02)
-    const pastDate = new Date(Date.now() - 3600 * 1000); // 1 hour ago
-    await setE2eStudioMfaSettings(true, pastDate);
-    await clearE2eUserMfaCredentials();
+    try {
+      // 1. Configure studio settings with mfa_required=true and postponement expired in the past (AC-8, I2-V01, I2-V02)
+      const pastDate = new Date(Date.now() - 3600 * 1000); // 1 hour ago
+      await setE2eStudioMfaSettings(true, pastDate);
+      await clearE2eUserMfaCredentials();
 
-    // 2. Clear cookies and sign in with owner credentials (without MFA configured)
-    await context.clearCookies();
-    await page.goto('/en/sign-in');
-    await page.fill('[data-testid="email-input"]', E2E_OWNER_EMAIL);
-    await page.fill('[data-testid="password-input"]', E2E_OWNER_PASSWORD);
-    await page.click('[data-testid="signin-submit-btn"]');
+      // 2. Clear cookies and sign in with owner credentials (without MFA configured)
+      await context.clearCookies();
+      await page.goto('/en/sign-in');
+      await page.fill('[data-testid="email-input"]', E2E_OWNER_EMAIL);
+      await page.fill('[data-testid="password-input"]', E2E_OWNER_PASSWORD);
+      await page.click('[data-testid="signin-submit-btn"]');
 
-    // Assert sign-in automatically forces redirect to security settings with mfa_enforced=1
-    await expect(page).toHaveURL(/\/settings\/security\?mfa_enforced=1/);
+      // Assert sign-in automatically forces redirect to security settings with mfa_enforced=1
+      await expect(page).toHaveURL(/\/settings\/security\?mfa_enforced=1/);
 
-    // 3. Attempt to navigate directly to a protected app route (/en/settings) before enrolling MFA
-    await page.goto('/en/settings');
+      // 3. Attempt to navigate directly to a protected app route (/en/settings) before enrolling MFA
+      await page.goto('/en/settings');
 
-    // Assert automatic interception/redirection back to /settings/security?mfa_enforced=1
-    await expect(page).toHaveURL(/\/settings\/security\?mfa_enforced=1/);
+      // Assert automatic interception/redirection back to /settings/security?mfa_enforced=1
+      await expect(page).toHaveURL(/\/settings\/security\?mfa_enforced=1/);
 
-    // 4. Verify alert banner is rendered with role="alert"
-    const alert = page.locator('[data-testid="mfa-enforcement-alert"]');
-    await expect(alert).toBeVisible();
-    await expect(alert).toHaveAttribute('role', 'alert');
-    await expect(alert).toContainText(
-      /Multi-factor authentication is required|Mehrstufige Authentifizierung ist erforderlich/i,
-    );
+      // 4. Verify alert banner is rendered with role="alert"
+      const alert = page.locator('[data-testid="mfa-enforcement-alert"]');
+      await expect(alert).toBeVisible();
+      await expect(alert).toHaveAttribute('role', 'alert');
+      await expect(alert).toContainText(
+        /Multi-factor authentication is required|Mehrstufige Authentifizierung ist erforderlich/i,
+      );
 
-    // 5. Verify postponement button is rendered and functional
-    const postponeBtn = page.locator('[data-testid="postpone-mfa-btn"]');
-    await expect(postponeBtn).toBeVisible();
-    await postponeBtn.click();
+      // 5. Verify postponement button is rendered and functional
+      const postponeBtn = page.locator('[data-testid="postpone-mfa-btn"]');
+      await expect(postponeBtn).toBeVisible();
+      await postponeBtn.click();
 
-    // Verify postponement success notice appears
-    const successAlert = page.locator('[data-testid="security-success-alert"]');
-    await expect(successAlert).toBeVisible();
+      // Verify postponement success notice appears
+      const successAlert = page.locator('[data-testid="security-success-alert"]');
+      await expect(successAlert).toBeVisible();
 
-    // 6. Verify owner can now navigate to protected app route (/en/settings) without being intercepted
-    await page.goto('/en/settings');
-    await expect(page).toHaveURL(/\/en\/settings$/);
-
-    // 7. Cleanup: reset studio settings
-    await setE2eStudioMfaSettings(false, null);
+      // 6. Verify owner can now navigate to protected app route (/en/settings) without being intercepted
+      await page.goto('/en/settings');
+      await expect(page).toHaveURL(/\/en\/settings$/);
+    } finally {
+      // 7. Cleanup: reset studio settings
+      await setE2eStudioMfaSettings(false, null);
+    }
   });
 
   test.describe('AC-7: Localization & WCAG 2.2 AA Axe Accessibility on Security Settings', () => {

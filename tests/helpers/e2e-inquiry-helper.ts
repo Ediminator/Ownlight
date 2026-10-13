@@ -131,14 +131,25 @@ export interface E2eLeadRow {
 }
 
 export async function getE2eLeadsForForm(formId: string): Promise<E2eLeadRow[]> {
-  const pglite = new PGliteClient(path.resolve('./.pglite-e2e'));
-  await pglite.waitReady;
-
-  const result = await pglite.query<E2eLeadRow>(
-    `SELECT * FROM leads WHERE form_id = $1 ORDER BY created_at DESC`,
-    [formId],
-  );
-
-  await pglite.close();
-  return result.rows;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
+      }
+      const pglite = new PGliteClient(path.resolve('./.pglite-e2e'));
+      await pglite.waitReady;
+      try {
+        const result = await pglite.query<E2eLeadRow>(
+          `SELECT * FROM leads WHERE form_id = $1 ORDER BY created_at DESC`,
+          [formId],
+        );
+        return result.rows;
+      } finally {
+        await pglite.close();
+      }
+    } catch (err) {
+      if (attempt === 4) throw err;
+    }
+  }
+  return [];
 }

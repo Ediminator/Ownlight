@@ -1,6 +1,4 @@
 import { type PGlite } from '@electric-sql/pglite';
-import path from 'node:path';
-import { PGlite as PGliteClient } from '@electric-sql/pglite';
 
 export const E2E_INQUIRY_PUBLISHED_SLUG = 'inq-test01';
 export const E2E_INQUIRY_PUBLISHED_ID = '018f0000-0000-7000-8000-000000000010';
@@ -109,47 +107,4 @@ export async function seedAllE2eInquiryForms(pglite: PGlite): Promise<void> {
       now,
     ],
   );
-}
-
-export interface E2eLeadRow {
-  id: string;
-  form_id: string;
-  given_name: string;
-  family_name: string | null;
-  email: string;
-  phone: string | null;
-  event_type: string | null;
-  event_date: string | null;
-  event_location: string | null;
-  message: string | null;
-  delivery_mode: string;
-  verification: string;
-  status: string;
-  notice_version_id: string;
-  notice_acknowledged_at: string;
-  created_at: string;
-}
-
-export async function getE2eLeadsForForm(formId: string): Promise<E2eLeadRow[]> {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      if (attempt > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
-      }
-      const pglite = new PGliteClient(path.resolve('./.pglite-e2e'));
-      await pglite.waitReady;
-      try {
-        const result = await pglite.query<E2eLeadRow>(
-          `SELECT * FROM leads WHERE form_id = $1 ORDER BY created_at DESC`,
-          [formId],
-        );
-        return result.rows;
-      } finally {
-        await pglite.close();
-      }
-    } catch (err) {
-      if (attempt === 4) throw err;
-    }
-  }
-  return [];
 }

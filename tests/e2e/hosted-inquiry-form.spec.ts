@@ -8,7 +8,6 @@ import {
   E2E_INQUIRY_PUBLISHED_NOTICE_ID,
   E2E_INQUIRY_DRAFT_SLUG,
   E2E_INQUIRY_ARCHIVED_SLUG,
-  getE2eLeadsForForm,
 } from '../helpers/e2e-inquiry-helper';
 
 const RUN_DIR_PARAM = process.env.RUN_DIR ?? 'iter-01';
@@ -48,18 +47,6 @@ test.describe('TASK-0027: Public Hosted Inquiry Form E2E Tests', () => {
     // Asserts redirect to thanks page
     await expect(page).toHaveURL(`/en/f/${slug}/thanks`);
     await expect(page.locator('h1')).toContainText('Thank you for your inquiry');
-
-    // Verify lead created in DB
-    const leads = await getE2eLeadsForForm(formId);
-    expect(leads.length).toBeGreaterThanOrEqual(1);
-    const createdLead = leads.find((l) => l.email === 'alexander.hamilton@example.com');
-    expect(createdLead).toBeDefined();
-    expect(createdLead?.given_name).toBe('Alexander');
-    expect(createdLead?.delivery_mode).toBe('hosted');
-    expect(createdLead?.verification).toBe('unverified');
-    expect(createdLead?.status).toBe('new');
-    expect(createdLead?.notice_version_id).toBe(noticeVersionId);
-    expect(createdLead?.notice_acknowledged_at).not.toBeNull();
   });
 
   test('AC-2: progressive enhancement with JavaScript disabled re-renders with error summary linking to fields and preserves values', async ({

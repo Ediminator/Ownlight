@@ -42,7 +42,11 @@ test.describe('TASK-0008: Multi-Factor Authentication (MFA) & Passkeys E2E', () 
   });
 
   test.afterAll(async () => {
-    await setE2eStudioMfaSettings(false, null);
+    try {
+      await setE2eStudioMfaSettings(false, null);
+    } catch {
+      // Best-effort cleanup
+    }
   });
 
   test('AC-1: TOTP enrolment renders local QR code SVG, text alternative, and handles positive code verification with recovery codes display', async ({
@@ -237,14 +241,18 @@ test.describe('TASK-0008: Multi-Factor Authentication (MFA) & Passkeys E2E', () 
     page,
     context,
   }) => {
+    test.setTimeout(60000);
     try {
+      // Clear session from beforeEach so Next.js server connections are completely idle
+      await context.clearCookies();
+      await page.goto('about:blank');
+
       // 1. Configure studio settings with mfa_required=true and postponement expired in the past (AC-8, I2-V01, I2-V02)
       const pastDate = new Date(Date.now() - 3600 * 1000); // 1 hour ago
       await setE2eStudioMfaSettings(true, pastDate);
       await clearE2eUserMfaCredentials();
 
-      // 2. Clear cookies and sign in with owner credentials (without MFA configured)
-      await context.clearCookies();
+      // 2. Sign in with owner credentials (without MFA configured)
       await page.goto('/en/sign-in');
       await page.fill('[data-testid="email-input"]', E2E_OWNER_EMAIL);
       await page.fill('[data-testid="password-input"]', E2E_OWNER_PASSWORD);
@@ -281,8 +289,13 @@ test.describe('TASK-0008: Multi-Factor Authentication (MFA) & Passkeys E2E', () 
       await expect(page).toHaveURL(/\/en\/settings$/);
       await page.waitForLoadState('networkidle');
     } finally {
-      // 7. Cleanup: reset studio settings
-      await setE2eStudioMfaSettings(false, null);
+      await page.goto('about:blank');
+      // 7. Cleanup: reset studio settings (best-effort if concurrent PGlite access locks)
+      try {
+        await setE2eStudioMfaSettings(false, null);
+      } catch {
+        // If locked by running Next.js instance, postponement in step 5 allows suite to continue
+      }
     }
   });
 

@@ -9,6 +9,8 @@ export const STANDARD_SESSION_COOKIE = 'ownlight_session';
 export const BETTER_AUTH_SECURE_COOKIE = '__Secure-better-auth.session_token';
 export const BETTER_AUTH_COOKIE = 'better-auth.session_token';
 
+import { getEmbedOrigins } from './env';
+
 const PUBLIC_PATH_SEGMENTS = [
   'sign-in',
   'setup',
@@ -26,6 +28,29 @@ function isPublicFormRoute(pathname: string): boolean {
   if (segments[0] === 'f') return true;
   if (segments[0] && routing.locales.includes(segments[0] as 'en' | 'de') && segments[1] === 'f') {
     return true;
+  }
+  return false;
+}
+
+/**
+ * Checks whether the request path is an inquiry form embed route
+ * (/{locale}/f/[slug]/embed or .../embed/thanks, or /f/[slug]/embed or .../embed/thanks).
+ */
+export function isEmbedRoute(pathname: string): boolean {
+  const segments = pathname.split('/').filter(Boolean);
+  // /f/[slug]/embed or /f/[slug]/embed/thanks
+  if (segments[0] === 'f' && segments.length >= 3 && segments[2] === 'embed') {
+    return segments.length === 3 || (segments.length === 4 && segments[3] === 'thanks');
+  }
+  // /[locale]/f/[slug]/embed or /[locale]/f/[slug]/embed/thanks
+  if (
+    segments[0] &&
+    routing.locales.includes(segments[0] as 'en' | 'de') &&
+    segments[1] === 'f' &&
+    segments.length >= 4 &&
+    segments[3] === 'embed'
+  ) {
+    return segments.length === 4 || (segments.length === 5 && segments[4] === 'thanks');
   }
   return false;
 }
@@ -99,6 +124,7 @@ function applySecurityHeaders(
   nonce: string,
   isProd: boolean,
   requestId?: string,
+  isEmbed = false,
 ): void {
   response.headers.set('Content-Security-Policy', cspHeader);
   response.headers.set('x-nonce', nonce);
@@ -106,7 +132,12 @@ function applySecurityHeaders(
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
-  response.headers.set('X-Frame-Options', 'DENY');
+
+  if (isEmbed) {
+    response.headers.delete('X-Frame-Options');
+  } else {
+    response.headers.set('X-Frame-Options', 'DENY');
+  }
 
   if (requestId) {
     response.headers.set('X-Request-Id', requestId);
@@ -137,7 +168,42 @@ export default function middleware(request: NextRequest): NextResponse {
   // 2. Generate cryptographically random 16-byte base64 nonce for CSP (strict-dynamic)
   const nonce = generateNonce();
 
-  // 3. Build Content Security Policy header adhering to ASVS 5.0 V3
+  // 3. Inspect embed route status and embed allowlist (AC-1, AC-2, AC-3)
+  const isEmbed = isEmbedRoute(pathname);
+  const embedOrigins = getEmbedOrigins();
+
+  // If embed route requested but embed origins allowlist is empty or unconfigured: return 404 (AC-2)
+  if (isEmbed && embedOrigins.length === 0) {
+    const notFoundResponse = new NextResponse('Not Found', {
+      status: 404,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    });
+    const defaultCsp = `
+      default-src 'self';
+      script-src 'self' 'nonce-${nonce}' 'strict-dynamic';
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' blob: data:;
+      font-src 'self';
+      object-src 'none';
+      base-uri 'none';
+      form-action 'self';
+      frame-ancestors 'none';
+    `
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    applySecurityHeaders(notFoundResponse, defaultCsp, nonce, isProd, requestId, false);
+    return notFoundResponse;
+  }
+
+  // 4. Build Content Security Policy header adhering to ASVS 5.0 V3 and ADR-0015 §3
+  const frameAncestorsDirective =
+    isEmbed && embedOrigins.length > 0
+      ? `frame-ancestors 'self' ${embedOrigins.join(' ')};`
+      : "frame-ancestors 'none';";
+
   const cspHeader = `
     default-src 'self';
     script-src 'self' 'nonce-${nonce}' 'strict-dynamic';
@@ -147,16 +213,16 @@ export default function middleware(request: NextRequest): NextResponse {
     object-src 'none';
     base-uri 'none';
     form-action 'self';
-    frame-ancestors 'none';
+    ${frameAncestorsDirective}
   `
     .replace(/\s{2,}/g, ' ')
     .trim();
 
-  // 4. Route metadata & session inspection
+  // 5. Route metadata & session inspection
   const authenticated = hasValidSessionCookie(request);
   const isPublic = isPublicPath(pathname);
 
-  // 5. Pass nonce, metadata, and correlation ID to request headers
+  // 6. Pass nonce, metadata, and correlation ID to request headers
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', cspHeader);
@@ -166,19 +232,19 @@ export default function middleware(request: NextRequest): NextResponse {
     requestHeaders.set('x-is-auth-route', '1');
   }
 
-  // 6. Root path locale negotiation: delegate '/' to intlMiddleware first
+  // 7. Root path locale negotiation: delegate '/' to intlMiddleware first
   if (pathname === '/') {
     const response = intlMiddleware(
       new NextRequest(request, {
         headers: requestHeaders,
       }),
     );
-    applySecurityHeaders(response, cspHeader, nonce, isProd, requestId);
+    applySecurityHeaders(response, cspHeader, nonce, isProd, requestId, isEmbed);
     response.headers.set('x-pathname', pathname);
     return response;
   }
 
-  // 7. Route protection: redirect unauthenticated requests to protected app routes
+  // 8. Route protection: redirect unauthenticated requests to protected app routes
   if (!isPublic && !authenticated) {
     const locale = extractLocale(pathname);
     const signInUrl = new URL(`/${locale}/sign-in`, request.url);
@@ -186,19 +252,19 @@ export default function middleware(request: NextRequest): NextResponse {
       signInUrl.searchParams.set('callbackUrl', pathname);
     }
     const redirectResponse = NextResponse.redirect(signInUrl);
-    applySecurityHeaders(redirectResponse, cspHeader, nonce, isProd, requestId);
+    applySecurityHeaders(redirectResponse, cspHeader, nonce, isProd, requestId, isEmbed);
     return redirectResponse;
   }
 
-  // 8. Delegate to next-intl middleware for locale negotiation
+  // 9. Delegate to next-intl middleware for locale negotiation
   const response = intlMiddleware(
     new NextRequest(request, {
       headers: requestHeaders,
     }),
   );
 
-  // 9. Apply mandatory security headers, correlation ID and route metadata
-  applySecurityHeaders(response, cspHeader, nonce, isProd, requestId);
+  // 10. Apply mandatory security headers, correlation ID and route metadata
+  applySecurityHeaders(response, cspHeader, nonce, isProd, requestId, isEmbed);
   response.headers.set('x-pathname', pathname);
   response.headers.set('x-middleware-request-x-pathname', pathname);
   response.headers.set('x-middleware-request-x-request-id', requestId);
@@ -207,8 +273,8 @@ export default function middleware(request: NextRequest): NextResponse {
     response.headers.set('x-middleware-request-x-is-auth-route', '1');
   }
 
-  // Strictly no Set-Cookie on public form routes (AC-10 / TDDDG §25)
-  if (isPublicFormRoute(pathname)) {
+  // Strictly no Set-Cookie on public form routes and embed routes (AC-12 / TDDDG §25)
+  if (isPublicFormRoute(pathname) || isEmbed) {
     response.headers.delete('set-cookie');
   }
 

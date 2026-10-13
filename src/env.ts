@@ -115,6 +115,67 @@ function formatZodError(error: z.ZodError): EnvValidationError {
 }
 
 /**
+ * Parses and validates a comma-separated list of embed origins (ADR-0015, TASK-0028).
+ * Up to 10 origins. Each origin must be protocol + host + optional port.
+ * No paths, no trailing slash, no wildcards, no query/hash/credentials.
+ * In production, scheme must be https://. In non-production, http://localhost:<port> is permitted.
+ */
+export function parseEmbedOrigins(raw: string | undefined | null, isProduction = false): string[] {
+  if (raw === undefined || raw === null || raw.trim() === '') {
+    return [];
+  }
+
+  const rawEntries = raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (rawEntries.length === 0) {
+    return [];
+  }
+
+  if (rawEntries.length > 10) {
+    throw new Error('PUBLIC_FORMS_EMBED_ORIGINS allows at most 10 origins.');
+  }
+
+  const result: string[] = [];
+  for (const entry of rawEntries) {
+    if (entry.includes('*')) {
+      throw new Error(`Invalid embed origin "${entry}": wildcards are not allowed.`);
+    }
+
+    if (entry.endsWith('/')) {
+      throw new Error(`Invalid embed origin "${entry}": trailing slash is not allowed.`);
+    }
+
+    let url: URL;
+    try {
+      url = new URL(entry);
+    } catch {
+      throw new Error(`Invalid embed origin "${entry}": must be a valid origin.`);
+    }
+
+    if (entry !== url.origin) {
+      throw new Error(
+        `Invalid embed origin "${entry}": must be a bare origin with no path, query, or credentials.`,
+      );
+    }
+
+    if (url.protocol === 'https:') {
+      result.push(url.origin);
+    } else if (!isProduction && url.protocol === 'http:' && url.hostname === 'localhost') {
+      result.push(url.origin);
+    } else {
+      throw new Error(
+        `Invalid embed origin "${entry}": scheme must be https:// (or http://localhost:<port> in non-production).`,
+      );
+    }
+  }
+
+  return result;
+}
+
+/**
  * Server-only environment schema.
  * All sensitive keys and server configurations live here.
  */
@@ -219,6 +280,25 @@ export const serverSchema = z.object({
       message: 'DATABASE_RETENTION_URL must be a valid PostgreSQL connection URL.',
     })
     .optional(),
+
+  // Public inquiry forms embed origins allowlist (ADR-0015, TASK-0028)
+  PUBLIC_FORMS_EMBED_ORIGINS: z
+    .string()
+    .optional()
+    .default('')
+    .superRefine((val, ctx) => {
+      if (val === '') return;
+      try {
+        const isProduction =
+          process.env.NODE_ENV === 'production' && process.env.USE_PGLITE !== 'true';
+        parseEmbedOrigins(val, isProduction);
+      } catch (err) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: err instanceof Error ? err.message : 'Invalid PUBLIC_FORMS_EMBED_ORIGINS',
+        });
+      }
+    }),
 
   // Local dev credentials & ports (Docker Compose)
   POSTGRES_DB: z.string().default('ownlight_dev'),
@@ -474,4 +554,27 @@ export function isGoogleOAuthConfigured(envSource?: Partial<ServerEnv>): boolean
     clientSecret &&
     clientSecret.trim().length > 0,
   );
+}
+
+/**
+ * Returns the allowlist of origins permitted to frame the inquiry form in an iframe
+ * or submit cross-origin script-free forms (ADR-0015, TASK-0028).
+ * Returns an empty array if unset or unconfigured.
+ */
+export function getEmbedOrigins(raw?: string): string[] {
+  const isProd = process.env.NODE_ENV === 'production' && process.env.USE_PGLITE !== 'true';
+  if (raw !== undefined) {
+    return parseEmbedOrigins(raw, isProd);
+  }
+
+  if (process.env.SKIP_ENV_VALIDATION === 'true') {
+    return parseEmbedOrigins(process.env.PUBLIC_FORMS_EMBED_ORIGINS ?? '', isProd);
+  }
+
+  try {
+    const rawVal = getServerEnv().PUBLIC_FORMS_EMBED_ORIGINS;
+    return parseEmbedOrigins(rawVal, isProd);
+  } catch {
+    return parseEmbedOrigins(process.env.PUBLIC_FORMS_EMBED_ORIGINS ?? '', isProd);
+  }
 }

@@ -7,6 +7,7 @@ import * as googleRepo from '@/server/integrations/google/repo';
 import { encryptSecret } from '@/server/crypto/vault';
 import { GOOGLE_OAUTH_PURPOSE } from '@/server/integrations/google/constants';
 import type { ContactForGoogleSync } from '@/server/integrations/google/mapping';
+import type { DbClient } from '@/server/db/client';
 
 describe('GooglePeopleClient Unit Branch Coverage', () => {
   const masterKey = '4f8c9b2d1e0a3f5c7b9a1d3e5f7a9b1c3d5e7f9a1b3c5d7e9f1a3b5c7d9e1f3a';
@@ -498,6 +499,159 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
       const client200 = new GooglePeopleClient({ fetchFn: fetch200 });
       const res200 = await client200.deleteContact('people/123');
       expect(res200).toBe(true);
+    });
+  });
+
+  describe('getGoogleContactsSyncStatusForClient and purgeAllGoogleContacts branches', () => {
+    it('exercises all getGoogleContactsSyncStatusForClient branches', async () => {
+      const { getGoogleContactsSyncStatusForClient } =
+        await import('@/server/integrations/google/outbox');
+
+      // 1. sync not enabled
+      const mockDbNotEnabled = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => Promise.resolve([{ syncEnabled: false }]),
+            }),
+          }),
+        }),
+      } as unknown as DbClient;
+      expect(await getGoogleContactsSyncStatusForClient('c-1', mockDbNotEnabled)).toBe(
+        'not_synced',
+      );
+
+      // 2. sync enabled, 0 contacts
+      let callCount = 0;
+      const mockDbNoContacts = {
+        select: () => ({
+          from: () => ({
+            where: () => {
+              callCount++;
+              if (callCount === 1) {
+                return { limit: () => Promise.resolve([{ syncEnabled: true }]) };
+              }
+              return Promise.resolve([]);
+            },
+          }),
+        }),
+      } as unknown as DbClient;
+      expect(await getGoogleContactsSyncStatusForClient('c-1', mockDbNoContacts)).toBe('synced');
+
+      // 3. sync enabled, 1 contact, outbox FAILED
+      callCount = 0;
+      const mockDbFailed = {
+        select: () => ({
+          from: () => ({
+            where: () => {
+              callCount++;
+              if (callCount === 1) return { limit: () => Promise.resolve([{ syncEnabled: true }]) };
+              if (callCount === 2) return Promise.resolve([{ id: 'ct-1' }]);
+              return Promise.resolve([{ status: 'FAILED' }]);
+            },
+          }),
+        }),
+      } as unknown as DbClient;
+      expect(await getGoogleContactsSyncStatusForClient('c-1', mockDbFailed)).toBe('failed');
+
+      // 4. sync enabled, 1 contact, outbox PENDING
+      callCount = 0;
+      const mockDbPending = {
+        select: () => ({
+          from: () => ({
+            where: () => {
+              callCount++;
+              if (callCount === 1) return { limit: () => Promise.resolve([{ syncEnabled: true }]) };
+              if (callCount === 2) return Promise.resolve([{ id: 'ct-1' }]);
+              return Promise.resolve([{ status: 'PENDING' }]);
+            },
+          }),
+        }),
+      } as unknown as DbClient;
+      expect(await getGoogleContactsSyncStatusForClient('c-1', mockDbPending)).toBe('pending');
+
+      // 5. sync enabled, 1 contact, outbox PROCESSING
+      callCount = 0;
+      const mockDbProc = {
+        select: () => ({
+          from: () => ({
+            where: () => {
+              callCount++;
+              if (callCount === 1) return { limit: () => Promise.resolve([{ syncEnabled: true }]) };
+              if (callCount === 2) return Promise.resolve([{ id: 'ct-1' }]);
+              return Promise.resolve([{ status: 'PROCESSING' }]);
+            },
+          }),
+        }),
+      } as unknown as DbClient;
+      expect(await getGoogleContactsSyncStatusForClient('c-1', mockDbProc)).toBe('pending');
+
+      // 6. sync enabled, 1 contact, outbox empty, 1 link -> synced
+      callCount = 0;
+      const mockDbSynced = {
+        select: () => ({
+          from: () => ({
+            where: () => {
+              callCount++;
+              if (callCount === 1) return { limit: () => Promise.resolve([{ syncEnabled: true }]) };
+              if (callCount === 2) return Promise.resolve([{ id: 'ct-1' }]);
+              if (callCount === 3) return Promise.resolve([]);
+              return Promise.resolve([{ id: 'l-1' }]);
+            },
+          }),
+        }),
+      } as unknown as DbClient;
+      expect(await getGoogleContactsSyncStatusForClient('c-1', mockDbSynced)).toBe('synced');
+
+      // 7. sync enabled, 1 contact, outbox empty, 0 links -> fallback pending
+      callCount = 0;
+      const mockDbFallbackPending = {
+        select: () => ({
+          from: () => ({
+            where: () => {
+              callCount++;
+              if (callCount === 1) return { limit: () => Promise.resolve([{ syncEnabled: true }]) };
+              if (callCount === 2) return Promise.resolve([{ id: 'ct-1' }]);
+              if (callCount === 3) return Promise.resolve([]);
+              return Promise.resolve([]);
+            },
+          }),
+        }),
+      } as unknown as DbClient;
+      expect(await getGoogleContactsSyncStatusForClient('c-1', mockDbFallbackPending)).toBe(
+        'pending',
+      );
+    });
+
+    it('exercises purgeAllGoogleContacts branches', async () => {
+      const { purgeAllGoogleContacts } = await import('@/server/integrations/google/outbox');
+
+      // 1. links length === 0
+      const mockDbEmpty = {
+        select: () => ({
+          from: () => Promise.resolve([]),
+        }),
+      } as unknown as DbClient;
+      expect(await purgeAllGoogleContacts(mockDbEmpty)).toBe(0);
+
+      // 2. links length > 0, deleteContact throws error
+      let deletedLinks = false;
+      const mockDbWithLinks = {
+        select: () => ({
+          from: () => Promise.resolve([{ googleResourceName: 'people/c1' }]),
+        }),
+        delete: () => ({
+          from: () => {
+            deletedLinks = true;
+            return Promise.resolve();
+          },
+        }),
+      } as unknown as DbClient;
+
+      const failingFetch = vi.fn().mockRejectedValue(new Error('Network error'));
+      const count = await purgeAllGoogleContacts(mockDbWithLinks, failingFetch);
+      expect(count).toBe(0);
+      expect(deletedLinks).toBe(false);
     });
   });
 });

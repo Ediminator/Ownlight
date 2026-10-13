@@ -199,5 +199,13 @@ describe('AC-2: Encrypted Credential Vault (HKDF-SHA256 & AES-256-GCM)', () => {
     // Base64 master key of invalid length (decoded != 32 bytes)
     const badB64 = Buffer.alloc(30).toString('base64');
     expect(() => parseMasterKey(badB64)).toThrow(VaultConfigurationError);
+
+    // Base64 master key of 44 chars without trailing equals
+    const unpadded44B64 = Buffer.alloc(33).toString('base64').replace(/=/g, '');
+    expect(() => parseMasterKey(unpadded44B64)).toThrow(VaultConfigurationError);
+
+    // Valid base64 key of 32 bytes (44 chars with trailing equals)
+    const valid32B64 = Buffer.alloc(32, 0x42).toString('base64');
+    expect(parseMasterKey(valid32B64)).toHaveLength(32);
   });
 });

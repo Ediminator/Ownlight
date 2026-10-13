@@ -144,4 +144,30 @@ describe('AC-1, AC-2, AC-3: Client IP Resolver', () => {
     };
     expect(resolveClientIp(arrayDict)).toBe('203.0.113.9');
   });
+
+  it('covers empty array, non-string descriptor, empty headers, and TRUSTED_PROXY_COUNT fallback', () => {
+    // Empty array
+    expect(resolveClientIp({ 'x-forwarded-for': [] }, 1)).toBeNull();
+
+    // Non-string descriptor
+    expect(resolveClientIp({ 'x-forwarded-for': 123 as unknown as string }, 1)).toBeNull();
+
+    // Headers with no x-forwarded-for
+    expect(resolveClientIp(new Headers(), 1)).toBeNull();
+
+    // TRUSTED_PROXY_COUNT unset fallback to 1
+    const origProxy = process.env.TRUSTED_PROXY_COUNT;
+    try {
+      delete process.env.TRUSTED_PROXY_COUNT;
+      resetEnvCache();
+      expect(resolveClientIp({ 'x-forwarded-for': '1.2.3.4' })).toBe('1.2.3.4');
+    } finally {
+      if (origProxy !== undefined) {
+        process.env.TRUSTED_PROXY_COUNT = origProxy;
+      } else {
+        delete process.env.TRUSTED_PROXY_COUNT;
+      }
+      resetEnvCache();
+    }
+  });
 });

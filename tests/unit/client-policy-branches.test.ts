@@ -251,5 +251,56 @@ describe('src/server/clients/policy branch coverage', () => {
         mockDbClient,
       );
     });
+
+    it('covers apiKey with prefix but no id in denied audit event', async () => {
+      const apiKeyPrefixOnly: AuthContext = {
+        user: createMockUser('owner'),
+        scopes: ['clients:read'],
+        authType: 'apiKey',
+        apiKey: {
+          id: undefined as unknown as string,
+          prefix: 'key_pref_123',
+          tokenHash: 'mock-hash',
+          name: 'Prefix Only Key',
+          scopes: ['clients:read'],
+          userId: 'u1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastUsedAt: null,
+          expiresAt: null,
+          revokedAt: null,
+        },
+      };
+
+      await expect(
+        authorizeClientWrite('client.delete', 'target-1', apiKeyPrefixOnly, mockDbClient),
+      ).rejects.toThrow(ForbiddenError);
+
+      expect(mockAuditFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorType: 'token',
+          actorId: 'key_pref_123',
+          targetId: 'target-1',
+        }),
+        mockDbClient,
+      );
+    });
+
+    it('covers non-owner role in authorizeClientWrite and authorizeClientRead', async () => {
+      const memberContext: AuthContext = {
+        user: createMockUser('member'),
+        scopes: ['*'],
+        authType: 'session',
+        session: createMockSession(),
+      };
+
+      await expect(authorizeClientRead(memberContext, mockDbClient)).rejects.toThrow(
+        ForbiddenError,
+      );
+
+      await expect(
+        authorizeClientWrite('client.delete', 'target-1', memberContext, mockDbClient),
+      ).rejects.toThrow(ForbiddenError);
+    });
   });
 });

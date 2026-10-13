@@ -58,8 +58,15 @@ export interface RetentionPolicy<
 
 export function getClientRetentionMonths(): number {
   try {
+    const raw = process.env.CLIENT_RETENTION_MONTHS;
+    if (raw) {
+      const parsed = parseInt(raw, 10);
+      if (Number.isFinite(parsed) && parsed >= 1) {
+        return parsed;
+      }
+    }
     const val = env.CLIENT_RETENTION_MONTHS;
-    if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+    if (typeof val === 'number' && Number.isFinite(val) && val >= 1) {
       return val;
     }
   } catch {
@@ -78,7 +85,7 @@ export function getLeadRetentionMonths(): number {
       }
     }
     const val = env.LEAD_RETENTION_MONTHS;
-    if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+    if (typeof val === 'number' && Number.isFinite(val) && val >= 1 && val <= 36) {
       return val;
     }
   } catch {
@@ -139,9 +146,17 @@ export function defineRetentionPolicy<T extends RetentionEntity = RetentionEntit
 export function createDefaultPolicies(): RetentionPolicy[] {
   let auditMonths = 24;
   try {
-    const val = env.RETENTION_PERIOD_MONTHS;
-    if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
-      auditMonths = val;
+    const raw = process.env.RETENTION_PERIOD_MONTHS;
+    if (raw) {
+      const parsed = parseInt(raw, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        auditMonths = parsed;
+      }
+    } else {
+      const val = env.RETENTION_PERIOD_MONTHS;
+      if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+        auditMonths = val;
+      }
     }
   } catch {
     auditMonths = 24;
@@ -235,9 +250,17 @@ export function createDefaultPolicies(): RetentionPolicy[] {
   // 4. Withdrawn consent records chain older than retention period (default 36 months, GDPR Art. 7(1) proof)
   let consentProofMonths = 36;
   try {
-    const val = env.CONSENT_PROOF_RETENTION_MONTHS;
-    if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
-      consentProofMonths = val;
+    const raw = process.env.CONSENT_PROOF_RETENTION_MONTHS;
+    if (raw) {
+      const parsed = parseInt(raw, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        consentProofMonths = parsed;
+      }
+    } else {
+      const val = env.CONSENT_PROOF_RETENTION_MONTHS;
+      if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+        consentProofMonths = val;
+      }
     }
   } catch {
     consentProofMonths = 36;

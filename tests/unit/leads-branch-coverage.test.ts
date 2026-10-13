@@ -1331,5 +1331,119 @@ describe('TASK-0026: Branch coverage boost for Leads Domain, Retention, and Priv
         expect(Array.isArray(nextStringPage.leads)).toBe(true);
       }
     });
+
+    it('covers empty lead IDs in getLeadsByIds, deleteNonConvertedLeads, and deleteLeads', async () => {
+      const leadsEmpty = await getLeadsByIds([], dbClient);
+      expect(leadsEmpty).toEqual([]);
+
+      const deletedEmpty = await deleteNonConvertedLeads([], dbClient);
+      expect(deletedEmpty).toBe(0);
+
+      const deleteResEmpty = await deleteLeads([], undefined, dbClient);
+      expect(deleteResEmpty).toEqual({ success: true, count: 0, data: { count: 0 } });
+    });
+
+    it('covers createLead with full context and optional fields', async () => {
+      const now = new Date();
+      const res = await createLead(
+        {
+          formId,
+          noticeVersionId,
+          noticeAcknowledgedAt: now,
+          locale: 'en',
+          givenName: 'Comprehensive',
+          familyName: 'Lead',
+          email: '  comp-lead@example.com  ',
+          phone: '  +49123456789  ',
+          eventTypeKey: 'wedding',
+          eventDate: '2026-09-01',
+          eventLocation: 'Berlin Studio',
+          message: 'Detailed message',
+        },
+        {
+          verification: 'verified',
+          deliveryMode: 'embed',
+        },
+        dbClient,
+      );
+
+      expect(res.success).toBe(true);
+      if (res.success) {
+        expect(res.data.verification).toBe('verified');
+        expect(res.data.deliveryMode).toBe('embed');
+        expect(res.data.familyName).toBe('Lead');
+        expect(res.data.phone).toBe('+49123456789');
+        expect(res.data.email).toBe('comp-lead@example.com');
+        expect(res.data.emailNormalized).toBe('comp-lead@example.com');
+        expect(res.data.eventTypeKey).toBe('wedding');
+      }
+    });
+
+    it('covers insertForm, insertNoticeVersionRecord, and insertLeadRecord error throwing branches', async () => {
+      const { insertForm, insertNoticeVersionRecord } = await import('@/server/inquiry-forms/repo');
+      const mockEmptyClient = {
+        insert: () => ({
+          values: () => ({
+            returning: () => Promise.resolve([]),
+          }),
+        }),
+      } as unknown as DbClient;
+
+      await expect(
+        insertForm(
+          {
+            name: 'test',
+            slug: 'test-form',
+            status: 'draft',
+            fields: [],
+            eventTypes: [],
+          },
+          mockEmptyClient,
+        ),
+      ).rejects.toThrow('Failed to insert inquiry form record');
+
+      await expect(
+        insertNoticeVersionRecord(
+          {
+            formId: generateUuidV7(),
+            version: 1,
+            acknowledgementTextEn: 'a',
+            acknowledgementTextDe: 'a',
+            privacyPolicyUrl: 'https://example.com',
+            createdByActorId: 'actor-1',
+          },
+          mockEmptyClient,
+        ),
+      ).rejects.toThrow('Failed to insert inquiry form notice version record');
+
+      await expect(
+        insertLeadRecord(
+          {
+            formId,
+            noticeVersionId,
+            noticeAcknowledgedAt: new Date(),
+            status: 'new',
+            verification: 'unverified',
+            deliveryMode: 'hosted',
+            locale: 'en',
+            givenName: 'Test',
+            familyName: null,
+            email: 'test@example.com',
+            emailNormalized: 'test@example.com',
+            phone: null,
+            eventTypeKey: null,
+            eventDate: null,
+            eventLocation: null,
+            message: null,
+            autoReplyStatus: 'not_applicable',
+            receivedAt: new Date(),
+            lastActivityAt: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          mockEmptyClient,
+        ),
+      ).rejects.toThrow('Failed to insert lead record');
+    });
   });
 });

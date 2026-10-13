@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { validateServerEnv, EnvValidationError, resetEnvCache } from '@/env';
+import { validateServerEnv, EnvValidationError, resetEnvCache, env } from '@/env';
+import { getLeadRetentionMonths, getClientRetentionMonths } from '@/server/retention/policy';
 
 describe('AC-13: LEAD_RETENTION_MONTHS environment validation', () => {
   const originalEnv = { ...process.env };
@@ -102,6 +103,92 @@ describe('AC-13: LEAD_RETENTION_MONTHS environment validation', () => {
         expect(err).toBeInstanceOf(EnvValidationError);
         const valErr = err as EnvValidationError;
         expect(valErr.message).toContain('LEAD_RETENTION_MONTHS');
+      }
+    }
+  });
+
+  it('covers env proxy and retention helpers when SKIP_ENV_VALIDATION is true', () => {
+    const origSkip = process.env.SKIP_ENV_VALIDATION;
+    const origLead = process.env.LEAD_RETENTION_MONTHS;
+    const origProxy = process.env.TRUSTED_PROXY_COUNT;
+    const origPort = process.env.PORT;
+    const origUrl = process.env.DATABASE_URL;
+
+    try {
+      process.env.SKIP_ENV_VALIDATION = 'true';
+
+      // 1. LEAD_RETENTION_MONTHS in range (1-36)
+      process.env.LEAD_RETENTION_MONTHS = '18';
+      expect(env.LEAD_RETENTION_MONTHS).toBe(18);
+      expect(getLeadRetentionMonths()).toBe(18);
+
+      // 2. LEAD_RETENTION_MONTHS out of range (< 1)
+      process.env.LEAD_RETENTION_MONTHS = '0';
+      expect(env.LEAD_RETENTION_MONTHS).toBe(12);
+      expect(getLeadRetentionMonths()).toBe(12);
+
+      // 3. LEAD_RETENTION_MONTHS out of range (> 36)
+      process.env.LEAD_RETENTION_MONTHS = '99';
+      expect(env.LEAD_RETENTION_MONTHS).toBe(12);
+      expect(getLeadRetentionMonths()).toBe(12);
+
+      // 4. LEAD_RETENTION_MONTHS non-numeric string
+      process.env.LEAD_RETENTION_MONTHS = 'not-a-number';
+      expect(env.LEAD_RETENTION_MONTHS).toBe(12);
+      expect(getLeadRetentionMonths()).toBe(12);
+
+      // 5. LEAD_RETENTION_MONTHS omitted
+      delete process.env.LEAD_RETENTION_MONTHS;
+      expect(env.LEAD_RETENTION_MONTHS).toBe(12);
+      expect(getLeadRetentionMonths()).toBe(12);
+
+      // 6. TRUSTED_PROXY_COUNT: >= 0 is valid, negative falls back
+      process.env.TRUSTED_PROXY_COUNT = '0';
+      expect(env.TRUSTED_PROXY_COUNT).toBe(0);
+      process.env.TRUSTED_PROXY_COUNT = '3';
+      expect(env.TRUSTED_PROXY_COUNT).toBe(3);
+      process.env.TRUSTED_PROXY_COUNT = '-2';
+      expect(env.TRUSTED_PROXY_COUNT).toBe(1);
+
+      // 7. General numeric defaults (e.g. PORT)
+      process.env.PORT = '8080';
+      expect(env.PORT).toBe(8080);
+      process.env.PORT = '0';
+      expect(env.PORT).toBe(3000);
+
+      // 8. Non-numeric property access under SKIP_ENV_VALIDATION
+      process.env.DATABASE_URL = 'postgres://custom-db:5432/db';
+      expect(env.DATABASE_URL).toBe('postgres://custom-db:5432/db');
+      delete process.env.DATABASE_URL;
+      expect(env.DATABASE_URL).toBe('');
+
+      // 9. CLIENT_RETENTION_MONTHS check
+      expect(getClientRetentionMonths()).toBeGreaterThanOrEqual(1);
+    } finally {
+      if (origSkip !== undefined) {
+        process.env.SKIP_ENV_VALIDATION = origSkip;
+      } else {
+        delete process.env.SKIP_ENV_VALIDATION;
+      }
+      if (origLead !== undefined) {
+        process.env.LEAD_RETENTION_MONTHS = origLead;
+      } else {
+        delete process.env.LEAD_RETENTION_MONTHS;
+      }
+      if (origProxy !== undefined) {
+        process.env.TRUSTED_PROXY_COUNT = origProxy;
+      } else {
+        delete process.env.TRUSTED_PROXY_COUNT;
+      }
+      if (origPort !== undefined) {
+        process.env.PORT = origPort;
+      } else {
+        delete process.env.PORT;
+      }
+      if (origUrl !== undefined) {
+        process.env.DATABASE_URL = origUrl;
+      } else {
+        delete process.env.DATABASE_URL;
       }
     }
   });

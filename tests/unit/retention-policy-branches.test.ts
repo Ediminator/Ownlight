@@ -13,6 +13,7 @@ import {
   resetPolicies,
   getClientRetentionMonths,
 } from '@/server/retention/policy';
+import { resetEnvCache } from '@/env';
 import type { DbClient } from '@/server/db/client';
 
 describe('Retention policy utility and definition branches', () => {
@@ -422,17 +423,73 @@ describe('Retention policy utility and definition branches', () => {
     expect(auditPolicy?.after?.months).toBe(24);
   });
 
-  it('getClientRetentionMonths returns positive integer (default 36 or env value)', () => {
-    const months = getClientRetentionMonths();
-    expect(typeof months).toBe('number');
-    expect(months).toBeGreaterThan(0);
+  it('getClientRetentionMonths returns positive integer and tests fallbacks', () => {
+    const origClient = process.env.CLIENT_RETENTION_MONTHS;
+    try {
+      // Configured valid value
+      process.env.CLIENT_RETENTION_MONTHS = '48';
+      expect(getClientRetentionMonths()).toBe(48);
+
+      // Out of range (0)
+      process.env.CLIENT_RETENTION_MONTHS = '0';
+      expect(getClientRetentionMonths()).toBe(36);
+
+      // Non-numeric
+      process.env.CLIENT_RETENTION_MONTHS = 'invalid';
+      expect(getClientRetentionMonths()).toBe(36);
+    } finally {
+      if (origClient !== undefined) {
+        process.env.CLIENT_RETENTION_MONTHS = origClient;
+      } else {
+        delete process.env.CLIENT_RETENTION_MONTHS;
+      }
+    }
   });
 
-  it('getLeadRetentionMonths returns positive integer (default 12 or env value)', async () => {
+  it('getLeadRetentionMonths returns positive integer and tests non-numeric parse', async () => {
     const { getLeadRetentionMonths } = await import('@/server/retention/policy');
-    const months = getLeadRetentionMonths();
-    expect(typeof months).toBe('number');
-    expect(months).toBeGreaterThanOrEqual(1);
-    expect(months).toBeLessThanOrEqual(36);
+    const origLead = process.env.LEAD_RETENTION_MONTHS;
+    try {
+      process.env.LEAD_RETENTION_MONTHS = 'invalid-lead-months';
+      expect(getLeadRetentionMonths()).toBe(12);
+
+      process.env.LEAD_RETENTION_MONTHS = '24';
+      expect(getLeadRetentionMonths()).toBe(24);
+    } finally {
+      if (origLead !== undefined) {
+        process.env.LEAD_RETENTION_MONTHS = origLead;
+      } else {
+        delete process.env.LEAD_RETENTION_MONTHS;
+      }
+    }
+  });
+
+  it('createDefaultPolicies respects configured RETENTION_PERIOD_MONTHS and CONSENT_PROOF_RETENTION_MONTHS', () => {
+    const origPeriod = process.env.RETENTION_PERIOD_MONTHS;
+    const origConsent = process.env.CONSENT_PROOF_RETENTION_MONTHS;
+    try {
+      process.env.RETENTION_PERIOD_MONTHS = '18';
+      process.env.CONSENT_PROOF_RETENTION_MONTHS = '60';
+      resetEnvCache();
+
+      const policies = createDefaultPolicies();
+      const auditPolicy = policies.find((p) => p.id === 'audit-events-retention');
+      expect(auditPolicy?.after?.months).toBe(18);
+
+      const consentPolicy = policies.find((p) => p.id === 'withdrawn-consent-proof');
+      expect(consentPolicy?.after?.months).toBe(60);
+    } finally {
+      if (origPeriod !== undefined) {
+        process.env.RETENTION_PERIOD_MONTHS = origPeriod;
+      } else {
+        delete process.env.RETENTION_PERIOD_MONTHS;
+      }
+      if (origConsent !== undefined) {
+        process.env.CONSENT_PROOF_RETENTION_MONTHS = origConsent;
+      } else {
+        delete process.env.CONSENT_PROOF_RETENTION_MONTHS;
+      }
+      resetEnvCache();
+    }
   });
 });

@@ -24,7 +24,7 @@ import {
 import { isAllowedLeadStatusTransition } from './transitions';
 
 export type ActorInput =
-  { actorType?: ActorType; actorId: string | null } | string | null | undefined;
+  { actorType?: ActorType; actorId?: string | null } | string | null | undefined;
 
 export function resolveActor(actor: ActorInput): { actorType: ActorType; actorId: string | null } {
   if (!actor) {

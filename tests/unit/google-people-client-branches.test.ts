@@ -246,11 +246,11 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
       const fetchNonNumExpires = vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ access_token: 'refreshed-tok', expires_in: 'invalid' }),
+        json: () => Promise.resolve({ access_token: 'tok-1', expires_in: 'invalid' }),
       });
       const clientExpires = new GooglePeopleClient({ fetchFn: fetchNonNumExpires });
       const refreshed = await clientExpires.getValidAccessToken();
-      expect(refreshed).toBe('refreshed-tok');
+      expect(refreshed).toBe('tok-1');
     });
   });
 

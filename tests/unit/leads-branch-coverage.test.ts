@@ -599,11 +599,13 @@ describe('TASK-0026: Branch coverage boost for Leads Domain, Retention, and Priv
       const heldIds = new Set([l1.id, l2.id]);
       registerErasureHoldProvider({
         id: 'test-coverage-lead-hold-provider',
-        description: 'Test hold for lead coverage',
         holds: (subject) => {
           if (subject.kind === 'lead' && heldIds.has(subject.leadId)) {
             return Promise.resolve([
-              { id: 'test-hold', reason: 'Legal inquiry', heldAt: new Date() },
+              {
+                reason: 'Legal inquiry',
+                retainUntil: null,
+              },
             ]);
           }
           return Promise.resolve([]);
@@ -914,8 +916,13 @@ describe('TASK-0026: Branch coverage boost for Leads Domain, Retention, and Priv
       );
 
       expect(collectedItems).toBeDefined();
-      expect(collectedItems?.length).toBe(1);
-      const item = collectedItems?.[0] as Record<string, unknown> | undefined;
+      const itemsList = Array.isArray(collectedItems)
+        ? collectedItems
+        : collectedItems
+          ? [collectedItems]
+          : [];
+      expect(itemsList.length).toBe(1);
+      const item = itemsList[0] as Record<string, unknown> | undefined;
       expect(item?.form_name).toBe('Inquiry form');
       expect(item?.notice_version).toBeNull();
       expect(item?.notice_acknowledgement_text_en).toBeNull();

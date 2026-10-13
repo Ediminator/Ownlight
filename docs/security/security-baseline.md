@@ -44,6 +44,11 @@ This document establishes the mandatory security standards and controls for the 
 - **Validation at Boundaries:** All input to server actions and route handlers must be parsed using `zod` schemas with `.strict()`. Free-text fields have strict maximum length constraints.
 - **Mass Assignment Prevention:** Data objects for database insertion must be constructed explicitly from schema-validated fields; never pass spread request bodies directly into ORM mutations.
 - **Sanitisation:** Any user-controlled rich text or markdown (contract templates, questionnaires) must be sanitised with DOMPurify on both input and render.
+- **Script-Free Public Endpoints (ASVS V4.1, V5.1):** The script-free submission endpoint (`POST /api/public/forms/[slug]/submissions`) enforces strict input constraints:
+  - `Content-Type` must be strictly `application/x-www-form-urlencoded` (rejects other media types with `415 Unsupported Media Type`).
+  - Body payload size is bounded to ≤ 16 KiB at stream level before parsing, returning `413 Payload Too Large` if exceeded.
+  - Origin verification: `Origin` header must be present and exactly match an entry in `PUBLIC_FORMS_EMBED_ORIGINS` (`403 Forbidden`).
+  - Open redirect prevention: `success_redirect_url` must be an HTTPS URL matching an allowlisted origin in `PUBLIC_FORMS_EMBED_ORIGINS`; unlisted origins fail validation and fall back to the hosted thanks page.
 - **Anti-Automation & Rate Limiting (ASVS V2.4, V6.3, V16.3):** All authentication, credential verification, and public entry endpoints are protected by DB-backed rate limiting surviving application restarts (`rate_limits` table with sliding window).
   - **Atomic Upsert Statements:** Rate limiting operations (`consumeRateLimit`, `recordFailedAttempt`) execute as a single atomic SQL statement (`INSERT ... ON CONFLICT (key) DO UPDATE SET count = CASE WHEN expires_at <= now() THEN 1 ELSE count + 1 END, expires_at = CASE WHEN expires_at <= now() THEN $windowEnd ELSE expires_at END RETURNING count, expires_at`). This eliminates race conditions where concurrent requests could bypass thresholds.
   - **Fail-Closed Enforcement:** Rate limiter operations never fail open. On database disconnection, connection pool exhaustion, or query errors, all rate limiting routines throw `RateLimitUnavailableError`. Callers refuse the request (generic failure message, 503 for public APIs), create no session, and log the incident without leaking identifiers or raw client IP addresses.
@@ -62,7 +67,12 @@ This document establishes the mandatory security standards and controls for the 
 
 ## 5. Security Headers & Network Security (ASVS V3, V12)
 
-- **HTTP Headers:** Nonce-based Content Security Policy with `strict-dynamic` (`script-src 'self' 'nonce-...' 'strict-dynamic'`, no `unsafe-inline` scripts), HTTP Strict Transport Security (`max-age=63072000; includeSubDomains; preload` in production), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `Cross-Origin-Opener-Policy: same-origin`, `X-Frame-Options: DENY`, `frame-ancestors 'none'`.
+- **HTTP Headers:** Nonce-based Content Security Policy with `strict-dynamic` (`script-src 'self' 'nonce-...' 'strict-dynamic'`, no `unsafe-inline` scripts), HTTP Strict Transport Security (`max-age=63072000; includeSubDomains; preload` in production), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`, `Cross-Origin-Opener-Policy: same-origin`.
+- **Framing & Clickjacking Protections (ASVS V3.4):**
+  - **Standard Routes:** All non-embed routes enforce `X-Frame-Options: DENY` and `frame-ancestors 'none'`.
+  - **Embed Routes:** Embed routes (`/{locale}/f/[slug]/embed` and `/{locale}/f/[slug]/embed/thanks`) enforce `frame-ancestors 'self' <origins>` where `<origins>` is dynamically parsed from `PUBLIC_FORMS_EMBED_ORIGINS` (comma-separated, max 10 origins, https only except dev localhost, no wildcards). `X-Frame-Options` is omitted on embed routes to allow multi-origin allowlists.
+  - **Private by Default:** If `PUBLIC_FORMS_EMBED_ORIGINS` is unset or empty, embed routes return `404 Not Found`, and script-free POST endpoints return `403 Forbidden`.
+  - **Cookie-Free Isolation:** Embed routes strip and set no `Set-Cookie` headers and do not access owner session state.
 - **SSRF Protection:** Outbound HTTP requests to user-configured endpoints (CalDAV servers, webhooks) must be validated using an SSRF-safe client that rejects private, link-local, loopback, and cloud metadata IP ranges.
 
 ---

@@ -17,6 +17,7 @@ import {
   Send,
   EyeOff,
   Archive,
+  Copy,
 } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import {
@@ -56,16 +57,139 @@ export function swapArrayItems<T>(items: readonly T[], fromIndex: number, toInde
   });
 }
 
+/**
+ * Generates pure HTML form snippet for script-free submissions (ADR-0015 §2, AC-10).
+ */
+export function generateScriptFreeFormHtml({
+  form,
+  locale,
+  baseUrl,
+  acknowledgementText,
+  privacyPolicyUrl,
+}: {
+  form: InquiryForm;
+  locale: string;
+  baseUrl: string;
+  acknowledgementText: string;
+  privacyPolicyUrl: string;
+}): string {
+  const enabledFields = [...form.fields].filter((f) => f.enabled).sort((a, b) => a.order - b.order);
+
+  const lines: string[] = [
+    `<form method="POST" action="${baseUrl}/api/public/forms/${form.slug}/submissions">`,
+    `  <input type="hidden" name="locale" value="${locale}">`,
+    `  <div style="display:none" aria-hidden="true">`,
+    `    <label for="field-website">Website</label>`,
+    `    <input type="text" id="field-website" name="website" tabindex="-1" autocomplete="off">`,
+    `  </div>`,
+  ];
+
+  for (const field of enabledFields) {
+    const requiredAttr = field.required ? ' required' : '';
+    const labelRequired = field.required ? ' *' : '';
+
+    switch (field.key) {
+      case 'given_name':
+        lines.push(`  <div>`);
+        lines.push(`    <label for="field-given_name">First name${labelRequired}</label>`);
+        lines.push(
+          `    <input type="text" id="field-given_name" name="given_name" maxlength="100"${requiredAttr}>`,
+        );
+        lines.push(`  </div>`);
+        break;
+      case 'family_name':
+        lines.push(`  <div>`);
+        lines.push(`    <label for="field-family_name">Last name${labelRequired}</label>`);
+        lines.push(
+          `    <input type="text" id="field-family_name" name="family_name" maxlength="100"${requiredAttr}>`,
+        );
+        lines.push(`  </div>`);
+        break;
+      case 'email':
+        lines.push(`  <div>`);
+        lines.push(`    <label for="field-email">Email address${labelRequired}</label>`);
+        lines.push(
+          `    <input type="email" id="field-email" name="email" maxlength="254"${requiredAttr}>`,
+        );
+        lines.push(`  </div>`);
+        break;
+      case 'phone':
+        lines.push(`  <div>`);
+        lines.push(`    <label for="field-phone">Phone number${labelRequired}</label>`);
+        lines.push(
+          `    <input type="tel" id="field-phone" name="phone" maxlength="32"${requiredAttr}>`,
+        );
+        lines.push(`  </div>`);
+        break;
+      case 'event_type':
+        lines.push(`  <div>`);
+        lines.push(`    <label for="field-event_type">Event type${labelRequired}</label>`);
+        lines.push(`    <select id="field-event_type" name="event_type"${requiredAttr}>`);
+        lines.push(`      <option value="">Select event type...</option>`);
+        for (const et of form.eventTypes) {
+          const label = locale === 'de' ? et.label_de : et.label_en;
+          lines.push(`      <option value="${et.key}">${label}</option>`);
+        }
+        lines.push(`    </select>`);
+        lines.push(`  </div>`);
+        break;
+      case 'event_date':
+        lines.push(`  <div>`);
+        lines.push(`    <label for="field-event_date">Event date${labelRequired}</label>`);
+        lines.push(
+          `    <input type="date" id="field-event_date" name="event_date"${requiredAttr}>`,
+        );
+        lines.push(`  </div>`);
+        break;
+      case 'event_location':
+        lines.push(`  <div>`);
+        lines.push(`    <label for="field-event_location">Location${labelRequired}</label>`);
+        lines.push(
+          `    <input type="text" id="field-event_location" name="event_location" maxlength="200"${requiredAttr}>`,
+        );
+        lines.push(`  </div>`);
+        break;
+      case 'message':
+        lines.push(`  <div>`);
+        lines.push(`    <label for="field-message">Message${labelRequired}</label>`);
+        lines.push(
+          `    <textarea id="field-message" name="message" rows="4" maxlength="2000"${requiredAttr}></textarea>`,
+        );
+        lines.push(`  </div>`);
+        break;
+    }
+  }
+
+  lines.push(`  <div>`);
+  lines.push(
+    `    <input type="checkbox" id="field-notice_acknowledged" name="notice_acknowledged" required>`,
+  );
+  lines.push(
+    `    <label for="field-notice_acknowledged">${acknowledgementText} <a href="${privacyPolicyUrl}" target="_blank" rel="noopener noreferrer">(Privacy policy)</a></label>`,
+  );
+  lines.push(`  </div>`);
+  lines.push(`  <div>`);
+  lines.push(`    <button type="submit">Submit inquiry</button>`);
+  lines.push(`  </div>`);
+  lines.push(`</form>`);
+
+  return lines.join('\n');
+}
+
 interface InquiryFormEditViewProps {
   form: InquiryForm;
   noticeVersions: InquiryFormNoticeVersion[];
   locale: string;
+  baseUrl?: string;
+  allowedEmbedOrigins?: string[];
 }
 
 export function InquiryFormEditView({
   form: initialForm,
   noticeVersions: initialNoticeVersions,
   locale,
+  baseUrl: baseUrlProp,
+  allowedEmbedOrigins = [],
 }: InquiryFormEditViewProps) {
   const t = useTranslations('settings.inquiryForms');
   const tLabels = useTranslations('settings.inquiryForms.fields.labels');
@@ -115,6 +239,121 @@ export function InquiryFormEditView({
   const [isUnpublishing, setIsUnpublishing] = React.useState(false);
   const [isArchiving, setIsArchiving] = React.useState(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = React.useState(false);
+
+  // Section 5: Share & Embed state (AC-10)
+  const baseUrl = baseUrlProp ?? 'http://localhost:3000';
+
+  const [isSavingRedirectUrl, setIsSavingRedirectUrl] = React.useState(false);
+  const [copiedTarget, setCopiedTarget] = React.useState<string | null>(null);
+  const copyTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleCopy = async (text: string, targetId: string) => {
+    try {
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === 'function'
+      ) {
+        await navigator.clipboard.writeText(text);
+      } else if (typeof document !== 'undefined') {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+    } catch {
+      // Ignore clipboard write failures in restricted environments
+    } finally {
+      setCopiedTarget(targetId);
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+      copyTimeoutRef.current = setTimeout(() => {
+        setCopiedTarget(null);
+      }, 2000);
+    }
+  };
+
+  const handleSaveRedirectUrl = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    setErrorSummary(null);
+    setPublishPreconditionError(null);
+    setNotification(null);
+
+    const trimmedUrl = successRedirectUrl.trim();
+    if (trimmedUrl) {
+      if (!trimmedUrl.startsWith('https://')) {
+        setErrorSummary({
+          title: t('edit.errorSummaryTitle'),
+          errors: [{ fieldId: 'share-redirect-url', message: t('errors.invalidRedirectUrl') }],
+        });
+        return;
+      }
+
+      let parsedOrigin = '';
+      try {
+        parsedOrigin = new URL(trimmedUrl).origin;
+      } catch {
+        setErrorSummary({
+          title: t('edit.errorSummaryTitle'),
+          errors: [{ fieldId: 'share-redirect-url', message: t('errors.invalidRedirectUrl') }],
+        });
+        return;
+      }
+
+      if (allowedEmbedOrigins.length > 0 && !allowedEmbedOrigins.includes(parsedOrigin)) {
+        setErrorSummary({
+          title: t('edit.errorSummaryTitle'),
+          errors: [{ fieldId: 'share-redirect-url', message: t('errors.invalidRedirectUrl') }],
+        });
+        return;
+      }
+    }
+
+    setIsSavingRedirectUrl(true);
+    try {
+      const res = await updateInquiryFormAction({
+        id: form.id,
+        success_redirect_url: trimmedUrl ? trimmedUrl : null,
+      });
+
+      setIsSavingRedirectUrl(false);
+      if (res.success) {
+        setForm(res.data);
+        setNotification({ type: 'success', message: t('edit.savedSuccess') });
+      } else {
+        setErrorSummary({
+          title: t('edit.errorSummaryTitle'),
+          errors: [{ fieldId: 'share-redirect-url', message: res.error || t('errors.generic') }],
+        });
+      }
+    } catch {
+      setIsSavingRedirectUrl(false);
+      setErrorSummary({
+        title: t('edit.errorSummaryTitle'),
+        errors: [{ fieldId: 'share-redirect-url', message: t('errors.generic') }],
+      });
+    }
+  };
+
+  const hostedUrl = `${baseUrl}/${locale}/f/${form.slug}`;
+  const iframeSnippet = `<iframe src="${baseUrl}/${locale}/f/${form.slug}/embed" width="100%" height="700" frameborder="0" title="${form.name}" loading="lazy"></iframe>`;
+  const htmlFormSnippet = React.useMemo(() => {
+    return generateScriptFreeFormHtml({
+      form,
+      locale,
+      baseUrl,
+      acknowledgementText:
+        locale === 'de'
+          ? (currentNotice?.acknowledgementTextDe ?? '')
+          : (currentNotice?.acknowledgementTextEn ?? ''),
+      privacyPolicyUrl: currentNotice?.privacyPolicyUrl ?? '',
+    });
+  }, [form, locale, baseUrl, currentNotice]);
 
   const [notification, setNotification] = React.useState<{
     type: 'success' | 'error';
@@ -1481,6 +1720,206 @@ export function InquiryFormEditView({
               );
             })}
           </div>
+        </div>
+      </section>
+
+      {/* SECTION 5: Share & Embed (AC-10) */}
+      <section
+        id="share-embed-section"
+        data-testid="share-embed-section"
+        aria-labelledby="share-embed-heading"
+        className="rounded-lg border bg-card p-6 text-card-foreground shadow-xs space-y-6"
+      >
+        <div className="border-b pb-4">
+          <h2 id="share-embed-heading" className="text-lg font-semibold tracking-tight">
+            {t('shareEmbed.title')}
+          </h2>
+          <p className="text-sm text-muted-foreground">{t('shareEmbed.description')}</p>
+        </div>
+
+        {/* Warning banner when PUBLIC_FORMS_EMBED_ORIGINS is empty (AC-10) */}
+        {allowedEmbedOrigins.length === 0 && (
+          <div
+            role="alert"
+            data-testid="embed-origins-empty-warning"
+            className="flex items-start gap-3 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 text-sm text-amber-900 dark:text-amber-200"
+          >
+            <AlertTriangle
+              className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+              aria-hidden="true"
+            />
+            <div className="space-y-1">
+              <p className="font-semibold">{t('shareEmbed.warningNoOriginsTitle')}</p>
+              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                {t('shareEmbed.warningNoOrigins')}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {/* Hosted Page Link */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">{t('shareEmbed.hostedLinkTitle')}</h3>
+            <p className="text-xs text-muted-foreground">{t('shareEmbed.hostedLinkHelp')}</p>
+            <div className="flex items-center gap-2">
+              <input
+                id="share-hosted-url"
+                data-testid="hosted-url-input"
+                type="text"
+                readOnly
+                value={hostedUrl}
+                className="flex h-10 w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm font-mono text-muted-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <button
+                type="button"
+                data-testid="copy-hosted-link-button"
+                onClick={() => {
+                  void handleCopy(hostedUrl, 'hosted-url');
+                }}
+                className="inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground min-h-[40px] px-3.5 py-2 shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {copiedTarget === 'hosted-url' ? (
+                  <>
+                    <CheckCircle2
+                      className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                      aria-hidden="true"
+                    />
+                    <span>{t('shareEmbed.copied')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" aria-hidden="true" />
+                    <span>{t('shareEmbed.copy')}</span>
+                  </>
+                )}
+                <span role="status" aria-live="polite" className="sr-only">
+                  {copiedTarget === 'hosted-url' ? t('shareEmbed.copied') : ''}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Iframe Embed Snippet */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">{t('shareEmbed.iframeTitle')}</h3>
+            <p className="text-xs text-muted-foreground">{t('shareEmbed.iframeHelp')}</p>
+            <div className="space-y-2">
+              <pre className="overflow-x-auto p-3 text-xs bg-muted/50 rounded-md border font-mono text-foreground whitespace-pre-wrap break-all">
+                <code data-testid="iframe-snippet-code">{iframeSnippet}</code>
+              </pre>
+              <button
+                type="button"
+                data-testid="copy-iframe-snippet-button"
+                onClick={() => {
+                  void handleCopy(iframeSnippet, 'iframe-snippet');
+                }}
+                className="inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground min-h-[36px] px-3.5 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {copiedTarget === 'iframe-snippet' ? (
+                  <>
+                    <CheckCircle2
+                      className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                      aria-hidden="true"
+                    />
+                    <span>{t('shareEmbed.copied')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" aria-hidden="true" />
+                    <span>{t('shareEmbed.copy')}</span>
+                  </>
+                )}
+                <span role="status" aria-live="polite" className="sr-only">
+                  {copiedTarget === 'iframe-snippet' ? t('shareEmbed.copied') : ''}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Script-Free HTML Form Snippet */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">{t('shareEmbed.htmlFormTitle')}</h3>
+            <p className="text-xs text-muted-foreground">{t('shareEmbed.htmlFormHelp')}</p>
+            <div className="space-y-2">
+              <pre className="overflow-x-auto max-h-60 p-3 text-xs bg-muted/50 rounded-md border font-mono text-foreground whitespace-pre-wrap break-all">
+                <code data-testid="html-form-snippet-code">{htmlFormSnippet}</code>
+              </pre>
+              <button
+                type="button"
+                data-testid="copy-html-snippet-button"
+                onClick={() => {
+                  void handleCopy(htmlFormSnippet, 'html-snippet');
+                }}
+                className="inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground min-h-[36px] px-3.5 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {copiedTarget === 'html-snippet' ? (
+                  <>
+                    <CheckCircle2
+                      className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                      aria-hidden="true"
+                    />
+                    <span>{t('shareEmbed.copied')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" aria-hidden="true" />
+                    <span>{t('shareEmbed.copy')}</span>
+                  </>
+                )}
+                <span role="status" aria-live="polite" className="sr-only">
+                  {copiedTarget === 'html-snippet' ? t('shareEmbed.copied') : ''}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Success Redirect URL Configuration */}
+          <form
+            onSubmit={(e) => {
+              void handleSaveRedirectUrl(e);
+            }}
+            className="space-y-3 pt-4 border-t"
+          >
+            <div className="space-y-1">
+              <label
+                htmlFor="share-redirect-url"
+                className="text-sm font-semibold text-foreground block"
+              >
+                {t('shareEmbed.successRedirectUrlTitle')}
+              </label>
+              <p className="text-xs text-muted-foreground">
+                {t('shareEmbed.successRedirectUrlHelp')}
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <input
+                id="share-redirect-url"
+                data-testid="share-redirect-url-input"
+                type="url"
+                value={successRedirectUrl}
+                onChange={(e) => {
+                  setSuccessRedirectUrl(e.target.value);
+                }}
+                placeholder="https://example.com/thank-you"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
+              <button
+                type="submit"
+                data-testid="save-redirect-url-button"
+                disabled={isSavingRedirectUrl}
+                className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 min-h-[40px] px-4 py-2 shadow-xs transition-colors disabled:opacity-50 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {isSavingRedirectUrl && (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                )}
+                <span>
+                  {isSavingRedirectUrl ? t('edit.saving') : t('shareEmbed.saveRedirectButton')}
+                </span>
+              </button>
+            </div>
+          </form>
         </div>
       </section>
 

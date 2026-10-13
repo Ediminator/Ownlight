@@ -356,7 +356,10 @@ export async function submitInquiry(
     return {
       success: true,
       outcome: 'accepted_silently',
-      redirectUrl: `/${ctx.locale}/f/${ctx.slug}/thanks`,
+      redirectUrl:
+        ctx.deliveryMode === 'embed'
+          ? `/${ctx.locale}/f/${ctx.slug}/embed/thanks`
+          : `/${ctx.locale}/f/${ctx.slug}/thanks`,
     };
   }
 
@@ -612,6 +615,9 @@ export async function submitInquiry(
     success: true,
     outcome: 'success',
     leadId: leadResult.data.id,
-    redirectUrl: `/${ctx.locale}/f/${ctx.slug}/thanks`,
+    redirectUrl:
+      ctx.deliveryMode === 'embed'
+        ? `/${ctx.locale}/f/${ctx.slug}/embed/thanks`
+        : `/${ctx.locale}/f/${ctx.slug}/thanks`,
   };
 }

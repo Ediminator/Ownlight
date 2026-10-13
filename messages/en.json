@@ -416,6 +416,23 @@
         "confirmButton": "Archive Form",
         "cancelButton": "Cancel"
       },
+      "shareEmbed": {
+        "title": "Share & embed",
+        "description": "Share your hosted inquiry page, embed it in an iframe, or generate a script-free HTML form.",
+        "warningNoOriginsTitle": "Embed & Script-Free POST Disabled",
+        "warningNoOrigins": "Iframe embedding and HTML form POST are disabled because no embed origins are configured in PUBLIC_FORMS_EMBED_ORIGINS by the operator.",
+        "hostedLinkTitle": "Hosted page link",
+        "hostedLinkHelp": "Direct link to your public inquiry form.",
+        "iframeTitle": "Embed in your website (iframe)",
+        "iframeHelp": "Embed your inquiry form seamlessly on your photography website.",
+        "htmlFormTitle": "Script-free HTML form",
+        "htmlFormHelp": "Pure HTML form for external websites that submits directly without JavaScript.",
+        "successRedirectUrlTitle": "Success redirect URL",
+        "successRedirectUrlHelp": "Must be an https:// URL whose origin is in PUBLIC_FORMS_EMBED_ORIGINS.",
+        "saveRedirectButton": "Save redirect URL",
+        "copy": "Copy",
+        "copied": "Copied!"
+      },
       "errors": {
         "nameRequired": "Form name is required and must be at most 100 characters.",
         "missingEventTypes": "When event type field is enabled, at least one event type is required.",
@@ -423,6 +440,7 @@
         "missingNoticeText": "Notice acknowledgement text is required in both English and German before publishing.",
         "invalidPolicyUrl": "Privacy policy URL must be an absolute https:// URL.",
         "invalidNoticeText": "Notice text must be plain text without HTML tags (< or >) and at most 500 characters.",
+        "invalidRedirectUrl": "Success redirect URL must be an absolute https:// URL whose origin is in PUBLIC_FORMS_EMBED_ORIGINS.",
         "generic": "An unexpected error occurred. Please try again."
       }
     }

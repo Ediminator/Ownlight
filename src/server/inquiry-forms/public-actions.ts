@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { resolveClientIp } from '@/server/http/client-ip';
 import { submitInquiry } from './submit';
-import type { LeadLocale } from '@/server/db/schema/leads';
+import type { LeadLocale, LeadDeliveryMode } from '@/server/db/schema/leads';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
 
 export interface InquiryFormActionState {
@@ -63,16 +63,21 @@ export async function submitInquiryAction(
     rawInput.notice_acknowledged = false;
   }
 
+  const rawDeliveryMode = formData.get('delivery_mode') ?? formData.get('deliveryMode');
+  const deliveryMode: LeadDeliveryMode = rawDeliveryMode === 'embed' ? 'embed' : 'hosted';
+
   // Remove internal routing fields from validation input
   delete rawInput.slug;
   delete rawInput.locale;
+  delete rawInput.delivery_mode;
+  delete rawInput.deliveryMode;
 
   const result = await submitInquiry(
     rawInput,
     {
       slug,
       locale,
-      deliveryMode: 'hosted',
+      deliveryMode,
       verification: 'unverified',
       clientIp,
     },
@@ -80,7 +85,11 @@ export async function submitInquiryAction(
   );
 
   if (result.success) {
-    const redirectUrl = result.redirectUrl ?? `/${locale}/f/${slug}/thanks`;
+    const defaultThanks =
+      deliveryMode === 'embed'
+        ? `/${locale}/f/${slug}/embed/thanks`
+        : `/${locale}/f/${slug}/thanks`;
+    const redirectUrl = result.redirectUrl ?? defaultThanks;
     redirect(redirectUrl);
     return {
       success: true,

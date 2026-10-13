@@ -126,6 +126,32 @@ export async function updateInquiryFormAction(
     };
   }
 
+  // Validate success_redirect_url against PUBLIC_FORMS_EMBED_ORIGINS allowlist (AC-7)
+  if (parsed.data.success_redirect_url) {
+    const { getEmbedOrigins } = await import('@/env');
+    const allowed = getEmbedOrigins();
+    if (allowed.length > 0) {
+      try {
+        const url = new URL(parsed.data.success_redirect_url);
+        if (!allowed.includes(url.origin)) {
+          return {
+            success: false,
+            code: 'VALIDATION_FAILED',
+            error: 'Success redirect URL origin must be in PUBLIC_FORMS_EMBED_ORIGINS allowlist',
+            fields: ['success_redirect_url'],
+          };
+        }
+      } catch {
+        return {
+          success: false,
+          code: 'VALIDATION_FAILED',
+          error: 'Invalid success redirect URL',
+          fields: ['success_redirect_url'],
+        };
+      }
+    }
+  }
+
   const { id, ...updates } = parsed.data;
   return await updateForm(id, updates, auth.user.id, client);
 }

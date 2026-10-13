@@ -114,7 +114,13 @@ The public inquiry endpoint (`/{locale}/f/{slug}` and `submitInquiryAction`) rep
 - **Threat:** Flooding inquiry endpoints to exhaust database storage or connection pools.
 - **Mitigation:** Two-tier atomic rate limiting: 5 per 10 minutes per IP bucket (/24 IPv4, /48 IPv6), plus a 100-per-hour per-form flood circuit breaker; fail-closed behavior returning `503 UNAVAILABLE` on database errors; rejections bypass audit log persistence to prevent audit table exhaustion.
 
-### Elevation of Privilege & Framing
+### Elevation of Privilege & Framing (Clickjacking)
 
-- **Threat:** Framing attacks (clickjacking) or stored XSS execution in error re-renders.
-- **Mitigation:** Response headers enforce `frame-ancestors 'none'` and `X-Frame-Options: DENY`; Same-origin requirement on server action; React attribute encoding prevents script execution during progressive enhancement error re-renders (SC 3.3.1).
+- **Threat:** Framing attacks (clickjacking) embedding studio administration or client forms into malicious parent frames; cross-origin form spoofing; open redirects.
+- **Mitigation:**
+  - **Per-route framing CSP:** By default, all standard application routes enforce `frame-ancestors 'none'` and `X-Frame-Options: DENY`.
+  - **Scoped embed routes:** Embed routes (`/{locale}/f/[slug]/embed` and `.../embed/thanks`) allow framing only from origins explicitly defined in `PUBLIC_FORMS_EMBED_ORIGINS` via `Content-Security-Policy: ... frame-ancestors 'self' <origins>;` and deliberately omit `X-Frame-Options` (which does not support multi-origin allowlists).
+  - **Private by default:** When `PUBLIC_FORMS_EMBED_ORIGINS` is unset or empty, embed endpoints return `404 Not Found`, and script-free POST endpoints return `403 Forbidden`.
+  - **Cookie-free embed context:** Embed routes set no `Set-Cookie` header and do not read session cookies (ADR-0015 §2).
+  - **Open redirect prevention:** `success_redirect_url` is strictly verified against `PUBLIC_FORMS_EMBED_ORIGINS` both when saving form settings and during submission redirects; unlisted origins fall back to the hosted thanks page.
+  - **Script-free POST security:** `POST /api/public/forms/[slug]/submissions` enforces `Origin` allowlist matching (403 on missing/mismatched origin), `application/x-www-form-urlencoded` Content-Type check (415), 16 KiB stream body cap (413), and rejection if `accept_unverified = false` (303 to `?error=unverified`). Logging contains zero PII (ADR-0015 §12).

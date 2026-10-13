@@ -416,6 +416,23 @@
         "confirmButton": "Formular archivieren",
         "cancelButton": "Abbrechen"
       },
+      "shareEmbed": {
+        "title": "Teilen & Einbetten",
+        "description": "Teilen Sie Ihre gehostete Anfrageseite, betten Sie sie per iFrame ein oder generieren Sie ein scriptfreies HTML-Formular.",
+        "warningNoOriginsTitle": "Einbetten & scriptfreier POST deaktiviert",
+        "warningNoOrigins": "iFrame-Einbettung und HTML-Formular-POST sind deaktiviert, da vom Betreiber keine Ursprünge in PUBLIC_FORMS_EMBED_ORIGINS konfiguriert wurden.",
+        "hostedLinkTitle": "Link zur gehosteten Seite",
+        "hostedLinkHelp": "Direkter Link zu Ihrem öffentlichen Anfrageformular.",
+        "iframeTitle": "In Ihre Website einbetten (iFrame)",
+        "iframeHelp": "Binden Sie Ihr Anfrageformular nahtlos in Ihre Fotografie-Website ein.",
+        "htmlFormTitle": "Scriptfreies HTML-Formular",
+        "htmlFormHelp": "Reines HTML-Formular für externe Websites, das Anfragen direkt ohne JavaScript übermittelt.",
+        "successRedirectUrlTitle": "Erfolgs-Weiterleitungs-URL",
+        "successRedirectUrlHelp": "Muss eine https://-URL sein, deren Ursprung in PUBLIC_FORMS_EMBED_ORIGINS enthalten ist.",
+        "saveRedirectButton": "Weiterleitungs-URL speichern",
+        "copy": "Kopieren",
+        "copied": "Kopiert!"
+      },
       "errors": {
         "nameRequired": "Der Formularname ist erforderlich und darf höchstens 100 Zeichen lang sein.",
         "missingEventTypes": "Wenn das Feld Ereignisart aktiviert ist, ist mindestens eine Ereignisart erforderlich.",
@@ -423,6 +440,7 @@
         "missingNoticeText": "Vor der Veröffentlichung ist ein Hinweistext auf Englisch und Deutsch erforderlich.",
         "invalidPolicyUrl": "Die Datenschutzerklärung-URL muss eine absolute https://-URL sein.",
         "invalidNoticeText": "Der Hinweistext muss reiner Text ohne HTML-Tags (< oder >) und höchstens 500 Zeichen lang sein.",
+        "invalidRedirectUrl": "Die Erfolgs-Weiterleitungs-URL muss eine absolute https://-URL sein, deren Ursprung in PUBLIC_FORMS_EMBED_ORIGINS enthalten ist.",
         "generic": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut."
       }
     }

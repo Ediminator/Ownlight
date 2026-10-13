@@ -12,6 +12,7 @@ interface HostedInquiryFormProps {
   timezone: string;
   acknowledgementText: string;
   privacyPolicyUrl: string;
+  deliveryMode?: 'hosted' | 'embed';
 }
 
 const REQUIRED_MARK = '*';
@@ -142,6 +143,7 @@ export function HostedInquiryForm({
   timezone,
   acknowledgementText,
   privacyPolicyUrl,
+  deliveryMode = 'hosted',
 }: HostedInquiryFormProps) {
   const t = useTranslations('inquiry.public');
   const [state, formAction, isPending] = useActionState(submitInquiryAction, null);
@@ -189,19 +191,21 @@ export function HostedInquiryForm({
   }
 
   return (
-    <div className="w-full space-y-6">
-      <div className="space-y-2 text-center sm:text-left">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          {studioName}
-        </h1>
-        <p className="text-sm text-muted-foreground">{form.name}</p>
-        <p className="text-xs text-muted-foreground">
-          {t('studioProcessesData', {
-            studio: studioName,
-            privacyPolicy: t('privacyPolicyLink'),
-          })}
-        </p>
-      </div>
+    <div className={`w-full ${deliveryMode === 'embed' ? 'space-y-4' : 'space-y-6'}`}>
+      {deliveryMode !== 'embed' && (
+        <div className="space-y-2 text-center sm:text-left">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            {studioName}
+          </h1>
+          <p className="text-sm text-muted-foreground">{form.name}</p>
+          <p className="text-xs text-muted-foreground">
+            {t('studioProcessesData', {
+              studio: studioName,
+              privacyPolicy: t('privacyPolicyLink'),
+            })}
+          </p>
+        </div>
+      )}
 
       {hasErrors && (
         <div
@@ -237,6 +241,7 @@ export function HostedInquiryForm({
         {/* Hidden routing fields */}
         <input type="hidden" name="slug" value={form.slug} />
         <input type="hidden" name="locale" value={locale} />
+        <input type="hidden" name="delivery_mode" value={deliveryMode} />
 
         {/* Honeypot field (AC-3, AC-13) */}
         <div style={{ display: 'none' }} aria-hidden="true">

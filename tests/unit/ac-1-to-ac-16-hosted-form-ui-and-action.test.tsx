@@ -76,16 +76,23 @@ vi.mock('next-intl', () => ({
   },
 }));
 
-let mockActionState: [unknown, unknown, boolean] = [null, vi.fn(), false];
+const mockFormAction = vi.fn();
+let mockActionState: [unknown, (payload: FormData) => void, boolean] = [
+  null,
+  mockFormAction,
+  false,
+];
 vi.mock('react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react')>();
   return {
     ...actual,
-    useActionState: vi.fn(() => mockActionState),
+    useActionState: vi.fn<() => [unknown, (payload: FormData) => void, boolean]>(
+      () => mockActionState,
+    ),
   };
 });
 
-const mockSubmitInquiry = vi.fn();
+const mockSubmitInquiry = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 vi.mock('@/server/inquiry-forms/submit', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/server/inquiry-forms/submit')>();
   return {
@@ -94,9 +101,9 @@ vi.mock('@/server/inquiry-forms/submit', async (importOriginal) => {
   };
 });
 
-const mockGetPublishedFormBySlug = vi.fn();
-const mockGetNoticeVersionById = vi.fn();
-const mockGetStudioSettings = vi.fn();
+const mockGetPublishedFormBySlug = vi.fn<(slug: string) => Promise<InquiryForm | null>>();
+const mockGetNoticeVersionById = vi.fn<(id: string) => Promise<InquiryFormNoticeVersion | null>>();
+const mockGetStudioSettings = vi.fn<() => Promise<{ studio_name: string; timezone: string }>>();
 
 vi.mock('@/server/inquiry-forms/service', () => ({
   getPublishedFormBySlug: (slug: string) => mockGetPublishedFormBySlug(slug),
@@ -124,10 +131,9 @@ describe('TASK-0027: Hosted Form UI, Actions, and Pages Unit Tests', () => {
     status: 'published',
     defaultLocale: 'en',
     acceptUnverified: true,
-    privacyPolicyUrl: 'https://example.com/privacy',
+    autoReplyEnabled: true,
+    successRedirectUrl: null,
     currentNoticeVersionId: '01912345-6789-7abc-8def-012345678002',
-    publishedAt: new Date(),
-    archivedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     fields: [
@@ -149,21 +155,18 @@ describe('TASK-0027: Hosted Form UI, Actions, and Pages Unit Tests', () => {
   const mockNoticeVersion: InquiryFormNoticeVersion = {
     id: '01912345-6789-7abc-8def-012345678002',
     formId: mockForm.id,
-    versionNumber: 1,
+    version: 1,
     privacyPolicyUrl: 'https://example.com/privacy',
-    noticeTextEn: 'Privacy notice EN',
-    noticeTextDe: 'Privacy notice DE',
     acknowledgementTextEn: 'I acknowledge the privacy notice EN',
     acknowledgementTextDe: 'Ich nehme die Datenschutzerklärung zur Kenntnis DE',
-    hashSha256: 'a'.repeat(64),
-    createdBy: 'owner',
+    createdByActorId: 'owner',
     createdAt: new Date(),
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeadersThrow = false;
-    mockActionState = [null, vi.fn(), false];
+    mockActionState = [null, mockFormAction, false];
   });
 
   describe('submitInquiryAction', () => {

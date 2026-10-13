@@ -658,7 +658,6 @@ describe('TASK-0027: submitInquiry Service Integration Tests', () => {
     const leadsService = await import('@/server/leads/service');
     const spy = vi.spyOn(leadsService, 'createLead').mockResolvedValueOnce({
       success: false,
-      outcome: 'validation_failed',
       code: 'VALIDATION_FAILED',
       error: 'Mock lead creation failure',
       fields: ['email'],

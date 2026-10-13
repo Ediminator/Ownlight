@@ -36,6 +36,7 @@ This document establishes the mandatory security standards and controls for the 
     .where(and(eq(clients.id, clientId), eq(clients.studioId, studioId)));
   ```
 - **Insecure Direct Object Reference (IDOR) Testing:** Every resource must have automated negative integration tests verifying that unauthorized actors receive 404/denial.
+- **Lead Management Authorization & Step-Up Controls (TASK-0031):** All lead inbox, detail, and triage server actions (`changeLeadStatusAction`, `deleteLeadsAction`, `exportLeadDsarAction`, `getLeadCountsAction`) enforce `requireOwnerSession({ client })` and explicitly reject requests containing API key Bearer tokens with `UNAUTHORIZED`, restricting lead management to authenticated interactive web sessions. DSAR exports additionally enforce step-up re-authentication within a 5-minute freshness window (`assertFreshReauthentication`). Deletion of converted leads is strictly forbidden to preserve statutory records.
 
 ---
 

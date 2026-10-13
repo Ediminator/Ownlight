@@ -9,15 +9,58 @@ import { cn } from '@/lib/utils';
 interface NavLinksProps {
   onNavigate?: () => void;
   className?: string;
+  newLeadsCount?: number;
 }
 
-export function NavLinks({ onNavigate, className }: NavLinksProps) {
+interface LeadCountBadgeProps {
+  count?: number;
+}
+
+function LeadCountBadge({ count }: LeadCountBadgeProps) {
+  const [fetchedCount, setFetchedCount] = React.useState<number | null>(null);
+  const pathname = usePathname();
+  const displayCount = count ?? fetchedCount;
+
+  React.useEffect(() => {
+    if (count !== undefined) {
+      return;
+    }
+    let isMounted = true;
+    import('@/server/leads/actions')
+      .then((m) => m.getLeadCountsAction())
+      .then((res) => {
+        if (isMounted && res.success) {
+          setFetchedCount(res.data.new);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      isMounted = false;
+    };
+  }, [count, pathname]);
+
+  if (typeof displayCount !== 'number' || displayCount <= 0) {
+    return null;
+  }
+
+  return (
+    <span
+      data-testid="new-leads-badge"
+      aria-label={`${String(displayCount)} new`}
+      className="ml-auto inline-flex items-center justify-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary"
+    >
+      {displayCount}
+    </span>
+  );
+}
+
+export function NavLinks({ onNavigate, className, newLeadsCount }: NavLinksProps) {
   const t = useTranslations('nav');
   const pathname = usePathname();
 
   const links = [
     { href: '/', label: t('dashboard'), icon: LayoutDashboard },
-    { href: '/leads', label: t('leads'), icon: Inbox },
+    { href: '/leads', label: t('leads'), icon: Inbox, isLeads: true },
     { href: '/clients', label: t('clients'), icon: Users },
     { href: '/projects', label: t('projects'), icon: FolderKanban },
     { href: '/calendar', label: t('calendar'), icon: Calendar },
@@ -45,6 +88,7 @@ export function NavLinks({ onNavigate, className }: NavLinksProps) {
             >
               <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{item.label}</span>
+              {item.isLeads && <LeadCountBadge count={newLeadsCount} />}
             </Link>
           </li>
         );

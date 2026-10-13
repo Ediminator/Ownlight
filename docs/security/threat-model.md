@@ -156,3 +156,48 @@ Sending automated email replies to user-supplied addresses introduces backscatte
   - `email_outbox` table stores zero copied PII; contents are rendered at dispatch time from the lead row.
   - Successful sends and suppressed items are deleted immediately. Failed items are purged after 30 days via `failed-email-outbox` retention policy.
   - SMTP error messages are sanitised to redact recipient addresses, URLs, credentials, and message content before storage in `last_error` or emission to structured logs.
+
+---
+
+## 6. Lead Inbox & Management UI STRIDE Threat Analysis (TASK-0031 / ADR-0015 §6, §8)
+
+The lead inbox and management UI (`/{locale}/leads` and `/{locale}/leads/[id]`) provide the studio owner with inquiry triage, status hygiene, bulk deletion, search, and personal data exports.
+
+### Spoofing & Unauthorized Access
+
+- **Threat:** Unauthenticated attackers or clients access prospective lead data, trigger bulk deletions, or exfiltrate inquiries.
+- **Mitigation:**
+  - Strict server-side authentication: Every lead server action (`changeLeadStatusAction`, `deleteLeadsAction`, `exportLeadDsarAction`, `getLeadCountsAction`) and page component enforces `requireOwnerSession({ client })`.
+  - Non-owner callers receive explicit `UNAUTHORIZED` (unauthenticated) or `FORBIDDEN` (wrong role) errors.
+  - API key / Bearer rejection: Server actions inspect headers and reject any request with an `Authorization: Bearer ...` token with `UNAUTHORIZED`, ensuring lead triage and export remain strictly interactive web-session operations.
+
+### Tampering & Status Hygiene Enforcement
+
+- **Threat:** Malicious transitions alter lead lifecycle state illegally or delete converted business records.
+- **Mitigation:**
+  - State machine transition table: Every status update is validated against ADR-0015 §6 (`isAllowedLeadStatusTransition`). Transitions to `converted` are disallowed via hygiene actions (reserved for the client conversion pipeline in TASK-0032).
+  - Converted lead deletion guard: Deleting a `converted` lead is rejected with `CONVERTED_LEAD` and leaves all records intact. Converted leads are linked to client and invoice records subject to statutory retention (GoBD / §147 AO).
+  - Hard deletion of non-converted leads emits `lead.deleted` audit events with metadata `{ count, bulk }`.
+
+### Repudiation & Audit Trail
+
+- **Threat:** Operator disputes lead status changes or deletions.
+- **Mitigation:**
+  - Status updates emit append-only `lead.status_changed` audit records with metadata `{ from, to }` and actor identity (`actorType: 'owner'`, `actorId`).
+  - Single and bulk deletions emit `lead.deleted` audit records with counts.
+  - Zero PII in audit metadata: Audit metadata stores only status identifiers and integer counts—no names, emails, phones, or message text.
+
+### Information Disclosure & DSAR Export Controls
+
+- **Threat:** Compromised active browser session or CSRF exfiltrates lead personal data; unauthorized DSAR dumps; query parameter leaks.
+- **Mitigation:**
+  - Step-up re-authentication: Exporting personal data (`exportLeadDsarAction`) requires verified password confirmation within the last 5 minutes (`assertFreshReauthentication`), returning `REAUTH_REQUIRED` if stale.
+  - Export bundle contains lead personal data and exact acknowledged notice text (`acknowledgement_text` and `version`), fulfilling GDPR Art. 15 right of access.
+  - Search hygiene: Search operates strictly via normalized prefix queries (`email_normalized`) without logging search terms or exposing PII.
+
+### Cross-Site Scripting (XSS Probe Mitigation)
+
+- **Threat:** Malicious inquiry submissions containing script payloads (e.g. `<script>alert(1)</script>`) execute in the studio owner's browser session.
+- **Mitigation:**
+  - Complete entity escaping: Inquiry messages are rendered strictly as text nodes in React JSX (`whitespace-pre-wrap font-sans break-words`), never via raw HTML injection sinks.
+  - Discretion notice: Detail view displays a prominent discretion warning banner reminding the photographer that message content originates from untrusted public visitors.

@@ -903,5 +903,135 @@
       "subject": "Ihre Anfrage an {studioName}",
       "body": "Vielen Dank für Ihre Nachricht. Wir haben Ihre Anfrage erhalten und werden uns schnellstmöglich persönlich bei Ihnen melden.\n\nInformationen zur Verarbeitung Ihrer personenbezogenen Daten finden Sie in unserer Datenschutzerklärung:\n{privacyPolicyUrl}"
     }
+  },
+  "leads": {
+    "title": "Anfragen",
+    "description": "Eingehende Interessent:innen-Anfragen prüfen und triagieren.",
+    "status": {
+      "new": "Neu",
+      "contacted": "Kontaktiert",
+      "converted": "Konvertiert",
+      "archived": "Archiviert",
+      "spam": "Spam"
+    },
+    "tabs": {
+      "all": "Alle",
+      "new": "Neu",
+      "contacted": "Kontaktiert",
+      "converted": "Konvertiert",
+      "archived": "Archiviert",
+      "spam": "Spam"
+    },
+    "verification": {
+      "verified": "Verifiziert",
+      "unverified": "Unverifiziert"
+    },
+    "deliveryMode": {
+      "hosted": "Gehostet",
+      "embed": "Eingebettet",
+      "script_free": "Skriptfrei"
+    },
+    "autoReplyStatus": {
+      "not_applicable": "K.A.",
+      "queued": "In Warteschlange",
+      "sent": "Gesendet",
+      "failed": "Fehlgeschlagen",
+      "suppressed": "Unterdrückt",
+      "disabled": "Deaktiviert",
+      "pending": "Ausstehend"
+    },
+    "table": {
+      "selectAll": "Alle Anfragen auswählen",
+      "selectRow": "Anfrage {name} auswählen",
+      "receivedAt": "Eingangsdatum",
+      "fullName": "Vollständiger Name",
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "eventType": "Art der Veranstaltung",
+      "status": "Status",
+      "verification": "Verifizierung",
+      "deliveryMode": "Übertragungsart",
+      "autoReply": "Auto-Antwort",
+      "actions": "Aktionen",
+      "emptyTitle": "Keine Anfragen gefunden",
+      "emptyDescription": "Eingehende Anfragen von Interessent:innen werden hier angezeigt.",
+      "emptyFilter": "Keine Anfragen für den ausgewählten Filter vorhanden."
+    },
+    "search": {
+      "label": "Anfragen durchsuchen",
+      "placeholder": "Nach E-Mail-Präfix suchen..."
+    },
+    "bulk": {
+      "selectedCount": "{count} ausgewählt",
+      "markContacted": "Als kontaktiert markieren",
+      "markSpam": "Als Spam markieren",
+      "archive": "Archivieren",
+      "deleteSelected": "Ausgewählte löschen",
+      "deleteAllSpam": "Alle Spam-Anfragen löschen",
+      "clearSelection": "Auswahl aufheben"
+    },
+    "dialogs": {
+      "deleteSelectedTitle": "Ausgewählte Anfragen löschen",
+      "deleteSelectedDescription": "Sind Sie sicher, dass Sie {count} ausgewählte Anfrage(n) unwiderruflich löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "deleteAllSpamTitle": "Alle Spam-Anfragen löschen",
+      "deleteAllSpamDescription": "Sind Sie sicher, dass Sie alle Spam-Anfragen unwiderruflich löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "deleteSingleTitle": "Anfrage löschen",
+      "deleteSingleDescription": "Sind Sie sicher, dass Sie diese Anfrage unwiderruflich löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "confirmDelete": "Löschen",
+      "cancel": "Abbrechen",
+      "deleting": "Wird gelöscht...",
+      "errorConverted": "Konvertierte Anfragen können nicht gelöscht werden."
+    },
+    "actions": {
+      "markContacted": "Als kontaktiert markieren",
+      "markSpam": "Als Spam markieren",
+      "archive": "Archivieren",
+      "delete": "Anfrage löschen",
+      "exportDsar": "Datenexport (DSAR)",
+      "convertToClient": "In Kund:in umwandeln",
+      "conversionStub": "Die Konvertierung in Kund:innen wird in TASK-0032 bereitgestellt."
+    },
+    "detail": {
+      "backToLeads": "Zurück zu allen Anfragen",
+      "contactCardTitle": "Kontaktdaten",
+      "shootCardTitle": "Auftragsdetails",
+      "messageCardTitle": "Nachricht",
+      "discretionNotice": "Hinweis: Die Nachricht kann sensible personenbezogene Daten enthalten, die vom Interessenten mitgeteilt wurden.",
+      "complianceCardTitle": "Compliance & Datenschutz",
+      "givenName": "Vorname",
+      "familyName": "Nachname",
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "eventType": "Art der Veranstaltung",
+      "eventDate": "Datum der Veranstaltung",
+      "eventLocation": "Ort der Veranstaltung",
+      "notSpecified": "Nicht angegeben",
+      "noticeVersion": "Bestätigte Hinweistext-Version",
+      "acknowledgedAt": "Bestätigt am",
+      "privacyPolicy": "Datenschutzerklärung des Studios",
+      "noticeText": "Bestätigter Hinweistext"
+    },
+    "reauth": {
+      "title": "Neu-Authentifizierung bestätigen",
+      "description": "Diese vertrauliche Aktion erfordert eine Neu-Authentifizierung. Bitte geben Sie Ihr Master-Passwort ein.",
+      "passwordLabel": "Master-Passwort",
+      "passwordPlaceholder": "Passwort eingeben",
+      "confirm": "Bestätigen und exportieren",
+      "confirming": "Wird überprüft...",
+      "cancel": "Abbrechen",
+      "invalidPassword": "Ungültiges Passwort. Bitte versuchen Sie es erneut."
+    },
+    "eventTypes": {
+      "wedding": "Hochzeit",
+      "portrait": "Porträt",
+      "event": "Veranstaltung",
+      "commercial": "Kommerziell",
+      "other": "Sonstiges"
+    },
+    "pagination": {
+      "prev": "Zurück",
+      "next": "Weiter",
+      "page": "Seite {page}"
+    }
   }
 }

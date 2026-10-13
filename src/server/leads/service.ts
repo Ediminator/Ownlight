@@ -14,6 +14,10 @@ import {
   updateLeadStatusRecord,
   listLeadsRecords,
   deleteNonConvertedLeads,
+  getLeadCounts,
+  getLeadWithDetails,
+  deleteAllSpamLeadsRecord as deleteAllSpamLeadsRepo,
+  type LeadWithDetails,
 } from './repo';
 import {
   createLeadInputSchema,
@@ -313,3 +317,48 @@ export async function deleteLeads(
     };
   });
 }
+
+/**
+ * Permanently deletes all spam leads (routine inbox hygiene, AC-5).
+ * Emits lead.deleted audit event with { count, bulk: true }.
+ */
+export async function deleteAllSpamLeads(
+  actor?: ActorInput,
+  client: DbClient = defaultDb,
+): Promise<{ success: true; count: number; data: { count: number } }> {
+  return await client.transaction(async (tx) => {
+    const deletedCount = await deleteAllSpamLeadsRepo(tx);
+
+    const actorObj = resolveActor(actor);
+    await audit(
+      {
+        action: 'lead.deleted',
+        actorType: actorObj.actorType,
+        actorId: actorObj.actorId,
+        targetType: 'lead',
+        outcome: 'success',
+        metadata: {
+          count: deletedCount,
+          bulk: true,
+        },
+      },
+      tx,
+    );
+
+    logger.info(
+      {
+        count: deletedCount,
+        bulk: true,
+      },
+      'All spam leads hard deleted',
+    );
+
+    return {
+      success: true,
+      count: deletedCount,
+      data: { count: deletedCount },
+    };
+  });
+}
+
+export { getLeadCounts, getLeadWithDetails, type LeadWithDetails };

@@ -53,8 +53,42 @@ export const listLeadsQuerySchema = z.object({
       id: z.string().uuid(),
     })
     .optional(),
+  page: z.coerce.number().int().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
 export type ListLeadsQuery = z.input<typeof listLeadsQuerySchema>;
 export type ListLeadsParsed = z.output<typeof listLeadsQuerySchema>;
+
+export const changeLeadStatusActionInputSchema = z.object({
+  leadId: z.string().uuid({ message: 'leadId must be a valid UUID' }),
+  targetStatus: z.enum(LEAD_STATUSES),
+});
+
+export type ChangeLeadStatusActionInput = z.infer<typeof changeLeadStatusActionInputSchema>;
+
+export const deleteLeadsActionInputSchema = z.object({
+  leadIds: z
+    .array(z.string().uuid({ message: 'leadId must be a valid UUID' }))
+    .optional()
+    .default([]),
+  deleteAllSpam: z.boolean().optional().default(false),
+});
+
+export type DeleteLeadsActionInput = z.infer<typeof deleteLeadsActionInputSchema>;
+
+export const exportLeadDsarActionInputSchema = z.object({
+  leadId: z.string().uuid({ message: 'leadId must be a valid UUID' }),
+  format: z.enum(['json', 'html']).optional().default('json'),
+});
+
+export type ExportLeadDsarActionInput = z.infer<typeof exportLeadDsarActionInputSchema>;
+
+export interface LeadCounts {
+  all: number;
+  new: number;
+  contacted: number;
+  converted: number;
+  archived: number;
+  spam: number;
+}

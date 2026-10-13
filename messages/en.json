@@ -903,5 +903,135 @@
       "subject": "Your inquiry to {studioName}",
       "body": "Thank you for reaching out. We have received your inquiry and will respond to you personally as soon as possible.\n\nFor details on how we process your personal data, please review our privacy policy:\n{privacyPolicyUrl}"
     }
+  },
+  "leads": {
+    "title": "Leads",
+    "description": "Review and triage incoming prospect inquiries.",
+    "status": {
+      "new": "New",
+      "contacted": "Contacted",
+      "converted": "Converted",
+      "archived": "Archived",
+      "spam": "Spam"
+    },
+    "tabs": {
+      "all": "All",
+      "new": "New",
+      "contacted": "Contacted",
+      "converted": "Converted",
+      "archived": "Archived",
+      "spam": "Spam"
+    },
+    "verification": {
+      "verified": "Verified",
+      "unverified": "Unverified"
+    },
+    "deliveryMode": {
+      "hosted": "Hosted",
+      "embed": "Embed",
+      "script_free": "Script-free"
+    },
+    "autoReplyStatus": {
+      "not_applicable": "N/A",
+      "queued": "Queued",
+      "sent": "Sent",
+      "failed": "Failed",
+      "suppressed": "Suppressed",
+      "disabled": "Disabled",
+      "pending": "Pending"
+    },
+    "table": {
+      "selectAll": "Select all leads",
+      "selectRow": "Select lead {name}",
+      "receivedAt": "Date received",
+      "fullName": "Full name",
+      "email": "Email",
+      "phone": "Phone",
+      "eventType": "Event type",
+      "status": "Status",
+      "verification": "Verification",
+      "deliveryMode": "Delivery mode",
+      "autoReply": "Auto-reply",
+      "actions": "Actions",
+      "emptyTitle": "No leads found",
+      "emptyDescription": "Incoming inquiries from prospects will appear here.",
+      "emptyFilter": "No leads match the selected filter."
+    },
+    "search": {
+      "label": "Search leads",
+      "placeholder": "Search by email prefix..."
+    },
+    "bulk": {
+      "selectedCount": "{count} selected",
+      "markContacted": "Mark Contacted",
+      "markSpam": "Mark Spam",
+      "archive": "Archive",
+      "deleteSelected": "Delete selected",
+      "deleteAllSpam": "Delete all spam",
+      "clearSelection": "Clear selection"
+    },
+    "dialogs": {
+      "deleteSelectedTitle": "Delete selected leads",
+      "deleteSelectedDescription": "Are you sure you want to permanently delete {count} selected lead(s)? This action cannot be undone.",
+      "deleteAllSpamTitle": "Delete all spam leads",
+      "deleteAllSpamDescription": "Are you sure you want to permanently delete all spam leads? This action cannot be undone.",
+      "deleteSingleTitle": "Delete lead",
+      "deleteSingleDescription": "Are you sure you want to permanently delete this lead? This action cannot be undone.",
+      "confirmDelete": "Delete",
+      "cancel": "Cancel",
+      "deleting": "Deleting...",
+      "errorConverted": "Converted leads cannot be deleted."
+    },
+    "actions": {
+      "markContacted": "Mark Contacted",
+      "markSpam": "Mark Spam",
+      "archive": "Archive",
+      "delete": "Delete lead",
+      "exportDsar": "Export lead data (DSAR)",
+      "convertToClient": "Convert to client",
+      "conversionStub": "Lead conversion to client will be available in TASK-0032."
+    },
+    "detail": {
+      "backToLeads": "Back to Leads",
+      "contactCardTitle": "Contact Details",
+      "shootCardTitle": "Shoot Details",
+      "messageCardTitle": "Inquiry Message",
+      "discretionNotice": "Notice: Message may contain sensitive personal data disclosed by the prospect.",
+      "complianceCardTitle": "Compliance & Notice",
+      "givenName": "Given name",
+      "familyName": "Family name",
+      "email": "Email",
+      "phone": "Phone",
+      "eventType": "Event type",
+      "eventDate": "Event date",
+      "eventLocation": "Event location",
+      "notSpecified": "Not specified",
+      "noticeVersion": "Notice version acknowledged",
+      "acknowledgedAt": "Acknowledged at",
+      "privacyPolicy": "Studio privacy policy",
+      "noticeText": "Acknowledged notice text"
+    },
+    "reauth": {
+      "title": "Confirm Re-authentication",
+      "description": "This sensitive operation requires step-up re-authentication. Please enter your master password.",
+      "passwordLabel": "Master Password",
+      "passwordPlaceholder": "Enter your password",
+      "confirm": "Confirm & Export",
+      "confirming": "Verifying...",
+      "cancel": "Cancel",
+      "invalidPassword": "Invalid password. Please try again."
+    },
+    "eventTypes": {
+      "wedding": "Wedding",
+      "portrait": "Portrait",
+      "event": "Event",
+      "commercial": "Commercial",
+      "other": "Other"
+    },
+    "pagination": {
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {page}"
+    }
   }
 }

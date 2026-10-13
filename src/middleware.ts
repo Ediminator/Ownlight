@@ -15,7 +15,20 @@ const PUBLIC_PATH_SEGMENTS = [
   'forgot-password',
   'reset-password',
   'verify-email',
+  'f',
 ];
+
+/**
+ * Checks whether the request path is a public inquiry form route (/{locale}/f/** or /f/**).
+ */
+function isPublicFormRoute(pathname: string): boolean {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments[0] === 'f') return true;
+  if (segments[0] && routing.locales.includes(segments[0] as 'en' | 'de') && segments[1] === 'f') {
+    return true;
+  }
+  return false;
+}
 
 /**
  * Generates a random 16-byte base64 nonce using Web Crypto API (Edge-safe).
@@ -192,6 +205,11 @@ export default function middleware(request: NextRequest): NextResponse {
   if (isPublic) {
     response.headers.set('x-is-auth-route', '1');
     response.headers.set('x-middleware-request-x-is-auth-route', '1');
+  }
+
+  // Strictly no Set-Cookie on public form routes (AC-10 / TDDDG §25)
+  if (isPublicFormRoute(pathname)) {
+    response.headers.delete('set-cookie');
   }
 
   return response;

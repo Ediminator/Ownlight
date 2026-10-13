@@ -827,5 +827,57 @@
   },
   "inquiryForms": {
     "defaultAcknowledgement": "Ich habe die Datenschutzerklärung zur Kenntnis genommen."
+  },
+  "inquiry": {
+    "public": {
+      "title": "Anfrage",
+      "description": "Senden Sie eine Anfrage an {studioName}",
+      "studioProcessesData": "{studio} verarbeitet Ihre Daten zur Beantwortung Ihrer Anfrage; Details: {privacyPolicy}.",
+      "privacyPolicyLink": "Datenschutzerklärung",
+      "sensitiveDataHint": "Bitte geben Sie keine sensiblen Informationen wie Gesundheits- oder Religionsdaten an.",
+      "fields": {
+        "given_name": "Vorname",
+        "given_namePlaceholder": "Max",
+        "family_name": "Nachname",
+        "family_namePlaceholder": "Mustermann",
+        "email": "E-Mail-Adresse",
+        "emailPlaceholder": "max@example.com",
+        "phone": "Telefonnummer",
+        "phonePlaceholder": "+49 30 12345678",
+        "event_type": "Art der Veranstaltung",
+        "event_typeSelect": "Veranstaltungsart auswählen...",
+        "event_date": "Datum der Veranstaltung",
+        "event_location": "Veranstaltungsort",
+        "event_locationPlaceholder": "Berlin, Deutschland",
+        "message": "Nachricht",
+        "messagePlaceholder": "Erzählen Sie uns von Ihrem geplanten Shooting...",
+        "website": "Webseite",
+        "notice_acknowledged": "Ich habe die Datenschutzerklärung zur Kenntnis genommen."
+      },
+      "submit": "Anfrage senden",
+      "submitting": "Wird gesendet...",
+      "thanks": {
+        "title": "Vielen Dank für Ihre Anfrage",
+        "description": "Ihre Nachricht wurde empfangen. Wir werden uns in Kürze bei Ihnen melden.",
+        "backHome": "Zur Startseite"
+      },
+      "errors": {
+        "summaryTitle": "Bitte korrigieren Sie die folgenden Fehler vor dem Absenden",
+        "rateLimited": "Zu viele Versuche, bitte versuchen Sie es später noch einmal",
+        "unavailable": "Dienst vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
+        "unverifiedRejected": "Ihre Einreichung konnte nicht verifiziert werden. Bitte aktivieren Sie JavaScript und versuchen Sie es erneut.",
+        "notFound": "Anfrageformular nicht gefunden",
+        "fieldRequired": "Dieses Feld ist erforderlich",
+        "invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
+        "emailNoCrlf": "E-Mail-Adresse darf keine Zeilenumbrüche enthalten",
+        "invalidPhone": "Bitte geben Sie eine gültige Telefonnummer ein (3–32 Zeichen, Ziffern und Symbole)",
+        "invalidEventType": "Bitte wählen Sie eine gültige Veranstaltungsart aus",
+        "invalidEventDate": "Das Veranstaltungsdatum muss zwischen heute und in 5 Jahren liegen",
+        "invalidLocation": "Der Veranstaltungsort darf maximal 200 Zeichen lang sein",
+        "messageTooLong": "Die Nachricht darf maximal 2.000 Zeichen lang sein",
+        "acknowledgementRequired": "Sie müssen die Datenschutzerklärung zur Kenntnis nehmen",
+        "unknownField": "Unbekanntes Feld übermittelt"
+      }
+    }
   }
 }

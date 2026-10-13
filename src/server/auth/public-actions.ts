@@ -22,6 +22,8 @@ export const PUBLIC_AUTH_ACTIONS = [
   'startPasskeyAuthenticationAction',
   // Compensating control: Validates WebAuthn signature against unexpired challenge; single-use challenge consumption; rate-limited.
   'completePasskeyAuthenticationAction',
+  // Compensating control: Public inquiry submission; honeypot, per-IP and per-form rate limits, dynamic schema validation, PoW challenge from TASK-0029.
+  'submitInquiryAction',
 ] as const;
 
 export type PublicAuthAction = (typeof PUBLIC_AUTH_ACTIONS)[number];

@@ -14,8 +14,11 @@ export const googleContactsExportProvider: ExportProvider = {
   id: 'google_contacts',
   category: 'google_contacts',
   coveredTables: ['google_contacts_links'],
+  subjectKinds: ['client', 'contact'] as const,
 
   collect: async (subject: ExportSubject, tx: DbClient): Promise<unknown[]> => {
+    if (subject.kind === 'lead') return [];
+
     const [link] = await tx
       .select({
         googleResourceName: googleContactsLinks.googleResourceName,

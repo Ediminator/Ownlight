@@ -15,6 +15,8 @@ export interface CliExecutionResult extends SweepSummary {
   sessions: { scanned: number; deleted: number; held: number };
   rateLimits: { scanned: number; deleted: number; held: number };
   inactiveClients?: { scanned: number; deleted: number; held: number };
+  unconvertedLeads?: { scanned: number; deleted: number; held: number };
+  spamLeads?: { scanned: number; deleted: number; held: number };
 }
 
 /**
@@ -70,6 +72,8 @@ export async function executeRetentionSweep(options: CliOptions = {}): Promise<C
     const clientPolicy = summary.policies.find(
       (p) => p.policyId === 'inactive-clients' || p.entity === 'clients',
     );
+    const unconvertedLeadsPolicy = summary.policies.find((p) => p.policyId === 'unconverted-leads');
+    const spamLeadsPolicy = summary.policies.find((p) => p.policyId === 'spam-leads');
 
     return {
       ...summary,
@@ -92,6 +96,16 @@ export async function executeRetentionSweep(options: CliOptions = {}): Promise<C
         scanned: clientPolicy?.scannedCount ?? 0,
         deleted: clientPolicy?.deletedCount ?? 0,
         held: clientPolicy?.heldCount ?? 0,
+      },
+      unconvertedLeads: {
+        scanned: unconvertedLeadsPolicy?.scannedCount ?? 0,
+        deleted: unconvertedLeadsPolicy?.deletedCount ?? 0,
+        held: unconvertedLeadsPolicy?.heldCount ?? 0,
+      },
+      spamLeads: {
+        scanned: spamLeadsPolicy?.scannedCount ?? 0,
+        deleted: spamLeadsPolicy?.deletedCount ?? 0,
+        held: spamLeadsPolicy?.heldCount ?? 0,
       },
     };
   } finally {

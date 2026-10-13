@@ -1,10 +1,11 @@
-import { lt, notInArray, inArray, and, sql, asc } from 'drizzle-orm';
+import { lt, notInArray, inArray, and, eq, sql, asc } from 'drizzle-orm';
 import type { DbClient } from '@/server/db/client';
 import { auditEvents, type AuditEvent } from '@/server/db/schema/audit';
 import { session, rateLimits, type Session, type RateLimit } from '@/server/db/schema/auth';
 import { consentRecords, type ConsentRecord } from '@/server/db/schema/consents';
 import { clientTimelineEvents } from '@/server/db/schema/timeline';
 import { clients } from '@/server/db/schema/clients';
+import { leads } from '@/server/db/schema/leads';
 import { findActiveClientIds } from '@/server/clients/activity';
 import { env } from '@/env';
 
@@ -57,14 +58,40 @@ export interface RetentionPolicy<
 
 export function getClientRetentionMonths(): number {
   try {
+    const raw = process.env.CLIENT_RETENTION_MONTHS;
+    if (raw) {
+      const parsed = parseInt(raw, 10);
+      if (Number.isFinite(parsed) && parsed >= 1) {
+        return parsed;
+      }
+    }
     const val = env.CLIENT_RETENTION_MONTHS;
-    if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+    if (typeof val === 'number' && Number.isFinite(val) && val >= 1) {
       return val;
     }
   } catch {
     // Fallback if env is not configured in current execution context (e.g. unit tests)
   }
   return 36;
+}
+
+export function getLeadRetentionMonths(): number {
+  try {
+    const raw = process.env.LEAD_RETENTION_MONTHS;
+    if (raw) {
+      const parsed = parseInt(raw, 10);
+      if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 36) {
+        return parsed;
+      }
+    }
+    const val = env.LEAD_RETENTION_MONTHS;
+    if (typeof val === 'number' && Number.isFinite(val) && val >= 1 && val <= 36) {
+      return val;
+    }
+  } catch {
+    // Fallback if env is not configured in current execution context (e.g. unit tests)
+  }
+  return 12;
 }
 
 export function computeCutoff(
@@ -119,9 +146,17 @@ export function defineRetentionPolicy<T extends RetentionEntity = RetentionEntit
 export function createDefaultPolicies(): RetentionPolicy[] {
   let auditMonths = 24;
   try {
-    const val = env.RETENTION_PERIOD_MONTHS;
-    if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
-      auditMonths = val;
+    const raw = process.env.RETENTION_PERIOD_MONTHS;
+    if (raw) {
+      const parsed = parseInt(raw, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        auditMonths = parsed;
+      }
+    } else {
+      const val = env.RETENTION_PERIOD_MONTHS;
+      if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+        auditMonths = val;
+      }
     }
   } catch {
     auditMonths = 24;
@@ -215,9 +250,17 @@ export function createDefaultPolicies(): RetentionPolicy[] {
   // 4. Withdrawn consent records chain older than retention period (default 36 months, GDPR Art. 7(1) proof)
   let consentProofMonths = 36;
   try {
-    const val = env.CONSENT_PROOF_RETENTION_MONTHS;
-    if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
-      consentProofMonths = val;
+    const raw = process.env.CONSENT_PROOF_RETENTION_MONTHS;
+    if (raw) {
+      const parsed = parseInt(raw, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        consentProofMonths = parsed;
+      }
+    } else {
+      const val = env.CONSENT_PROOF_RETENTION_MONTHS;
+      if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+        consentProofMonths = val;
+      }
     }
   } catch {
     consentProofMonths = 36;
@@ -362,12 +405,119 @@ export function createDefaultPolicies(): RetentionPolicy[] {
     },
   });
 
+  // 6. Unconverted leads policy (ADR-0015 §9, TASK-0026)
+  const unconvertedLeadsPolicy = defineRetentionPolicy<{ id: string }>({
+    id: 'unconverted-leads',
+    entity: 'leads',
+    description:
+      'Purges unconverted leads (new, contacted, archived) inactive for configured retention period (default 12 months)',
+    get after() {
+      return { months: getLeadRetentionMonths() };
+    },
+    action: 'delete',
+    batchSize: 500,
+    getCandidates: async (client, cutoff, limit, excludedIds) => {
+      const basePredicate = and(
+        inArray(leads.status, ['new', 'contacted', 'archived']),
+        lt(leads.lastActivityAt, cutoff),
+        excludedIds.length > 0 ? notInArray(leads.id, excludedIds) : undefined,
+      );
+
+      return await client
+        .select({
+          id: leads.id,
+        })
+        .from(leads)
+        .where(basePredicate)
+        .orderBy(asc(leads.lastActivityAt), asc(leads.id))
+        .limit(limit);
+    },
+    eraseCandidate: async (client, id) => {
+      const { eraseSubject } = await import('@/server/privacy/erasure/service');
+      const res = await eraseSubject(
+        { kind: 'lead', leadId: id },
+        { actor: { actorType: 'system', actorId: 'retention-worker' } },
+        client,
+      );
+      if (res.success) {
+        return { outcome: 'deleted' };
+      }
+      if (res.code === 'ERASURE_BLOCKED') {
+        return { outcome: 'held' };
+      }
+      return { outcome: 'failed', error: res.error };
+    },
+    deleteBatch: async (client, ids) => {
+      const { eraseSubject } = await import('@/server/privacy/erasure/service');
+      for (const id of ids) {
+        await eraseSubject(
+          { kind: 'lead', leadId: id },
+          { actor: { actorType: 'system', actorId: 'retention-worker' } },
+          client,
+        );
+      }
+    },
+  });
+
+  // 7. Spam leads policy (ADR-0015 §9, TASK-0026)
+  const spamLeadsPolicy = defineRetentionPolicy<{ id: string }>({
+    id: 'spam-leads',
+    entity: 'leads',
+    description: 'Purges spam leads inactive for 30 days',
+    after: { days: 30 },
+    action: 'delete',
+    batchSize: 500,
+    getCandidates: async (client, cutoff, limit, excludedIds) => {
+      const basePredicate = and(
+        eq(leads.status, 'spam'),
+        lt(leads.lastActivityAt, cutoff),
+        excludedIds.length > 0 ? notInArray(leads.id, excludedIds) : undefined,
+      );
+
+      return await client
+        .select({
+          id: leads.id,
+        })
+        .from(leads)
+        .where(basePredicate)
+        .orderBy(asc(leads.lastActivityAt), asc(leads.id))
+        .limit(limit);
+    },
+    eraseCandidate: async (client, id) => {
+      const { eraseSubject } = await import('@/server/privacy/erasure/service');
+      const res = await eraseSubject(
+        { kind: 'lead', leadId: id },
+        { actor: { actorType: 'system', actorId: 'retention-worker' } },
+        client,
+      );
+      if (res.success) {
+        return { outcome: 'deleted' };
+      }
+      if (res.code === 'ERASURE_BLOCKED') {
+        return { outcome: 'held' };
+      }
+      return { outcome: 'failed', error: res.error };
+    },
+    deleteBatch: async (client, ids) => {
+      const { eraseSubject } = await import('@/server/privacy/erasure/service');
+      for (const id of ids) {
+        await eraseSubject(
+          { kind: 'lead', leadId: id },
+          { actor: { actorType: 'system', actorId: 'retention-worker' } },
+          client,
+        );
+      }
+    },
+  });
+
   return [
     auditEventsPolicy as unknown as RetentionPolicy,
     expiredSessionsPolicy as unknown as RetentionPolicy,
     expiredRateLimitsPolicy as unknown as RetentionPolicy,
     withdrawnConsentProofPolicy as unknown as RetentionPolicy,
     inactiveClientsPolicy as unknown as RetentionPolicy,
+    unconvertedLeadsPolicy,
+    spamLeadsPolicy,
   ];
 }
 

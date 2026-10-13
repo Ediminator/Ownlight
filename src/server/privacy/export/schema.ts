@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 export const exportRequestSchema = z
   .object({
-    contactId: z.string().uuid({ message: 'contactId must be a valid UUID' }),
+    contactId: z.string().uuid({ message: 'contactId must be a valid UUID' }).optional(),
+    leadId: z.string().uuid({ message: 'leadId must be a valid UUID' }).optional(),
     format: z.enum(['json', 'html'], {
       message: 'format must be either "json" or "html"',
     }),
@@ -10,7 +11,11 @@ export const exportRequestSchema = z
       message: 'locale must be either "en" or "de"',
     }),
   })
-  .strict();
+  .strict()
+  .refine((data) => (data.contactId !== undefined) !== (data.leadId !== undefined), {
+    message: 'Exactly one of contactId or leadId must be provided',
+    path: ['contactId'],
+  });
 
 export type ExportRequestInput = z.infer<typeof exportRequestSchema>;
 

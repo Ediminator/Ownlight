@@ -1,10 +1,11 @@
-import { eq, and, or, inArray, count, asc } from 'drizzle-orm';
+import { eq, and, or, inArray, count, asc, sql } from 'drizzle-orm';
 import type { DbClient } from '@/server/db/client';
 import { clients, clientContacts, clientAddresses } from '@/server/db/schema/clients';
 import { clientTags } from '@/server/db/schema/tags';
 import { clientNotes, clientTimelineEvents } from '@/server/db/schema/timeline';
 import { consentRecords } from '@/server/db/schema/consents';
 import { clientLegalHolds, isHoldActive } from '@/server/db/schema/client-legal-holds';
+import { leads } from '@/server/db/schema/leads';
 import type { ErasureProvider, ErasureHoldProvider } from './types';
 import { googleContactsErasureProvider } from '@/server/integrations/google/erasure-provider';
 
@@ -79,12 +80,14 @@ async function getClientContactIds(clientId: string, tx: DbClient): Promise<stri
  * Default domain erasure providers for all current E1 personal data.
  * Ordered safely from child dependents up to parent client.
  */
-const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
+export const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
   {
     id: 'timeline',
     category: 'timeline',
     coveredTables: ['client_timeline_events'],
+    subjectKinds: ['client', 'contact'] as const,
     plan: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const [res] = await tx
           .select({ count: count() })
@@ -116,6 +119,7 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
       }
     },
     erase: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const deleted = await tx
           .delete(clientTimelineEvents)
@@ -151,7 +155,9 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
     id: 'consents',
     category: 'consents',
     coveredTables: ['consent_records'],
+    subjectKinds: ['client', 'contact'] as const,
     plan: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const contactIds = await getClientContactIds(subject.clientId, tx);
         if (contactIds.length === 0) return 0;
@@ -169,6 +175,7 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
       }
     },
     erase: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const contactIds = await getClientContactIds(subject.clientId, tx);
         if (contactIds.length === 0) return 0;
@@ -190,7 +197,9 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
     id: 'notes',
     category: 'notes',
     coveredTables: ['client_notes'],
+    subjectKinds: ['client', 'contact'] as const,
     plan: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const [res] = await tx
           .select({ count: count() })
@@ -201,6 +210,7 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
       return 0;
     },
     erase: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const deleted = await tx
           .delete(clientNotes)
@@ -215,7 +225,9 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
     id: 'tags',
     category: 'tags',
     coveredTables: ['client_tags'],
+    subjectKinds: ['client', 'contact'] as const,
     plan: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const [res] = await tx
           .select({ count: count() })
@@ -226,8 +238,8 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
       return 0;
     },
     erase: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
-        // Removes assignments only; tags table rows are preserved (AC-2)
         const deleted = await tx
           .delete(clientTags)
           .where(eq(clientTags.clientId, subject.clientId))
@@ -241,7 +253,9 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
     id: 'addresses',
     category: 'addresses',
     coveredTables: ['client_addresses'],
+    subjectKinds: ['client', 'contact'] as const,
     plan: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const [res] = await tx
           .select({ count: count() })
@@ -252,6 +266,7 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
       return 0;
     },
     erase: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const deleted = await tx
           .delete(clientAddresses)
@@ -267,7 +282,9 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
     id: 'contacts',
     category: 'contacts',
     coveredTables: ['client_contacts'],
+    subjectKinds: ['client', 'contact'] as const,
     plan: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const [res] = await tx
           .select({ count: count() })
@@ -288,6 +305,7 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
       }
     },
     erase: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const deleted = await tx
           .delete(clientContacts)
@@ -295,7 +313,6 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
           .returning({ id: clientContacts.id });
         return deleted.length;
       } else {
-        // Check if contact was primary
         const [existing] = await tx
           .select({ id: clientContacts.id, isPrimary: clientContacts.isPrimary })
           .from(clientContacts)
@@ -320,7 +337,6 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
           .returning({ id: clientContacts.id });
 
         if (existing.isPrimary) {
-          // Promote oldest remaining contact
           const [oldest] = await tx
             .select({ id: clientContacts.id })
             .from(clientContacts)
@@ -336,7 +352,6 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
           }
         }
 
-        // Bump client activity
         await tx
           .update(clients)
           .set({ lastActivityAt: new Date(), updatedAt: new Date() })
@@ -350,7 +365,9 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
     id: 'legal_hold',
     category: 'legal_hold',
     coveredTables: ['client_legal_holds'],
+    subjectKinds: ['client', 'contact'] as const,
     plan: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const [res] = await tx
           .select({ count: count() })
@@ -361,6 +378,7 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
       return 0;
     },
     erase: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const deleted = await tx
           .delete(clientLegalHolds)
@@ -372,10 +390,62 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
     },
   },
   {
+    id: 'converted-leads',
+    category: 'converted-leads',
+    coveredTables: ['leads'],
+    subjectKinds: ['client', 'contact'] as const,
+    plan: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
+      if (subject.kind === 'client') {
+        const [res] = await tx
+          .select({ count: count() })
+          .from(leads)
+          .where(eq(leads.clientId, subject.clientId));
+        return res?.count ?? 0;
+      }
+      return 0;
+    },
+    erase: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
+      if (subject.kind === 'client') {
+        const deleted = await tx
+          .delete(leads)
+          .where(eq(leads.clientId, subject.clientId))
+          .returning({ id: leads.id });
+        return deleted.length;
+      }
+      return 0;
+    },
+  },
+  {
+    id: 'leads',
+    category: 'leads',
+    coveredTables: [],
+    subjectKinds: ['lead'] as const,
+    plan: async (subject, tx) => {
+      if (subject.kind !== 'lead') return 0;
+      const [res] = await tx
+        .select({ count: count() })
+        .from(leads)
+        .where(and(eq(leads.id, subject.leadId), sql`status != 'converted'`));
+      return res?.count ?? 0;
+    },
+    erase: async (subject, tx) => {
+      if (subject.kind !== 'lead') return 0;
+      const deleted = await tx
+        .delete(leads)
+        .where(and(eq(leads.id, subject.leadId), sql`status != 'converted'`))
+        .returning({ id: leads.id });
+      return deleted.length;
+    },
+  },
+  {
     id: 'client',
     category: 'client',
     coveredTables: ['clients'],
+    subjectKinds: ['client', 'contact'] as const,
     plan: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const [res] = await tx
           .select({ count: count() })
@@ -386,6 +456,7 @@ const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
       return 0;
     },
     erase: async (subject, tx) => {
+      if (subject.kind === 'lead') return 0;
       if (subject.kind === 'client') {
         const deleted = await tx
           .delete(clients)
@@ -402,6 +473,7 @@ export const DEFAULT_HOLD_PROVIDERS: ErasureHoldProvider[] = [
   {
     id: 'client_legal_hold',
     holds: async (subject, tx) => {
+      if (subject.kind === 'lead') return [];
       const clientId = subject.clientId;
       const [hold] = await tx
         .select()

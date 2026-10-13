@@ -203,6 +203,16 @@ export const serverSchema = z.object({
       .int({ message: 'CLIENT_RETENTION_MONTHS must be an integer >= 1' })
       .min(1, { message: 'CLIENT_RETENTION_MONTHS must be an integer >= 1' }),
   ),
+  LEAD_RETENTION_MONTHS: z.preprocess(
+    (val) => (val === undefined || val === '' ? 12 : val),
+    z.coerce
+      .number({
+        invalid_type_error: 'LEAD_RETENTION_MONTHS must be an integer in the allowed range 1-36',
+      })
+      .int({ message: 'LEAD_RETENTION_MONTHS must be an integer in the allowed range 1-36' })
+      .min(1, { message: 'LEAD_RETENTION_MONTHS must be an integer in the allowed range 1-36' })
+      .max(36, { message: 'LEAD_RETENTION_MONTHS must be an integer in the allowed range 1-36' }),
+  ),
   DATABASE_RETENTION_URL: z
     .string()
     .regex(/^postgres(ql)?:\/\/.+/, {
@@ -374,9 +384,11 @@ const NUMERIC_ENV_DEFAULTS: Record<string, number> = {
   PORT: 3000,
   RETENTION_PERIOD_MONTHS: 24,
   CONSENT_PROOF_RETENTION_MONTHS: 36,
+  CLIENT_RETENTION_MONTHS: 36,
   DB_MAX_CONNECTIONS: 10,
   DB_STATEMENT_TIMEOUT: 30,
   TRUSTED_PROXY_COUNT: 1,
+  LEAD_RETENTION_MONTHS: 12,
 };
 
 /**
@@ -394,9 +406,15 @@ export const env: ServerEnv = new Proxy({} as ServerEnv, {
       const defaultNum = NUMERIC_ENV_DEFAULTS[prop];
       if (defaultNum !== undefined) {
         const raw = Number(process.env[prop]);
-        return Number.isFinite(raw) && raw >= (prop === 'TRUSTED_PROXY_COUNT' ? 0 : 1)
-          ? raw
-          : defaultNum;
+        let isValid = Number.isFinite(raw);
+        if (prop === 'TRUSTED_PROXY_COUNT') {
+          isValid = isValid && raw >= 0;
+        } else if (prop === 'LEAD_RETENTION_MONTHS') {
+          isValid = isValid && raw >= 1 && raw <= 36;
+        } else {
+          isValid = isValid && raw >= 1;
+        }
+        return isValid ? raw : defaultNum;
       }
       return process.env[prop] ?? '';
     }

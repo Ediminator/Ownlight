@@ -357,6 +357,72 @@ export const INITIAL_CATEGORIES: readonly CategoryDefinition[] = [
       de: 'Synchronisiert aus Ownlight-Kontaktdaten nach ausdrücklichem Opt-in.',
     },
   },
+  {
+    id: 'leads',
+    titleKey: 'privacy.export.categories.leads.title',
+    purposeKey: 'privacy.export.categories.leads.purpose',
+    lawfulBasisKey: 'privacy.export.categories.leads.lawful_basis',
+    retentionKey: 'privacy.export.categories.leads.retention',
+    recipientsKey: 'privacy.export.categories.leads.recipients',
+    sourceKey: 'privacy.export.categories.leads.source',
+    title: {
+      en: 'Inquiry & Lead Details',
+      de: 'Anfrage- & Lead-Details',
+    },
+    purpose: {
+      en: 'Answering the inquiry and pre-contractual communication.',
+      de: 'Beantwortung der Anfrage und vorvertragliche Kommunikation.',
+    },
+    lawfulBasis: {
+      en: 'Art. 6(1)(b) GDPR (Pre-contractual measures upon request).',
+      de: 'Art. 6 Abs. 1 lit. b DSGVO (Vorvertragliche Maßnahmen auf Anfrage).',
+    },
+    retention: {
+      en: '12 months following last owner activity (configurable 1–36 months via LEAD_RETENTION_MONTHS).',
+      de: '12 Monate nach der letzten Aktivität (konfigurierbar 1–36 Monate via LEAD_RETENTION_MONTHS).',
+    },
+    recipients: {
+      en: "The studio's email provider, for the confirmation email.",
+      de: 'Der E-Mail-Provider des Studios für die Bestätigungs-E-Mail.',
+    },
+    source: {
+      en: 'Inquiry form submitted by the data subject.',
+      de: 'Von der betroffenen Person übermitteltes Anfrageformular.',
+    },
+  },
+  {
+    id: 'converted_leads',
+    titleKey: 'privacy.export.categories.converted_leads.title',
+    purposeKey: 'privacy.export.categories.converted_leads.purpose',
+    lawfulBasisKey: 'privacy.export.categories.converted_leads.lawful_basis',
+    retentionKey: 'privacy.export.categories.converted_leads.retention',
+    recipientsKey: 'privacy.export.categories.converted_leads.recipients',
+    sourceKey: 'privacy.export.categories.converted_leads.source',
+    title: {
+      en: 'Inquiry & Conversion History',
+      de: 'Anfrage- & Konvertierungshistorie',
+    },
+    purpose: {
+      en: 'Documentation of pre-contractual inquiry and conversion history.',
+      de: 'Dokumentation der vorvertraglichen Anfrage und Konvertierungshistorie.',
+    },
+    lawfulBasis: {
+      en: 'Art. 6(1)(b) GDPR (Performance of a contract / pre-contractual measures).',
+      de: 'Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung / vorvertragliche Maßnahmen).',
+    },
+    retention: {
+      en: 'Retained for the duration of the client profile.',
+      de: 'Gespeichert für die Dauer des Kundenprofils.',
+    },
+    recipients: {
+      en: 'None (stored locally on the self-hosted studio instance).',
+      de: 'Keine (ausschließlich lokale Speicherung auf der selbst gehosteten Studio-Instanz).',
+    },
+    source: {
+      en: 'Inquiry form submitted by the data subject prior to conversion.',
+      de: 'Von der betroffenen Person vor Konvertierung übermitteltes Anfrageformular.',
+    },
+  },
 ];
 
 const categoryRegistry = new Map<string, CategoryDefinition>();

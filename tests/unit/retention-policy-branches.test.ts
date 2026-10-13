@@ -13,6 +13,7 @@ import {
   resetPolicies,
   getClientRetentionMonths,
 } from '@/server/retention/policy';
+import { resetEnvCache } from '@/env';
 import type { DbClient } from '@/server/db/client';
 
 describe('Retention policy utility and definition branches', () => {
@@ -86,15 +87,24 @@ describe('Retention policy utility and definition branches', () => {
 
   it('createDefaultPolicies constructs policies that exercise getCandidates and deleteBatch branches', async () => {
     const policies = createDefaultPolicies();
-    expect(policies).toHaveLength(5);
+    expect(policies).toHaveLength(7);
 
-    const [auditPolicy, sessionPolicy, rateLimitPolicy, consentProofPolicy, inactiveClientsPolicy] =
-      policies;
+    const [
+      auditPolicy,
+      sessionPolicy,
+      rateLimitPolicy,
+      consentProofPolicy,
+      inactiveClientsPolicy,
+      unconvertedLeadsPolicy,
+      spamLeadsPolicy,
+    ] = policies;
     expect(auditPolicy).toBeDefined();
     expect(sessionPolicy).toBeDefined();
     expect(rateLimitPolicy).toBeDefined();
     expect(consentProofPolicy).toBeDefined();
     expect(inactiveClientsPolicy).toBeDefined();
+    expect(unconvertedLeadsPolicy).toBeDefined();
+    expect(spamLeadsPolicy).toBeDefined();
 
     // Mock DB client
     let deletedCount = 0;
@@ -104,9 +114,13 @@ describe('Retention policy utility and definition branches', () => {
         from: () => ({
           where: () => {
             const p = Promise.resolve([{ id: 'row-1' }]);
-            return Object.assign(p, {
+            const chain = {
               limit: (lim: number) => Promise.resolve([{ id: 'row-1' }].slice(0, lim)),
-            });
+              orderBy: () => ({
+                limit: (lim: number) => Promise.resolve([{ id: 'row-1' }].slice(0, lim)),
+              }),
+            };
+            return Object.assign(p, chain);
           },
         }),
       }),
@@ -132,6 +146,20 @@ describe('Retention policy utility and definition branches', () => {
       expect(deletedCount).toBe(0);
       await auditPolicy.deleteBatch(mockClient, ['row-1']);
       expect(deletedCount).toBe(1);
+
+      if (auditPolicy.legalHold) {
+        const asAudit = (row: { id: string; metadata?: Record<string, unknown> | null }) =>
+          row as unknown as Parameters<NonNullable<typeof auditPolicy.legalHold>>[0];
+        expect(auditPolicy.legalHold(asAudit({ id: 'a-1', metadata: { legal_hold: true } }))).toBe(
+          true,
+        );
+        expect(auditPolicy.legalHold(asAudit({ id: 'a-2', metadata: { legal_hold: false } }))).toBe(
+          false,
+        );
+        expect(auditPolicy.legalHold(asAudit({ id: 'a-3', metadata: { other: 123 } }))).toBe(false);
+        expect(auditPolicy.legalHold(asAudit({ id: 'a-4', metadata: null }))).toBe(false);
+        expect(auditPolicy.legalHold(asAudit({ id: 'a-5' }))).toBe(false);
+      }
     }
 
     if (sessionPolicy) {
@@ -283,6 +311,86 @@ describe('Retention policy utility and definition branches', () => {
       await inactiveClientsPolicy.deleteBatch(mockClient, []);
       await inactiveClientsPolicy.deleteBatch(mockClient, ['c-1', 'c-2']);
     }
+
+    if (unconvertedLeadsPolicy) {
+      expect(unconvertedLeadsPolicy.after?.months).toBeGreaterThanOrEqual(1);
+
+      // getCandidates with excludedIds and without
+      const c1 = await unconvertedLeadsPolicy.getCandidates(mockClient, now, 10, ['ex-1']);
+      expect(c1).toHaveLength(1);
+      const c2 = await unconvertedLeadsPolicy.getCandidates(mockClient, now, 10, []);
+      expect(c2).toHaveLength(1);
+
+      if (unconvertedLeadsPolicy.eraseCandidate) {
+        const eraseModule = await import('@/server/privacy/erasure/service');
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: true,
+          subjectKind: 'lead',
+          categoryCounts: { lead: 1 },
+        });
+        const res1 = await unconvertedLeadsPolicy.eraseCandidate(mockClient, 'lead-1');
+        expect(res1.outcome).toBe('deleted');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'ERASURE_BLOCKED',
+          holds: [{ reason: 'legal_hold', retainUntil: null }],
+        });
+        const res2 = await unconvertedLeadsPolicy.eraseCandidate(mockClient, 'lead-1');
+        expect(res2.outcome).toBe('held');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'INTERNAL_ERROR',
+          error: 'Lead lock conflict',
+        });
+        const res3 = await unconvertedLeadsPolicy.eraseCandidate(mockClient, 'lead-1');
+        expect(res3.outcome).toBe('failed');
+        expect(res3.error).toBe('Lead lock conflict');
+      }
+
+      await unconvertedLeadsPolicy.deleteBatch(mockClient, ['lead-1', 'lead-2']);
+    }
+
+    if (spamLeadsPolicy) {
+      expect(spamLeadsPolicy.after?.days).toBe(30);
+
+      // getCandidates with excludedIds and without
+      const c1 = await spamLeadsPolicy.getCandidates(mockClient, now, 10, ['ex-1']);
+      expect(c1).toHaveLength(1);
+      const c2 = await spamLeadsPolicy.getCandidates(mockClient, now, 10, []);
+      expect(c2).toHaveLength(1);
+
+      if (spamLeadsPolicy.eraseCandidate) {
+        const eraseModule = await import('@/server/privacy/erasure/service');
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: true,
+          subjectKind: 'lead',
+          categoryCounts: { lead: 1 },
+        });
+        const res1 = await spamLeadsPolicy.eraseCandidate(mockClient, 'spam-1');
+        expect(res1.outcome).toBe('deleted');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'ERASURE_BLOCKED',
+          holds: [{ reason: 'legal_hold', retainUntil: null }],
+        });
+        const res2 = await spamLeadsPolicy.eraseCandidate(mockClient, 'spam-1');
+        expect(res2.outcome).toBe('held');
+
+        vi.mocked(eraseModule.eraseSubject).mockResolvedValueOnce({
+          success: false,
+          code: 'INTERNAL_ERROR',
+          error: 'Spam lock conflict',
+        });
+        const res3 = await spamLeadsPolicy.eraseCandidate(mockClient, 'spam-1');
+        expect(res3.outcome).toBe('failed');
+        expect(res3.error).toBe('Spam lock conflict');
+      }
+
+      await spamLeadsPolicy.deleteBatch(mockClient, ['spam-1', 'spam-2']);
+    }
   });
 
   it('manages policy registry via registerPolicy, getPolicies, and resetPolicies', () => {
@@ -315,9 +423,73 @@ describe('Retention policy utility and definition branches', () => {
     expect(auditPolicy?.after?.months).toBe(24);
   });
 
-  it('getClientRetentionMonths returns positive integer (default 36 or env value)', () => {
-    const months = getClientRetentionMonths();
-    expect(typeof months).toBe('number');
-    expect(months).toBeGreaterThan(0);
+  it('getClientRetentionMonths returns positive integer and tests fallbacks', () => {
+    const origClient = process.env.CLIENT_RETENTION_MONTHS;
+    try {
+      // Configured valid value
+      process.env.CLIENT_RETENTION_MONTHS = '48';
+      expect(getClientRetentionMonths()).toBe(48);
+
+      // Out of range (0)
+      process.env.CLIENT_RETENTION_MONTHS = '0';
+      expect(getClientRetentionMonths()).toBe(36);
+
+      // Non-numeric
+      process.env.CLIENT_RETENTION_MONTHS = 'invalid';
+      expect(getClientRetentionMonths()).toBe(36);
+    } finally {
+      if (origClient !== undefined) {
+        process.env.CLIENT_RETENTION_MONTHS = origClient;
+      } else {
+        delete process.env.CLIENT_RETENTION_MONTHS;
+      }
+    }
+  });
+
+  it('getLeadRetentionMonths returns positive integer and tests non-numeric parse', async () => {
+    const { getLeadRetentionMonths } = await import('@/server/retention/policy');
+    const origLead = process.env.LEAD_RETENTION_MONTHS;
+    try {
+      process.env.LEAD_RETENTION_MONTHS = 'invalid-lead-months';
+      expect(getLeadRetentionMonths()).toBe(12);
+
+      process.env.LEAD_RETENTION_MONTHS = '24';
+      expect(getLeadRetentionMonths()).toBe(24);
+    } finally {
+      if (origLead !== undefined) {
+        process.env.LEAD_RETENTION_MONTHS = origLead;
+      } else {
+        delete process.env.LEAD_RETENTION_MONTHS;
+      }
+    }
+  });
+
+  it('createDefaultPolicies respects configured RETENTION_PERIOD_MONTHS and CONSENT_PROOF_RETENTION_MONTHS', () => {
+    const origPeriod = process.env.RETENTION_PERIOD_MONTHS;
+    const origConsent = process.env.CONSENT_PROOF_RETENTION_MONTHS;
+    try {
+      process.env.RETENTION_PERIOD_MONTHS = '18';
+      process.env.CONSENT_PROOF_RETENTION_MONTHS = '60';
+      resetEnvCache();
+
+      const policies = createDefaultPolicies();
+      const auditPolicy = policies.find((p) => p.id === 'audit-events-retention');
+      expect(auditPolicy?.after?.months).toBe(18);
+
+      const consentPolicy = policies.find((p) => p.id === 'withdrawn-consent-proof');
+      expect(consentPolicy?.after?.months).toBe(60);
+    } finally {
+      if (origPeriod !== undefined) {
+        process.env.RETENTION_PERIOD_MONTHS = origPeriod;
+      } else {
+        delete process.env.RETENTION_PERIOD_MONTHS;
+      }
+      if (origConsent !== undefined) {
+        process.env.CONSENT_PROOF_RETENTION_MONTHS = origConsent;
+      } else {
+        delete process.env.CONSENT_PROOF_RETENTION_MONTHS;
+      }
+      resetEnvCache();
+    }
   });
 });

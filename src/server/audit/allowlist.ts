@@ -63,7 +63,10 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
   ['client.legal_hold.set', ['reason', 'until']],
   ['client.legal_hold.updated', ['reason', 'until']],
   ['client.legal_hold.released', ['reason']],
-  ['privacy.export.generated', ['contact_id', 'format', 'locale', 'category_count']],
+  [
+    'privacy.export.generated',
+    ['contact_id', 'lead_id', 'subject_kind', 'format', 'locale', 'category_count'],
+  ],
   ['privacy.erasure.completed', ['subject_kind', 'category_counts']],
   ['privacy.erasure.blocked', ['subject_kind', 'hold_count']],
   ['integration.google.connected', ['provider', 'scope', 'scopes', 'user_id', 'ip_anonymized']],
@@ -81,6 +84,9 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
   ['inquiry_form.unpublished', ['form_id', 'changed_fields']],
   ['inquiry_form.archived', ['form_id', 'changed_fields']],
   ['inquiry_form.notice_versioned', ['form_id', 'version']],
+  ['lead.received', ['form_id', 'verification', 'delivery_mode']],
+  ['lead.status_changed', ['from', 'to']],
+  ['lead.deleted', ['count', 'bulk']],
 ]);
 
 /**

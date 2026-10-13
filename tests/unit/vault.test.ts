@@ -154,5 +154,58 @@ describe('AC-2: Encrypted Credential Vault (HKDF-SHA256 & AES-256-GCM)', () => {
     await expect(decryptSecret('v1:short:tag:ct', googlePurpose)).rejects.toThrow(
       VaultDecryptionError,
     );
+
+    // Empty or non-string ciphertext
+    await expect(decryptSecret('', googlePurpose)).rejects.toThrow(VaultDecryptionError);
+    await expect(decryptSecret(null as unknown as string, googlePurpose)).rejects.toThrow(
+      VaultDecryptionError,
+    );
+
+    // Empty components
+    await expect(decryptSecret('v1::tag:ct', googlePurpose)).rejects.toThrow(VaultDecryptionError);
+    await expect(decryptSecret('v1:iv::ct', googlePurpose)).rejects.toThrow(VaultDecryptionError);
+    await expect(decryptSecret('v1:iv:tag:', googlePurpose)).rejects.toThrow(VaultDecryptionError);
+
+    // Wrong IV length (not 12 bytes)
+    const badIv = Buffer.alloc(11).toString('base64url');
+    const goodTag = Buffer.alloc(16).toString('base64url');
+    await expect(decryptSecret(`v1:${badIv}:${goodTag}:ct`, googlePurpose)).rejects.toThrow(
+      'Invalid IV length',
+    );
+
+    // Wrong Tag length (not 16 bytes)
+    const goodIv = Buffer.alloc(12).toString('base64url');
+    const badTag = Buffer.alloc(15).toString('base64url');
+    await expect(decryptSecret(`v1:${goodIv}:${badTag}:ct`, googlePurpose)).rejects.toThrow(
+      'Invalid authentication tag length',
+    );
+
+    // Non-string plaintext in encryptSecret
+    await expect(encryptSecret(123 as unknown as string, googlePurpose)).rejects.toThrow(
+      VaultError,
+    );
+
+    // Invalid master key override in encryptSecret
+    await expect(encryptSecret('secret', googlePurpose, 'invalid-key')).rejects.toThrow(
+      VaultConfigurationError,
+    );
+
+    // Invalid master key override in decryptSecret
+    const validCt = await encryptSecret('secret', googlePurpose);
+    await expect(decryptSecret(validCt, googlePurpose, 'invalid-key')).rejects.toThrow(
+      VaultConfigurationError,
+    );
+
+    // Base64 master key of invalid length (decoded != 32 bytes)
+    const badB64 = Buffer.alloc(30).toString('base64');
+    expect(() => parseMasterKey(badB64)).toThrow(VaultConfigurationError);
+
+    // Base64 master key of 44 chars without trailing equals
+    const unpadded44B64 = Buffer.alloc(33).toString('base64').replace(/=/g, '');
+    expect(() => parseMasterKey(unpadded44B64)).toThrow(VaultConfigurationError);
+
+    // Valid base64 key of 32 bytes (44 chars with trailing equals)
+    const valid32B64 = Buffer.alloc(32, 0x42).toString('base64');
+    expect(parseMasterKey(valid32B64)).toHaveLength(32);
   });
 });

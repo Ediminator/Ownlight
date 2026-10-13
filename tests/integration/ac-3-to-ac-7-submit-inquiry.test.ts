@@ -610,4 +610,78 @@ describe('TASK-0027: submitInquiry Service Integration Tests', () => {
     });
     expect(result.violations).toEqual([]);
   });
+
+  it('returns unavailable when form has no notice version configured', async () => {
+    const createRes = await createForm(
+      {
+        name: 'No Notice Form',
+        default_locale: 'en',
+        accept_unverified: true,
+        privacy_policy_url: 'https://example.com/privacy',
+      },
+      'owner-admin',
+      dbClient,
+    );
+    if (!createRes.success) throw new Error(createRes.error);
+    const pubRes = await publishForm(createRes.data.id, 'owner-admin', dbClient);
+    if (!pubRes.success) throw new Error(pubRes.error);
+
+    const { inquiryForms } = await import('@/server/db/schema/inquiry-forms');
+    const { eq } = await import('drizzle-orm');
+    await dbClient
+      .update(inquiryForms)
+      .set({ currentNoticeVersionId: null })
+      .where(eq(inquiryForms.id, createRes.data.id));
+
+    const res = await submitInquiry(
+      {
+        given_name: 'Test',
+        email: 'test@example.com',
+        notice_acknowledged: true,
+      },
+      {
+        slug: pubRes.data.slug,
+        locale: 'en',
+        deliveryMode: 'hosted',
+        verification: 'unverified',
+        clientIp: '198.51.100.99',
+      },
+      dbClient,
+    );
+
+    expect(res.success).toBe(false);
+    expect(res.outcome).toBe('unavailable');
+    expect(res.code).toBe('UNAVAILABLE');
+  });
+
+  it('handles createLead failure and returns validation_failed', async () => {
+    const leadsService = await import('@/server/leads/service');
+    const spy = vi.spyOn(leadsService, 'createLead').mockResolvedValueOnce({
+      success: false,
+      outcome: 'validation_failed',
+      code: 'VALIDATION_FAILED',
+      error: 'Mock lead creation failure',
+      fields: ['email'],
+    });
+
+    const res = await submitInquiry(
+      {
+        given_name: 'Test',
+        email: 'test@example.com',
+        notice_acknowledged: true,
+      },
+      {
+        slug: publishedFormSlug,
+        locale: 'en',
+        deliveryMode: 'hosted',
+        verification: 'unverified',
+        clientIp: '198.51.100.99',
+      },
+      dbClient,
+    );
+
+    expect(res.success).toBe(false);
+    expect(res.error).toBe('Mock lead creation failure');
+    spy.mockRestore();
+  });
 });

@@ -7,6 +7,7 @@ import { clientTimelineEvents } from '@/server/db/schema/timeline';
 import { clients } from '@/server/db/schema/clients';
 import { leads } from '@/server/db/schema/leads';
 import { inquiryPowReplays } from '@/server/db/schema/inquiry-forms';
+import { emailOutbox } from '@/server/db/schema/email-outbox';
 import { findActiveClientIds } from '@/server/clients/activity';
 import { env } from '@/env';
 
@@ -543,6 +544,38 @@ export function createDefaultPolicies(): RetentionPolicy[] {
     },
   });
 
+  // 9. Failed email outbox items (status = 'FAILED' AND updated_at < now - 30 days) (ADR-0015 §9, TASK-0030 AC-12)
+  const failedEmailOutboxPolicy = defineRetentionPolicy<{ id: string }>({
+    id: 'failed-email-outbox',
+    entity: 'email_outbox',
+    description: 'Purges failed transactional email outbox items older than 30 days',
+    after: { days: 30 },
+    action: 'delete',
+    batchSize: 500,
+    getCandidates: async (client, cutoff, limit, excludedIds) => {
+      const basePredicate = and(
+        eq(emailOutbox.status, 'FAILED'),
+        lt(emailOutbox.updatedAt, cutoff),
+        excludedIds.length > 0 ? notInArray(emailOutbox.id, excludedIds) : undefined,
+      );
+
+      const rows = await client
+        .select({
+          id: emailOutbox.id,
+        })
+        .from(emailOutbox)
+        .where(basePredicate)
+        .orderBy(asc(emailOutbox.updatedAt), asc(emailOutbox.id))
+        .limit(limit);
+
+      return rows;
+    },
+    deleteBatch: async (client, ids) => {
+      if (ids.length === 0) return;
+      await client.delete(emailOutbox).where(inArray(emailOutbox.id, ids));
+    },
+  });
+
   return [
     auditEventsPolicy as unknown as RetentionPolicy,
     expiredSessionsPolicy as unknown as RetentionPolicy,
@@ -552,6 +585,7 @@ export function createDefaultPolicies(): RetentionPolicy[] {
     unconvertedLeadsPolicy,
     spamLeadsPolicy,
     expiredPowReplaysPolicy,
+    failedEmailOutboxPolicy,
   ];
 }
 

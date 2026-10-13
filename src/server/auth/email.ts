@@ -45,13 +45,50 @@ export function setTestTransporter(transporter: Transporter | null): void {
   globalTransporter = transporter;
 }
 
+export interface RecipientAddress {
+  address: string;
+  name?: string;
+}
+
 export interface SendEmailOptions {
   from?: string;
-  to: string;
+  to: string | RecipientAddress;
   subject: string;
   text: string;
   html?: string;
+  headers?: Record<string, string>;
   transporter?: Transporter;
+}
+
+/**
+ * Validates a recipient address, rejecting header delimiters and newlines (AC-13).
+ */
+export function validateRecipientAddress(recipient: string | RecipientAddress): string {
+  const raw = typeof recipient === 'string' ? recipient : recipient.address;
+  if (!raw || typeof raw !== 'string') {
+    throw new Error('Invalid recipient email address: missing or not a string');
+  }
+
+  const address = raw.trim();
+
+  // Reject header injection delimiters and line breaks (AC-13)
+  if (/[\r\n,;\x00<>]/.test(address)) {
+    throw new Error(
+      'Invalid recipient email address: contains prohibited header delimiters or line breaks',
+    );
+  }
+
+  // Length check (RFC 5321)
+  if (address.length > 254) {
+    throw new Error('Invalid recipient email address: exceeds maximum 254 characters');
+  }
+
+  // Basic email structure validation
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+    throw new Error('Invalid recipient email address format');
+  }
+
+  return address;
 }
 
 export async function sendEmail({
@@ -60,8 +97,11 @@ export async function sendEmail({
   subject,
   text,
   html,
+  headers,
   transporter,
 }: SendEmailOptions): Promise<void> {
+  const validatedAddress = validateRecipientAddress(to);
+
   let defaultFrom = 'noreply@example.com';
   try {
     defaultFrom = env.SMTP_FROM;
@@ -72,19 +112,24 @@ export async function sendEmail({
   const mailer = transporter ?? getMailTransporter();
   const mailOptions: {
     from: string;
-    to: string;
+    to: string | { address: string; name?: string };
     subject: string;
     text: string;
     html?: string;
+    headers?: Record<string, string>;
   } = {
     from: from ?? defaultFrom,
-    to,
+    to: typeof to === 'string' ? validatedAddress : { address: validatedAddress },
     subject,
     text,
   };
 
   if (html !== undefined) {
     mailOptions.html = html;
+  }
+
+  if (headers !== undefined) {
+    mailOptions.headers = headers;
   }
 
   await mailer.sendMail(mailOptions);

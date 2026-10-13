@@ -7,6 +7,7 @@ import { consumeRateLimit, anonymizeIp } from '@/server/auth/rate-limiter';
 import { createLead } from '@/server/leads/service';
 import { logger, getRequestId } from '@/server/log';
 import { getOrCreatePowSecret, verifyPowPayload } from './pow';
+import { enqueueLeadAutoReply } from '@/server/email/outbox';
 import type {
   InquiryFormFieldConfig,
   InquiryFormEventType,
@@ -605,8 +606,9 @@ export async function submitInquiry(
     };
   }
 
-  // Step 6: Create lead via createLead (AC-1)
-  if (!form.currentNoticeVersionId) {
+  // Step 6: Create lead via createLead and conditionally enqueue auto-reply (AC-1, AC-5, AC-6)
+  const currentNoticeVersionId = form.currentNoticeVersionId;
+  if (!currentNoticeVersionId) {
     return {
       success: false,
       outcome: 'unavailable',
@@ -615,30 +617,45 @@ export async function submitInquiry(
     };
   }
 
-  const leadResult = await createLead(
-    {
-      formId: form.id,
-      noticeVersionId: form.currentNoticeVersionId,
-      noticeAcknowledgedAt: new Date(),
-      locale: ctx.locale,
-      verification,
-      deliveryMode: ctx.deliveryMode,
-      givenName: validated.given_name ?? null,
-      familyName: validated.family_name ?? null,
-      email: validated.email,
-      phone: validated.phone ?? null,
-      eventTypeKey: validated.event_type ?? null,
-      eventDate: validated.event_date ?? null,
-      eventLocation: validated.event_location ?? null,
-      message: validated.message ?? null,
-      autoReplyStatus: 'not_applicable',
-    },
-    {
-      deliveryMode: ctx.deliveryMode,
-      verification,
-    },
-    client,
-  );
+  const shouldEnqueueAutoReply = verification === 'verified' && form.autoReplyEnabled;
+  const autoReplyStatus = shouldEnqueueAutoReply ? 'queued' : 'not_applicable';
+
+  const leadResult = await client.transaction(async (tx) => {
+    const result = await createLead(
+      {
+        formId: form.id,
+        noticeVersionId: currentNoticeVersionId,
+        noticeAcknowledgedAt: new Date(),
+        locale: ctx.locale,
+        verification,
+        deliveryMode: ctx.deliveryMode,
+        givenName: validated.given_name ?? null,
+        familyName: validated.family_name ?? null,
+        email: validated.email,
+        phone: validated.phone ?? null,
+        eventTypeKey: validated.event_type ?? null,
+        eventDate: validated.event_date ?? null,
+        eventLocation: validated.event_location ?? null,
+        message: validated.message ?? null,
+        autoReplyStatus,
+      },
+      {
+        deliveryMode: ctx.deliveryMode,
+        verification,
+      },
+      tx,
+    );
+
+    if (!result.success) {
+      return result;
+    }
+
+    if (shouldEnqueueAutoReply) {
+      await enqueueLeadAutoReply(result.data.id, tx);
+    }
+
+    return result;
+  });
 
   if (!leadResult.success) {
     return {

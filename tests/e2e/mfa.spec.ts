@@ -279,6 +279,7 @@ test.describe('TASK-0008: Multi-Factor Authentication (MFA) & Passkeys E2E', () 
       // 6. Verify owner can now navigate to protected app route (/en/settings) without being intercepted
       await page.goto('/en/settings');
       await expect(page).toHaveURL(/\/en\/settings$/);
+      await page.waitForLoadState('networkidle');
     } finally {
       // 7. Cleanup: reset studio settings
       await setE2eStudioMfaSettings(false, null);

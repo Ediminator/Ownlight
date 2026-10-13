@@ -1,37 +1,17 @@
-import { PGlite } from '@electric-sql/pglite';
+import { type PGlite } from '@electric-sql/pglite';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import { PGlite as PGliteClient } from '@electric-sql/pglite';
 
-export interface E2eSeedFormOptions {
-  slug: string;
-  name: string;
-  status?: 'published' | 'draft' | 'archived';
-  acceptUnverified?: boolean;
-  privacyPolicyUrl?: string;
-  acknowledgementTextEn?: string;
-  acknowledgementTextDe?: string;
-  eventTypes?: { key: string; label_en: string; label_de: string }[];
-}
+export const E2E_INQUIRY_PUBLISHED_SLUG = 'inq-test01';
+export const E2E_INQUIRY_PUBLISHED_ID = '018f0000-0000-7000-8000-000000000010';
+export const E2E_INQUIRY_PUBLISHED_NOTICE_ID = '018f0000-0000-7000-8000-000000000011';
+export const E2E_INQUIRY_DRAFT_SLUG = 'inq-draft1';
+export const E2E_INQUIRY_DRAFT_ID = '018f0000-0000-7000-8000-000000000020';
+export const E2E_INQUIRY_ARCHIVED_SLUG = 'inq-archv1';
+export const E2E_INQUIRY_ARCHIVED_ID = '018f0000-0000-7000-8000-000000000030';
 
-export async function seedE2eInquiryForm(options: E2eSeedFormOptions): Promise<{
-  formId: string;
-  noticeVersionId: string;
-  slug: string;
-}> {
-  const pglite = new PGlite(path.resolve('./.pglite-e2e'));
-  await pglite.waitReady;
-
-  const formId = crypto.randomUUID();
-  const noticeVersionId = crypto.randomUUID();
+export async function seedAllE2eInquiryForms(pglite: PGlite): Promise<void> {
   const now = new Date().toISOString();
-
-  const status = options.status ?? 'published';
-  const acceptUnverified = options.acceptUnverified ?? true;
-  const privacyPolicyUrl = options.privacyPolicyUrl ?? 'https://example.org/privacy';
-  const ackEn = options.acknowledgementTextEn ?? 'I have read and acknowledge the privacy policy.';
-  const ackDe =
-    options.acknowledgementTextDe ?? 'Ich habe die Datenschutzerklärung zur Kenntnis genommen.';
-
   const fields = JSON.stringify([
     { key: 'given_name', enabled: true, required: true, order: 0 },
     { key: 'family_name', enabled: true, required: false, order: 1 },
@@ -43,77 +23,92 @@ export async function seedE2eInquiryForm(options: E2eSeedFormOptions): Promise<{
     { key: 'message', enabled: true, required: false, order: 7 },
   ]);
 
-  const eventTypes = JSON.stringify(
-    options.eventTypes ?? [
-      { key: 'wedding', label_en: 'Wedding', label_de: 'Hochzeit' },
-      { key: 'portrait', label_en: 'Portrait', label_de: 'Porträt' },
+  const eventTypes = JSON.stringify([
+    { key: 'wedding', label_en: 'Wedding', label_de: 'Hochzeit' },
+    { key: 'portrait', label_en: 'Portrait', label_de: 'Porträt' },
+  ]);
+
+  // 1. Published form
+  await pglite.query(
+    `INSERT INTO inquiry_forms (
+      id, slug, name, status, default_locale, fields, event_types, auto_reply_enabled, accept_unverified, created_at, updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+    ON CONFLICT (id) DO UPDATE SET status = $4, updated_at = $10`,
+    [
+      E2E_INQUIRY_PUBLISHED_ID,
+      E2E_INQUIRY_PUBLISHED_SLUG,
+      'General Inquiries',
+      'published',
+      'en',
+      fields,
+      eventTypes,
+      true,
+      true,
+      now,
     ],
   );
 
-  // 1. Check if form with this slug already exists
-  const check = await pglite.query<{ id: string }>(
-    `SELECT id FROM inquiry_forms WHERE slug = $1 LIMIT 1`,
-    [options.slug],
-  );
-
-  let targetFormId: string = formId;
-  if (check.rows.length > 0 && check.rows[0]?.id) {
-    targetFormId = check.rows[0].id;
-    await pglite.query(
-      `UPDATE inquiry_forms SET
-        name = $1,
-        status = $2,
-        fields = $3,
-        event_types = $4,
-        accept_unverified = $5,
-        updated_at = $6
-       WHERE id = $7`,
-      [options.name, status, fields, eventTypes, acceptUnverified, now, targetFormId],
-    );
-  } else {
-    await pglite.query(
-      `INSERT INTO inquiry_forms (
-        id, slug, name, status, default_locale, fields, event_types, auto_reply_enabled, accept_unverified, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)`,
-      [
-        targetFormId,
-        options.slug,
-        options.name,
-        status,
-        'en',
-        fields,
-        eventTypes,
-        true,
-        acceptUnverified,
-        now,
-      ],
-    );
-  }
-
-  // 2. Insert notice version referencing targetFormId
-  const noticeRes = await pglite.query<{ id: string }>(
+  await pglite.query(
     `INSERT INTO inquiry_form_notice_versions (
       id, form_id, version, acknowledgement_text_en, acknowledgement_text_de, privacy_policy_url, created_by_actor_id, created_at
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    ON CONFLICT (form_id, version) DO UPDATE SET
-      acknowledgement_text_en = $4,
-      acknowledgement_text_de = $5,
-      privacy_policy_url = $6
-    RETURNING id`,
-    [noticeVersionId, targetFormId, 1, ackEn, ackDe, privacyPolicyUrl, 'e2e-seed', now],
+    ON CONFLICT (id) DO NOTHING`,
+    [
+      E2E_INQUIRY_PUBLISHED_NOTICE_ID,
+      E2E_INQUIRY_PUBLISHED_ID,
+      1,
+      'I have read and acknowledge the privacy policy.',
+      'Ich habe die Datenschutzerklärung zur Kenntnis genommen.',
+      'https://example.org/privacy',
+      'e2e-seed',
+      now,
+    ],
   );
 
-  const actualNoticeVersionId = noticeRes.rows[0]?.id ?? noticeVersionId;
+  await pglite.query(`UPDATE inquiry_forms SET current_notice_version_id = $1 WHERE id = $2`, [
+    E2E_INQUIRY_PUBLISHED_NOTICE_ID,
+    E2E_INQUIRY_PUBLISHED_ID,
+  ]);
 
-  // 3. Link current_notice_version_id on inquiry form
+  // 2. Draft form
   await pglite.query(
-    `UPDATE inquiry_forms SET current_notice_version_id = $1, updated_at = $2 WHERE id = $3`,
-    [actualNoticeVersionId, now, targetFormId],
+    `INSERT INTO inquiry_forms (
+      id, slug, name, status, default_locale, fields, event_types, auto_reply_enabled, accept_unverified, created_at, updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+    ON CONFLICT (id) DO UPDATE SET status = $4, updated_at = $10`,
+    [
+      E2E_INQUIRY_DRAFT_ID,
+      E2E_INQUIRY_DRAFT_SLUG,
+      'Draft Inquiry Form',
+      'draft',
+      'en',
+      fields,
+      eventTypes,
+      true,
+      true,
+      now,
+    ],
   );
 
-  await pglite.close();
-
-  return { formId: targetFormId, noticeVersionId: actualNoticeVersionId, slug: options.slug };
+  // 3. Archived form
+  await pglite.query(
+    `INSERT INTO inquiry_forms (
+      id, slug, name, status, default_locale, fields, event_types, auto_reply_enabled, accept_unverified, created_at, updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+    ON CONFLICT (id) DO UPDATE SET status = $4, updated_at = $10`,
+    [
+      E2E_INQUIRY_ARCHIVED_ID,
+      E2E_INQUIRY_ARCHIVED_SLUG,
+      'Archived Inquiry Form',
+      'archived',
+      'en',
+      fields,
+      eventTypes,
+      true,
+      true,
+      now,
+    ],
+  );
 }
 
 export interface E2eLeadRow {
@@ -136,7 +131,7 @@ export interface E2eLeadRow {
 }
 
 export async function getE2eLeadsForForm(formId: string): Promise<E2eLeadRow[]> {
-  const pglite = new PGlite(path.resolve('./.pglite-e2e'));
+  const pglite = new PGliteClient(path.resolve('./.pglite-e2e'));
   await pglite.waitReady;
 
   const result = await pglite.query<E2eLeadRow>(

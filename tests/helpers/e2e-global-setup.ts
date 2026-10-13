@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { seedDemo } from '../../scripts/seed-demo.mjs';
+import { seedAllE2eInquiryForms } from './e2e-inquiry-helper';
 
 export const E2E_OWNER_EMAIL = 'owner@example.com';
 export const E2E_OWNER_PASSWORD = 'ValidOwnerPassword123!';
@@ -33,6 +34,9 @@ export default async function globalSetup() {
     forceDemo: true,
     nodeEnv: 'test',
   });
+
+  // Seed inquiry forms for public inquiry E2E tests (TASK-0027)
+  await seedAllE2eInquiryForms(pglite);
 
   await pglite.close();
 }

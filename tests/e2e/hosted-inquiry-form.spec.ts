@@ -2,7 +2,14 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 import path from 'node:path';
-import { seedE2eInquiryForm, getE2eLeadsForForm } from '../helpers/e2e-inquiry-helper';
+import {
+  E2E_INQUIRY_PUBLISHED_SLUG,
+  E2E_INQUIRY_PUBLISHED_ID,
+  E2E_INQUIRY_PUBLISHED_NOTICE_ID,
+  E2E_INQUIRY_DRAFT_SLUG,
+  E2E_INQUIRY_ARCHIVED_SLUG,
+  getE2eLeadsForForm,
+} from '../helpers/e2e-inquiry-helper';
 
 const RUN_DIR_PARAM = process.env.RUN_DIR ?? 'iter-01';
 const UX_RUN_DIR = path.resolve(
@@ -11,41 +18,14 @@ const UX_RUN_DIR = path.resolve(
 );
 
 test.describe('TASK-0027: Public Hosted Inquiry Form E2E Tests', () => {
-  let formId: string;
-  let noticeVersionId: string;
-  const slug = 'inq-test01';
-  const draftSlug = 'inq-draft1';
-  const archivedSlug = 'inq-archv1';
+  const formId = E2E_INQUIRY_PUBLISHED_ID;
+  const noticeVersionId = E2E_INQUIRY_PUBLISHED_NOTICE_ID;
+  const slug = E2E_INQUIRY_PUBLISHED_SLUG;
+  const draftSlug = E2E_INQUIRY_DRAFT_SLUG;
+  const archivedSlug = E2E_INQUIRY_ARCHIVED_SLUG;
 
-  test.beforeAll(async () => {
+  test.beforeAll(() => {
     fs.mkdirSync(UX_RUN_DIR, { recursive: true });
-
-    // Seed published form with accept_unverified = true
-    const seeded = await seedE2eInquiryForm({
-      slug,
-      name: 'General Inquiries',
-      status: 'published',
-      acceptUnverified: true,
-      privacyPolicyUrl: 'https://example.org/privacy',
-    });
-    formId = seeded.formId;
-    noticeVersionId = seeded.noticeVersionId;
-
-    // Seed draft form
-    await seedE2eInquiryForm({
-      slug: draftSlug,
-      name: 'Draft Inquiry Form',
-      status: 'draft',
-      acceptUnverified: true,
-    });
-
-    // Seed archived form
-    await seedE2eInquiryForm({
-      slug: archivedSlug,
-      name: 'Archived Inquiry Form',
-      status: 'archived',
-      acceptUnverified: true,
-    });
   });
 
   test('AC-1: visitor fills all required fields at /en/f/{slug} and submits, lands on thanks page and creates lead row', async ({

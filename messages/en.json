@@ -907,6 +907,7 @@
   "leads": {
     "title": "Leads",
     "description": "Review and triage incoming prospect inquiries.",
+    "badgeAriaLabel": "{count} new",
     "status": {
       "new": "New",
       "contacted": "Contacted",
@@ -953,6 +954,7 @@
       "deliveryMode": "Delivery mode",
       "autoReply": "Auto-reply",
       "actions": "Actions",
+      "view": "View",
       "emptyTitle": "No leads found",
       "emptyDescription": "Incoming inquiries from prospects will appear here.",
       "emptyFilter": "No leads match the selected filter."
@@ -1006,6 +1008,7 @@
       "eventDate": "Event date",
       "eventLocation": "Event location",
       "notSpecified": "Not specified",
+      "formLabel": "Form: {name}",
       "noticeVersion": "Notice version acknowledged",
       "acknowledgedAt": "Acknowledged at",
       "privacyPolicy": "Studio privacy policy",

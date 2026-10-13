@@ -224,6 +224,18 @@ test.describe('TASK-0031: Lead Inbox and Management UI E2E Tests', () => {
     await expect(page.locator('[data-testid="tab-archived"]')).toContainText('Archiviert');
     await expect(page.locator('[data-testid="tab-spam"]')).toContainText('Spam');
 
+    // Verify localized table View link (I1-U02)
+    const viewLink = page.locator('[data-testid^="lead-view-link-"]').first();
+    if (await viewLink.isVisible()) {
+      await expect(viewLink).toContainText('Ansehen');
+    }
+
+    // Verify localized unread badge aria-label (I1-U02)
+    const badge = page.locator('[data-testid="new-leads-badge"]');
+    if (await badge.isVisible()) {
+      await expect(badge).toHaveAttribute('aria-label', /neu/);
+    }
+
     // Detail page in German
     await page.goto(`/de/leads/${E2E_LEAD_NEW_ID}`);
     await expect(page.locator('html')).toHaveAttribute('lang', 'de');
@@ -286,5 +298,33 @@ test.describe('TASK-0031: Lead Inbox and Management UI E2E Tests', () => {
         }
       }
     }
+
+    // Modal contrast axe scan (I1-U01)
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/en/leads');
+    await page.waitForLoadState('networkidle');
+    const firstCheckbox = page
+      .locator('input[type="checkbox"][data-testid^="select-lead-"]')
+      .first();
+    if (await firstCheckbox.isVisible()) {
+      await firstCheckbox.check();
+      await page.click('[data-testid="bulk-delete-btn"]');
+      await page.waitForSelector('[data-testid="delete-selected-modal"]', { state: 'visible' });
+
+      const modalAxe = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
+        .analyze();
+      expect(modalAxe.violations).toEqual([]);
+      await page.click('button:has-text("Cancel")');
+    }
+
+    // Desktop table width verification at 1440px in German (I1-U04)
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/de/leads');
+    await page.waitForLoadState('networkidle');
+    const deDesktopScroll = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    );
+    expect(deDesktopScroll).toBe(false);
   });
 });

@@ -379,34 +379,34 @@ export function LeadInbox({
                     className="h-4 w-4 rounded border-input text-primary focus:ring-primary cursor-pointer"
                   />
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
+                <th scope="col" className="px-3 py-2.5 font-semibold whitespace-nowrap">
                   {t('table.receivedAt')}
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
+                <th scope="col" className="px-3 py-2.5 font-semibold min-w-[130px]">
                   {t('table.fullName')}
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
+                <th scope="col" className="px-3 py-2.5 font-semibold min-w-[180px] max-w-[240px]">
                   {t('table.email')}
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold hidden md:table-cell">
+                <th scope="col" className="px-3 py-2.5 font-semibold hidden lg:table-cell">
                   {t('table.phone')}
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
+                <th scope="col" className="px-3 py-2.5 font-semibold hidden md:table-cell">
                   {t('table.eventType')}
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
+                <th scope="col" className="px-3 py-2.5 font-semibold whitespace-nowrap">
                   {t('table.status')}
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold hidden sm:table-cell">
+                <th scope="col" className="px-3 py-2.5 font-semibold hidden sm:table-cell">
                   {t('table.verification')}
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold hidden lg:table-cell">
+                <th scope="col" className="px-3 py-2.5 font-semibold hidden xl:table-cell">
                   {t('table.deliveryMode')}
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold hidden xl:table-cell">
+                <th scope="col" className="px-3 py-2.5 font-semibold hidden 2xl:table-cell">
                   {t('table.autoReply')}
                 </th>
-                <th scope="col" className="px-4 py-3 font-semibold text-right">
+                <th scope="col" className="px-3 py-2.5 font-semibold text-right whitespace-nowrap">
                   {t('table.actions')}
                 </th>
               </tr>
@@ -454,10 +454,10 @@ export function LeadInbox({
                           className="h-4 w-4 rounded border-input text-primary focus:ring-primary cursor-pointer"
                         />
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-xs">
+                      <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap text-xs">
                         {dateStr}
                       </td>
-                      <td className="px-4 py-3 font-medium text-foreground">
+                      <td className="px-3 py-2.5 font-medium text-foreground">
                         <Link
                           href={`/leads/${lead.id}`}
                           data-testid={`lead-link-${lead.id}`}
@@ -465,34 +465,41 @@ export function LeadInbox({
                         >
                           <span>{fullName}</span>
                         </Link>
+                        <div className="md:hidden text-xs text-muted-foreground mt-0.5">
+                          {lead.eventTypeKey ? t(`eventTypes.${lead.eventTypeKey}`) : ''}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs break-all">
+                      <td
+                        className="px-3 py-2.5 text-muted-foreground text-xs min-w-[180px] max-w-[240px] truncate"
+                        title={lead.email ?? ''}
+                      >
                         {lead.email ?? '—'}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs hidden md:table-cell whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-muted-foreground text-xs hidden lg:table-cell whitespace-nowrap">
                         {lead.phone ?? '—'}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">
+                      <td className="px-3 py-2.5 text-muted-foreground text-xs hidden md:table-cell">
                         {lead.eventTypeKey ? t(`eventTypes.${lead.eventTypeKey}`) : '—'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-3 py-2.5 whitespace-nowrap">
                         <StatusBadge status={lead.status} t={t} />
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap hidden sm:table-cell">
+                      <td className="px-3 py-2.5 whitespace-nowrap hidden sm:table-cell">
                         <VerificationBadge verification={lead.verification} t={t} />
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground hidden lg:table-cell">
+                      <td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground hidden xl:table-cell">
                         <span className="capitalize">{t(`deliveryMode.${lead.deliveryMode}`)}</span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground hidden xl:table-cell">
+                      <td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground hidden 2xl:table-cell">
                         <span>{t(`autoReplyStatus.${lead.autoReplyStatus}`)}</span>
                       </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
                         <Link
                           href={`/leads/${lead.id}`}
+                          data-testid={`lead-view-link-${lead.id}`}
                           className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
                         >
-                          <span>View</span>
+                          <span>{t('table.view')}</span>
                           <ExternalLink className="h-3 w-3" aria-hidden="true" />
                         </Link>
                       </td>
@@ -541,7 +548,7 @@ export function LeadInbox({
         <DialogContent data-testid="delete-selected-modal">
           <DialogHeader>
             <DialogTitle>{t('dialogs.deleteSelectedTitle')}</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-sm text-zinc-700 dark:text-zinc-300">
               {t('dialogs.deleteSelectedDescription', { count: selectedIds.size })}
             </DialogDescription>
           </DialogHeader>
@@ -562,7 +569,7 @@ export function LeadInbox({
               onClick={() => {
                 setDeleteModalOpen(false);
               }}
-              className="px-4 py-2 text-sm rounded-md border border-input bg-background hover:bg-accent text-foreground font-medium"
+              className="px-4 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-medium"
             >
               {t('dialogs.cancel')}
             </button>
@@ -573,7 +580,7 @@ export function LeadInbox({
               onClick={() => {
                 void handleConfirmBulkDelete();
               }}
-              className="px-4 py-2 text-sm rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium"
+              className="px-4 py-2 text-sm rounded-md bg-red-700 hover:bg-red-800 dark:bg-red-700 dark:hover:bg-red-800 text-white font-semibold"
             >
               {isDeleting ? t('dialogs.deleting') : t('dialogs.confirmDelete')}
             </button>
@@ -586,7 +593,9 @@ export function LeadInbox({
         <DialogContent data-testid="delete-all-spam-modal">
           <DialogHeader>
             <DialogTitle>{t('dialogs.deleteAllSpamTitle')}</DialogTitle>
-            <DialogDescription>{t('dialogs.deleteAllSpamDescription')}</DialogDescription>
+            <DialogDescription className="text-sm text-zinc-700 dark:text-zinc-300">
+              {t('dialogs.deleteAllSpamDescription')}
+            </DialogDescription>
           </DialogHeader>
 
           {errorMsg && (
@@ -605,7 +614,7 @@ export function LeadInbox({
               onClick={() => {
                 setDeleteSpamModalOpen(false);
               }}
-              className="px-4 py-2 text-sm rounded-md border border-input bg-background hover:bg-accent text-foreground font-medium"
+              className="px-4 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-medium"
             >
               {t('dialogs.cancel')}
             </button>
@@ -616,7 +625,7 @@ export function LeadInbox({
               onClick={() => {
                 void handleConfirmDeleteAllSpam();
               }}
-              className="px-4 py-2 text-sm rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium"
+              className="px-4 py-2 text-sm rounded-md bg-red-700 hover:bg-red-800 dark:bg-red-700 dark:hover:bg-red-800 text-white font-semibold"
             >
               {isDeleting ? t('dialogs.deleting') : t('dialogs.confirmDelete')}
             </button>

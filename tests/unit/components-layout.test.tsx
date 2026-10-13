@@ -79,6 +79,7 @@ describe('Shell Layout and Navigation Components', () => {
     const withBadgeHtml = renderToStaticMarkup(<NavLinks newLeadsCount={5} />);
     expect(withBadgeHtml).toContain('data-testid="new-leads-badge"');
     expect(withBadgeHtml).toContain('5');
+    expect(withBadgeHtml).toContain('aria-label="translated-badgeAriaLabel"');
 
     const withoutBadgeHtml = renderToStaticMarkup(<NavLinks newLeadsCount={0} />);
     expect(withoutBadgeHtml).not.toContain('data-testid="new-leads-badge"');

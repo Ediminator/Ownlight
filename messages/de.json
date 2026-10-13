@@ -907,6 +907,7 @@
   "leads": {
     "title": "Anfragen",
     "description": "Eingehende Interessent:innen-Anfragen prüfen und triagieren.",
+    "badgeAriaLabel": "{count} neu",
     "status": {
       "new": "Neu",
       "contacted": "Kontaktiert",
@@ -953,6 +954,7 @@
       "deliveryMode": "Übertragungsart",
       "autoReply": "Auto-Antwort",
       "actions": "Aktionen",
+      "view": "Ansehen",
       "emptyTitle": "Keine Anfragen gefunden",
       "emptyDescription": "Eingehende Anfragen von Interessent:innen werden hier angezeigt.",
       "emptyFilter": "Keine Anfragen für den ausgewählten Filter vorhanden."
@@ -1006,6 +1008,7 @@
       "eventDate": "Datum der Veranstaltung",
       "eventLocation": "Ort der Veranstaltung",
       "notSpecified": "Nicht angegeben",
+      "formLabel": "Formular: {name}",
       "noticeVersion": "Bestätigte Hinweistext-Version",
       "acknowledgedAt": "Bestätigt am",
       "privacyPolicy": "Datenschutzerklärung des Studios",

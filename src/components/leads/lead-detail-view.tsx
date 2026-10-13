@@ -239,7 +239,7 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
             {leadWithDetails.formName && (
               <>
                 <span>•</span>
-                <span>Form: {leadWithDetails.formName}</span>
+                <span>{t('detail.formLabel', { name: leadWithDetails.formName })}</span>
               </>
             )}
           </div>
@@ -529,7 +529,9 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
         <DialogContent data-testid="reauth-modal">
           <DialogHeader>
             <DialogTitle>{t('reauth.title')}</DialogTitle>
-            <DialogDescription>{t('reauth.description')}</DialogDescription>
+            <DialogDescription className="text-sm text-zinc-700 dark:text-zinc-300">
+              {t('reauth.description')}
+            </DialogDescription>
           </DialogHeader>
 
           <form
@@ -575,7 +577,7 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
                 onClick={() => {
                   setReauthModalOpen(false);
                 }}
-                className="px-4 py-2 text-sm rounded-md border border-input bg-background hover:bg-accent text-foreground font-medium"
+                className="px-4 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-medium"
               >
                 {t('reauth.cancel')}
               </button>
@@ -583,7 +585,7 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
                 type="submit"
                 data-testid="reauth-submit-btn"
                 disabled={isReauthenticating || !reauthPassword.trim()}
-                className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium disabled:opacity-50"
+                className="px-4 py-2 text-sm rounded-md bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-medium disabled:opacity-50"
               >
                 {isReauthenticating ? t('reauth.confirming') : t('reauth.confirm')}
               </button>
@@ -597,7 +599,9 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
         <DialogContent data-testid="delete-lead-modal">
           <DialogHeader>
             <DialogTitle>{t('dialogs.deleteSingleTitle')}</DialogTitle>
-            <DialogDescription>{t('dialogs.deleteSingleDescription')}</DialogDescription>
+            <DialogDescription className="text-sm text-zinc-700 dark:text-zinc-300">
+              {t('dialogs.deleteSingleDescription')}
+            </DialogDescription>
           </DialogHeader>
 
           {deleteError && (
@@ -616,7 +620,7 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
               onClick={() => {
                 setDeleteModalOpen(false);
               }}
-              className="px-4 py-2 text-sm rounded-md border border-input bg-background hover:bg-accent text-foreground font-medium"
+              className="px-4 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-medium"
             >
               {t('dialogs.cancel')}
             </button>
@@ -627,7 +631,7 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
               onClick={() => {
                 void handleDeleteLead();
               }}
-              className="px-4 py-2 text-sm rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium"
+              className="px-4 py-2 text-sm rounded-md bg-red-700 hover:bg-red-800 dark:bg-red-700 dark:hover:bg-red-800 text-white font-semibold"
             >
               {isDeleting ? t('dialogs.deleting') : t('dialogs.confirmDelete')}
             </button>
@@ -640,7 +644,9 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
         <DialogContent data-testid="convert-stub-modal">
           <DialogHeader>
             <DialogTitle>{t('actions.convertToClient')}</DialogTitle>
-            <DialogDescription>{t('actions.conversionStub')}</DialogDescription>
+            <DialogDescription className="text-sm text-zinc-700 dark:text-zinc-300">
+              {t('actions.conversionStub')}
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <button
@@ -648,7 +654,7 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
               onClick={() => {
                 setConvertModalOpen(false);
               }}
-              className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
+              className="px-4 py-2 text-sm rounded-md bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-medium"
             >
               OK
             </button>

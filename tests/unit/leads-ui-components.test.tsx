@@ -65,6 +65,7 @@ vi.mock('@/server/auth/mfa-actions', () => ({
 
 import { LeadInbox } from '@/components/leads/lead-inbox';
 import { LeadDetailView } from '@/components/leads/lead-detail-view';
+import { Dialog, DialogContent, DialogDescription } from '@/components/ui/dialog';
 
 function createDummyLead(overrides: Partial<Lead> = {}): Lead {
   return {
@@ -339,5 +340,89 @@ describe('LeadDetailView Component (Unit Tests)', () => {
       <LeadDetailView leadWithDetails={archivedDetail} locale="en" />,
     );
     expect(archivedHtml).not.toContain('leads.actions.archive');
+  });
+
+  it('I1-U01: renders confirmation modals with high-contrast text and solid styling', () => {
+    const dialogHtml = renderToStaticMarkup(
+      <Dialog open={true}>
+        <DialogContent data-testid="delete-lead-modal">
+          <DialogDescription>Are you sure?</DialogDescription>
+        </DialogContent>
+      </Dialog>,
+    );
+    // DialogContent solid opaque background
+    expect(dialogHtml).toContain('bg-white');
+    expect(dialogHtml).toContain('dark:bg-zinc-900');
+    expect(dialogHtml).toContain('border-zinc-200');
+    // DialogDescription high contrast text
+    expect(dialogHtml).toContain('text-zinc-700');
+    expect(dialogHtml).toContain('dark:text-zinc-300');
+  });
+
+  it('I1-U02: uses localized strings for view link and form label without hardcoded English', () => {
+    const inboxHtml = renderToStaticMarkup(
+      <LeadInbox
+        initialLeads={[createDummyLead()]}
+        initialCounts={dummyCounts}
+        locale="en"
+        initialStatus="all"
+        initialEmailQuery=""
+        initialPage={1}
+        hasMore={false}
+      />,
+    );
+    expect(inboxHtml).toContain('leads.table.view');
+    expect(inboxHtml).not.toContain('<span>View</span>');
+
+    const detail: LeadWithDetails = {
+      lead: createDummyLead(),
+      formName: 'Summer Inquiry Form',
+      noticeVersion: null,
+      formEventTypes: null,
+    };
+    const detailHtml = renderToStaticMarkup(
+      <LeadDetailView leadWithDetails={detail} locale="en" />,
+    );
+    expect(detailHtml).toContain('leads.detail.formLabel');
+    expect(detailHtml).not.toContain('<span>Form: ');
+  });
+
+  it('I1-U03: formats email cell with min-width and truncate for desktop readability', () => {
+    const inboxHtml = renderToStaticMarkup(
+      <LeadInbox
+        initialLeads={[createDummyLead()]}
+        initialCounts={dummyCounts}
+        locale="en"
+        initialStatus="all"
+        initialEmailQuery=""
+        initialPage={1}
+        hasMore={false}
+      />,
+    );
+    expect(inboxHtml).toContain('min-w-[180px]');
+    expect(inboxHtml).toContain('truncate');
+    expect(inboxHtml).not.toContain('break-all');
+  });
+
+  it('I1-U04: applies responsive column breakpoints so status is visible and table fits desktop', () => {
+    const inboxHtml = renderToStaticMarkup(
+      <LeadInbox
+        initialLeads={[createDummyLead()]}
+        initialCounts={dummyCounts}
+        locale="en"
+        initialStatus="all"
+        initialEmailQuery=""
+        initialPage={1}
+        hasMore={false}
+      />,
+    );
+    // eventType hidden on mobile (< md) to keep status on screen
+    expect(inboxHtml).toContain('hidden md:table-cell');
+    // phone hidden on mobile/tablet (< lg)
+    expect(inboxHtml).toContain('hidden lg:table-cell');
+    // deliveryMode hidden until xl
+    expect(inboxHtml).toContain('hidden xl:table-cell');
+    // autoReply hidden until 2xl
+    expect(inboxHtml).toContain('hidden 2xl:table-cell');
   });
 });

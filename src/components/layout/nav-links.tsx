@@ -17,6 +17,7 @@ interface LeadCountBadgeProps {
 }
 
 function LeadCountBadge({ count }: LeadCountBadgeProps) {
+  const t = useTranslations('leads');
   const [fetchedCount, setFetchedCount] = React.useState<number | null>(null);
   const pathname = usePathname();
   const displayCount = count ?? fetchedCount;
@@ -46,7 +47,7 @@ function LeadCountBadge({ count }: LeadCountBadgeProps) {
   return (
     <span
       data-testid="new-leads-badge"
-      aria-label={`${String(displayCount)} new`}
+      aria-label={t('badgeAriaLabel', { count: displayCount })}
       className="ml-auto inline-flex items-center justify-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary"
     >
       {displayCount}

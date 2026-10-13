@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import path from 'node:path';
 
 vi.mock('server-only', () => ({}));
 
@@ -9,6 +10,8 @@ import { leads } from '@/server/db/schema/leads';
 import { auditEvents } from '@/server/db/schema/audit';
 import { createForm, publishForm } from '@/server/inquiry-forms/service';
 import { submitInquiry } from '@/server/inquiry-forms/submit';
+import { PUBLIC_AUTH_ACTIONS, isPublicAuthAction } from '@/server/auth/public-actions';
+import { scanServerActions, checkAllowlistComments } from '../helpers/server-action-scanner';
 import * as rateLimiterModule from '@/server/auth/rate-limiter';
 import { RateLimitUnavailableError } from '@/server/auth/rate-limiter';
 import type { DbClient } from '@/server/db/client';
@@ -119,7 +122,59 @@ describe('TASK-0027: submitInquiry Service Integration Tests', () => {
     draftFormSlug = draftRes.data.slug;
   });
 
-  it('AC-2: draft and unknown slugs return identical not_found outcome', async () => {
+  it('AC-1: creates a new lead with delivery_mode=hosted, verification=unverified, and notice version info', async () => {
+    const res = await submitInquiry(
+      {
+        given_name: 'Alice',
+        family_name: 'Wonderland',
+        email: 'alice@example.com',
+        phone: '+49 30 123456',
+        event_type: 'wedding',
+        event_date: '2027-06-15',
+        event_location: 'Berlin',
+        message: 'Looking forward to our photoshoot!',
+        notice_acknowledged: true,
+      },
+      {
+        slug: publishedFormSlug,
+        locale: 'en',
+        deliveryMode: 'hosted',
+        verification: 'unverified',
+        clientIp: '198.51.100.99',
+      },
+      dbClient,
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.outcome).toBe('success');
+    expect(res.leadId).toBeDefined();
+
+    const createdLeads = await dbClient.select().from(leads);
+    expect(createdLeads).toHaveLength(1);
+
+    const lead = createdLeads[0];
+    expect(lead).toBeDefined();
+    if (!lead) throw new Error('Lead not found');
+    expect(lead.id).toBe(res.leadId);
+    expect(lead.deliveryMode).toBe('hosted');
+    expect(lead.verification).toBe('unverified');
+    expect(lead.status).toBe('new');
+    expect(lead.locale).toBe('en');
+    expect(lead.givenName).toBe('Alice');
+    expect(lead.familyName).toBe('Wonderland');
+    expect(lead.email).toBe('alice@example.com');
+    expect(lead.emailNormalized).toBe('alice@example.com');
+    expect(lead.phone).toBe('+49 30 123456');
+    expect(lead.eventTypeKey).toBe('wedding');
+    expect(lead.eventDate).toBe('2027-06-15');
+    expect(lead.eventLocation).toBe('Berlin');
+    expect(lead.message).toBe('Looking forward to our photoshoot!');
+    expect(lead.noticeVersionId).toBeDefined();
+    expect(lead.noticeAcknowledgedAt).toBeInstanceOf(Date);
+    expect(Date.now() - lead.noticeAcknowledgedAt.getTime()).toBeLessThan(5000);
+  });
+
+  it('AC-8: draft and unknown slugs return identical not_found outcome', async () => {
     const draftRes = await submitInquiry(
       {
         given_name: 'Test',
@@ -509,5 +564,50 @@ describe('TASK-0027: submitInquiry Service Integration Tests', () => {
     expect(allLogsCombined).not.toContain(CANARY.message);
     expect(allLogsCombined).not.toContain(CANARY.eventLocation);
     expect(allLogsCombined).not.toContain(CANARY.rawIp);
+  });
+
+  it('AC-12: localized German validation errors are returned when locale is de', async () => {
+    const res = await submitInquiry(
+      {
+        given_name: '',
+        email: 'invalid-email',
+        notice_acknowledged: false,
+      },
+      {
+        slug: publishedFormSlug,
+        locale: 'de',
+        deliveryMode: 'hosted',
+        verification: 'unverified',
+        clientIp: '198.51.100.99',
+      },
+      dbClient,
+    );
+
+    expect(res.success).toBe(false);
+    expect(res.outcome).toBe('validation_failed');
+    expect(res.fieldErrors?.given_name).toBe('Dieses Feld ist erforderlich');
+    expect(res.fieldErrors?.email).toBe('Bitte geben Sie eine gültige E-Mail-Adresse ein');
+    expect(res.fieldErrors?.notice_acknowledged).toBe(
+      'Sie müssen die Datenschutzerklärung zur Kenntnis nehmen',
+    );
+  });
+
+  it('AC-16: submitInquiryAction is allowlisted in PUBLIC_AUTH_ACTIONS with compensating comment', () => {
+    expect(PUBLIC_AUTH_ACTIONS).toContain('submitInquiryAction');
+    expect(isPublicAuthAction('submitInquiryAction')).toBe(true);
+
+    const rootDir = path.resolve(process.cwd(), 'src');
+    const publicActionsFile = path.resolve(process.cwd(), 'src/server/auth/public-actions.ts');
+
+    const commentViolations = checkAllowlistComments(publicActionsFile);
+    expect(commentViolations).toEqual([]);
+
+    const result = scanServerActions({
+      rootDir,
+      allowlist: PUBLIC_AUTH_ACTIONS,
+      publicActionsFile,
+      checkAllowlistComments: true,
+    });
+    expect(result.violations).toEqual([]);
   });
 });

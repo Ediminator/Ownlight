@@ -110,12 +110,51 @@ export function validateEventDate(dateStr: string, timezone: string): boolean {
  * Dynamically constructs a Zod schema from the form's field catalogue (AC-9).
  * Unknown keys are strictly rejected (.strict()).
  */
+const SCHEMA_ERROR_MESSAGES = {
+  en: {
+    fieldRequired: 'This field is required',
+    invalidEmail: 'Please enter a valid email address',
+    emailNoCrlf: 'Email address cannot contain line breaks',
+    invalidPhone: 'Please enter a valid phone number (3–32 characters, numbers and basic symbols)',
+    invalidEventType: 'Please select a valid event type',
+    invalidEventDate: 'Event date must be a valid date between today and 5 years ahead',
+    invalidLocation: 'Location must not exceed 200 characters',
+    messageTooLong: 'Message must not exceed 2,000 characters',
+    acknowledgementRequired: 'You must acknowledge the privacy notice to submit an inquiry',
+    nameTooLong: 'Field cannot exceed 100 characters',
+    phoneTooLong: 'Phone number cannot exceed 32 characters',
+    emailTooLong: 'Email cannot exceed 254 characters',
+  },
+  de: {
+    fieldRequired: 'Dieses Feld ist erforderlich',
+    invalidEmail: 'Bitte geben Sie eine gültige E-Mail-Adresse ein',
+    emailNoCrlf: 'E-Mail-Adresse darf keine Zeilenumbrüche enthalten',
+    invalidPhone:
+      'Bitte geben Sie eine gültige Telefonnummer ein (3–32 Zeichen, Ziffern und Symbole)',
+    invalidEventType: 'Bitte wählen Sie eine gültige Veranstaltungsart aus',
+    invalidEventDate: 'Das Veranstaltungsdatum muss zwischen heute und in 5 Jahren liegen',
+    invalidLocation: 'Der Veranstaltungsort darf maximal 200 Zeichen lang sein',
+    messageTooLong: 'Die Nachricht darf maximal 2.000 Zeichen lang sein',
+    acknowledgementRequired: 'Sie müssen die Datenschutzerklärung zur Kenntnis nehmen',
+    nameTooLong: 'Feld darf maximal 100 Zeichen lang sein',
+    phoneTooLong: 'Telefonnummer darf maximal 32 Zeichen lang sein',
+    emailTooLong: 'E-Mail-Adresse darf maximal 254 Zeichen lang sein',
+  },
+} as const;
+
+/**
+ * Dynamically constructs a Zod schema from the form's field catalogue (AC-9, AC-12).
+ * Unknown keys are strictly rejected (.strict()).
+ * Emits error messages matching the specified locale catalogue.
+ */
 export function buildDynamicInquirySchema(
   fields: InquiryFormFieldConfig[],
   eventTypes: InquiryFormEventType[],
   timezone: string,
+  locale = 'en',
 ) {
   const shape: Record<string, z.ZodTypeAny> = {};
+  const msgs = locale === 'de' ? SCHEMA_ERROR_MESSAGES.de : SCHEMA_ERROR_MESSAGES.en;
 
   // Find enabled fields
   for (const field of fields) {
@@ -124,59 +163,54 @@ export function buildDynamicInquirySchema(
     switch (field.key) {
       case 'given_name':
         shape.given_name = z
-          .string({ required_error: 'given_name is required' })
+          .string({ required_error: msgs.fieldRequired })
           .trim()
-          .min(1, 'given_name is required')
-          .max(100, 'given_name cannot exceed 100 characters');
+          .min(1, msgs.fieldRequired)
+          .max(100, msgs.nameTooLong);
         break;
 
       case 'family_name':
         if (field.required) {
           shape.family_name = z
-            .string({ required_error: 'family_name is required' })
+            .string({ required_error: msgs.fieldRequired })
             .trim()
-            .min(1, 'family_name is required')
-            .max(100, 'family_name cannot exceed 100 characters');
+            .min(1, msgs.fieldRequired)
+            .max(100, msgs.nameTooLong);
         } else {
           shape.family_name = z.preprocess(
             (val) => (val === '' || val === null || val === undefined ? null : val),
-            z
-              .string()
-              .trim()
-              .max(100, 'family_name cannot exceed 100 characters')
-              .nullable()
-              .optional(),
+            z.string().trim().max(100, msgs.nameTooLong).nullable().optional(),
           );
         }
         break;
 
       case 'email':
         shape.email = z
-          .string({ required_error: 'email is required' })
+          .string({ required_error: msgs.fieldRequired })
           .trim()
-          .min(1, 'email is required')
-          .max(254, 'email cannot exceed 254 characters')
-          .email('Invalid email address')
+          .min(1, msgs.fieldRequired)
+          .max(254, msgs.emailTooLong)
+          .email(msgs.invalidEmail)
           .refine((val) => !val.includes('\r') && !val.includes('\n'), {
-            message: 'Email cannot contain newline characters',
+            message: msgs.emailNoCrlf,
           });
         break;
 
       case 'phone':
         if (field.required) {
           shape.phone = z
-            .string({ required_error: 'phone is required' })
+            .string({ required_error: msgs.fieldRequired })
             .trim()
-            .regex(/^[+0-9 ()\-/]{3,32}$/, 'Phone number format invalid')
-            .max(32, 'phone cannot exceed 32 characters');
+            .regex(/^[+0-9 ()\-/]{3,32}$/, msgs.invalidPhone)
+            .max(32, msgs.phoneTooLong);
         } else {
           shape.phone = z.preprocess(
             (val) => (val === '' || val === null || val === undefined ? null : val),
             z
               .string()
               .trim()
-              .regex(/^[+0-9 ()\-/]{3,32}$/, 'Phone number format invalid')
-              .max(32, 'phone cannot exceed 32 characters')
+              .regex(/^[+0-9 ()\-/]{3,32}$/, msgs.invalidPhone)
+              .max(32, msgs.phoneTooLong)
               .nullable()
               .optional(),
           );
@@ -187,9 +221,9 @@ export function buildDynamicInquirySchema(
         const allowedKeys = eventTypes.map((t) => t.key);
         if (field.required) {
           shape.event_type = z
-            .string({ required_error: 'event_type is required' })
+            .string({ required_error: msgs.fieldRequired })
             .refine((val) => allowedKeys.includes(val), {
-              message: 'Invalid event type',
+              message: msgs.invalidEventType,
             });
         } else {
           shape.event_type = z.preprocess(
@@ -197,7 +231,7 @@ export function buildDynamicInquirySchema(
             z
               .string()
               .refine((val) => allowedKeys.includes(val), {
-                message: 'Invalid event type',
+                message: msgs.invalidEventType,
               })
               .nullable()
               .optional(),
@@ -209,9 +243,9 @@ export function buildDynamicInquirySchema(
       case 'event_date':
         if (field.required) {
           shape.event_date = z
-            .string({ required_error: 'event_date is required' })
+            .string({ required_error: msgs.fieldRequired })
             .refine((val) => validateEventDate(val, timezone), {
-              message: 'Event date must be within [today, today + 5 years]',
+              message: msgs.invalidEventDate,
             });
         } else {
           shape.event_date = z.preprocess(
@@ -219,7 +253,7 @@ export function buildDynamicInquirySchema(
             z
               .string()
               .refine((val) => validateEventDate(val, timezone), {
-                message: 'Event date must be within [today, today + 5 years]',
+                message: msgs.invalidEventDate,
               })
               .nullable()
               .optional(),
@@ -230,19 +264,14 @@ export function buildDynamicInquirySchema(
       case 'event_location':
         if (field.required) {
           shape.event_location = z
-            .string({ required_error: 'event_location is required' })
+            .string({ required_error: msgs.fieldRequired })
             .trim()
-            .min(1, 'event_location is required')
-            .max(200, 'event_location cannot exceed 200 characters');
+            .min(1, msgs.fieldRequired)
+            .max(200, msgs.invalidLocation);
         } else {
           shape.event_location = z.preprocess(
             (val) => (val === '' || val === null || val === undefined ? null : val),
-            z
-              .string()
-              .trim()
-              .max(200, 'event_location cannot exceed 200 characters')
-              .nullable()
-              .optional(),
+            z.string().trim().max(200, msgs.invalidLocation).nullable().optional(),
           );
         }
         break;
@@ -250,13 +279,13 @@ export function buildDynamicInquirySchema(
       case 'message':
         if (field.required) {
           shape.message = z
-            .string({ required_error: 'message is required' })
-            .min(1, 'message is required')
-            .max(2000, 'message cannot exceed 2000 characters');
+            .string({ required_error: msgs.fieldRequired })
+            .min(1, msgs.fieldRequired)
+            .max(2000, msgs.messageTooLong);
         } else {
           shape.message = z.preprocess(
             (val) => (val === '' || val === null || val === undefined ? null : val),
-            z.string().max(2000, 'message cannot exceed 2000 characters').nullable().optional(),
+            z.string().max(2000, msgs.messageTooLong).nullable().optional(),
           );
         }
         break;
@@ -267,7 +296,7 @@ export function buildDynamicInquirySchema(
   shape.notice_acknowledged = z.preprocess(
     (val) => val === true || val === 'true' || val === 'on' || val === 1 || val === '1',
     z.literal(true, {
-      errorMap: () => ({ message: 'Privacy policy acknowledgement is required' }),
+      errorMap: () => ({ message: msgs.acknowledgementRequired }),
     }),
   );
 
@@ -437,7 +466,12 @@ export async function submitInquiry(
     studioTimezone = 'UTC';
   }
 
-  const schema = buildDynamicInquirySchema(form.fields, form.eventTypes, studioTimezone);
+  const schema = buildDynamicInquirySchema(
+    form.fields,
+    form.eventTypes,
+    studioTimezone,
+    ctx.locale,
+  );
   const parsed = schema.safeParse(inputRecord);
 
   if (!parsed.success) {

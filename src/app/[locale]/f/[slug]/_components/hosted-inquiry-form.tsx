@@ -40,6 +40,101 @@ function getMinAndMaxDates(timezone: string) {
   }
 }
 
+function getLocalizedErrorMessage(
+  fieldKey: string,
+  rawMessage: string,
+  t: (key: string) => string,
+): string {
+  if (
+    rawMessage === 'fieldRequired' ||
+    rawMessage.includes('required') ||
+    rawMessage.includes('erforderlich')
+  ) {
+    if (
+      fieldKey === 'notice_acknowledged' ||
+      rawMessage.includes('acknowledgement') ||
+      rawMessage.includes('Datenschutz')
+    ) {
+      return t('errors.acknowledgementRequired');
+    }
+    return t('errors.fieldRequired');
+  }
+  if (
+    rawMessage === 'invalidEmail' ||
+    rawMessage.toLowerCase().includes('email') ||
+    rawMessage.toLowerCase().includes('e-mail')
+  ) {
+    if (
+      rawMessage.includes('newline') ||
+      rawMessage.includes('Zeilenumbrüche') ||
+      rawMessage === 'emailNoCrlf'
+    ) {
+      return t('errors.emailNoCrlf');
+    }
+    return t('errors.invalidEmail');
+  }
+  if (
+    rawMessage === 'invalidPhone' ||
+    rawMessage.toLowerCase().includes('phone') ||
+    rawMessage.toLowerCase().includes('telefon')
+  ) {
+    return t('errors.invalidPhone');
+  }
+  if (
+    rawMessage === 'invalidEventType' ||
+    rawMessage.toLowerCase().includes('event type') ||
+    rawMessage.toLowerCase().includes('veranstaltungsart')
+  ) {
+    return t('errors.invalidEventType');
+  }
+  if (
+    rawMessage === 'invalidEventDate' ||
+    rawMessage.toLowerCase().includes('event date') ||
+    rawMessage.toLowerCase().includes('veranstaltungsdatum')
+  ) {
+    return t('errors.invalidEventDate');
+  }
+  if (
+    rawMessage === 'invalidLocation' ||
+    rawMessage.toLowerCase().includes('location') ||
+    rawMessage.toLowerCase().includes('veranstaltungsort')
+  ) {
+    return t('errors.invalidLocation');
+  }
+  if (
+    rawMessage === 'messageTooLong' ||
+    rawMessage.toLowerCase().includes('2,000') ||
+    rawMessage.toLowerCase().includes('2000')
+  ) {
+    return t('errors.messageTooLong');
+  }
+  if (rawMessage === 'acknowledgementRequired') {
+    return t('errors.acknowledgementRequired');
+  }
+  if (
+    rawMessage === 'rateLimited' ||
+    rawMessage.toLowerCase().includes('too many attempts') ||
+    rawMessage.toLowerCase().includes('zu viele versuche')
+  ) {
+    return t('errors.rateLimited');
+  }
+  if (
+    rawMessage === 'unavailable' ||
+    rawMessage.toLowerCase().includes('unavailable') ||
+    rawMessage.toLowerCase().includes('nicht verfügbar')
+  ) {
+    return t('errors.unavailable');
+  }
+  if (
+    rawMessage === 'unverifiedRejected' ||
+    rawMessage.toLowerCase().includes('unverified') ||
+    rawMessage.toLowerCase().includes('nicht verifiziert')
+  ) {
+    return t('errors.unverifiedRejected');
+  }
+  return rawMessage;
+}
+
 export function HostedInquiryForm({
   form,
   locale,
@@ -53,7 +148,14 @@ export function HostedInquiryForm({
   const errorSummaryRef = useRef<HTMLDivElement>(null);
 
   const values = state?.values ?? {};
-  const fieldErrors = state?.fieldErrors ?? {};
+  const rawFieldErrors = state?.fieldErrors ?? {};
+
+  // Localize field errors for UI display
+  const fieldErrors: Record<string, string> = {};
+  for (const [key, msg] of Object.entries(rawFieldErrors)) {
+    fieldErrors[key] = getLocalizedErrorMessage(key, msg, t);
+  }
+
   const hasErrors =
     !state?.success && (state?.error !== undefined || Object.keys(fieldErrors).length > 0);
 
@@ -74,12 +176,15 @@ export function HostedInquiryForm({
   // Determine error list for summary
   const errorList: { fieldKey: string; message: string }[] = [];
   if (state && !state.success) {
-    if (state.fieldErrors && Object.keys(state.fieldErrors).length > 0) {
-      for (const [key, msg] of Object.entries(state.fieldErrors)) {
+    if (Object.keys(fieldErrors).length > 0) {
+      for (const [key, msg] of Object.entries(fieldErrors)) {
         errorList.push({ fieldKey: key, message: msg });
       }
     } else if (state.error) {
-      errorList.push({ fieldKey: 'form', message: state.error });
+      errorList.push({
+        fieldKey: 'form',
+        message: getLocalizedErrorMessage('form', state.error, t),
+      });
     }
   }
 
@@ -105,9 +210,12 @@ export function HostedInquiryForm({
           tabIndex={-1}
           role="alert"
           aria-labelledby="error-summary-heading"
-          className="p-4 rounded-md border border-destructive bg-destructive/10 text-destructive outline-none focus:ring-2 focus:ring-destructive"
+          className="p-4 rounded-md border border-destructive dark:border-red-800 bg-destructive/10 dark:bg-red-950/40 text-destructive dark:text-red-300 outline-none focus:ring-2 focus:ring-destructive dark:focus:ring-red-400"
         >
-          <h2 id="error-summary-heading" className="text-sm font-semibold mb-2">
+          <h2
+            id="error-summary-heading"
+            className="text-sm font-semibold mb-2 text-destructive dark:text-red-300"
+          >
             {t('errors.summaryTitle')}
           </h2>
           <ul className="list-disc pl-5 space-y-1 text-sm">
@@ -115,7 +223,7 @@ export function HostedInquiryForm({
               <li key={fieldKey}>
                 <a
                   href={`#field-${fieldKey}`}
-                  className="underline hover:opacity-80 font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive"
+                  className="underline hover:opacity-80 font-medium text-destructive dark:text-red-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive dark:focus-visible:ring-red-400"
                 >
                   {message}
                 </a>
@@ -157,7 +265,7 @@ export function HostedInquiryForm({
                     className="block text-sm font-medium text-foreground"
                   >
                     {t('fields.given_name')}{' '}
-                    <span className="text-destructive" aria-hidden="true">
+                    <span className="text-destructive dark:text-red-400" aria-hidden="true">
                       {REQUIRED_MARK}
                     </span>
                   </label>
@@ -174,7 +282,7 @@ export function HostedInquiryForm({
                     className="w-full min-h-[44px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   />
                   {hasFieldError && (
-                    <p id="error-given_name" className="text-xs text-destructive">
+                    <p id="error-given_name" className="text-xs text-destructive dark:text-red-400">
                       {fieldError}
                     </p>
                   )}
@@ -190,7 +298,7 @@ export function HostedInquiryForm({
                   >
                     {t('fields.family_name')}{' '}
                     {field.required && (
-                      <span className="text-destructive" aria-hidden="true">
+                      <span className="text-destructive dark:text-red-400" aria-hidden="true">
                         {REQUIRED_MARK}
                       </span>
                     )}
@@ -208,7 +316,10 @@ export function HostedInquiryForm({
                     className="w-full min-h-[44px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   />
                   {hasFieldError && (
-                    <p id="error-family_name" className="text-xs text-destructive">
+                    <p
+                      id="error-family_name"
+                      className="text-xs text-destructive dark:text-red-400"
+                    >
                       {fieldError}
                     </p>
                   )}
@@ -223,7 +334,7 @@ export function HostedInquiryForm({
                     className="block text-sm font-medium text-foreground"
                   >
                     {t('fields.email')}{' '}
-                    <span className="text-destructive" aria-hidden="true">
+                    <span className="text-destructive dark:text-red-400" aria-hidden="true">
                       {REQUIRED_MARK}
                     </span>
                   </label>
@@ -240,7 +351,7 @@ export function HostedInquiryForm({
                     className="w-full min-h-[44px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   />
                   {hasFieldError && (
-                    <p id="error-email" className="text-xs text-destructive">
+                    <p id="error-email" className="text-xs text-destructive dark:text-red-400">
                       {fieldError}
                     </p>
                   )}
@@ -256,7 +367,7 @@ export function HostedInquiryForm({
                   >
                     {t('fields.phone')}{' '}
                     {field.required && (
-                      <span className="text-destructive" aria-hidden="true">
+                      <span className="text-destructive dark:text-red-400" aria-hidden="true">
                         {REQUIRED_MARK}
                       </span>
                     )}
@@ -274,7 +385,7 @@ export function HostedInquiryForm({
                     className="w-full min-h-[44px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   />
                   {hasFieldError && (
-                    <p id="error-phone" className="text-xs text-destructive">
+                    <p id="error-phone" className="text-xs text-destructive dark:text-red-400">
                       {fieldError}
                     </p>
                   )}
@@ -290,7 +401,7 @@ export function HostedInquiryForm({
                   >
                     {t('fields.event_type')}{' '}
                     {field.required && (
-                      <span className="text-destructive" aria-hidden="true">
+                      <span className="text-destructive dark:text-red-400" aria-hidden="true">
                         {REQUIRED_MARK}
                       </span>
                     )}
@@ -312,7 +423,7 @@ export function HostedInquiryForm({
                     ))}
                   </select>
                   {hasFieldError && (
-                    <p id="error-event_type" className="text-xs text-destructive">
+                    <p id="error-event_type" className="text-xs text-destructive dark:text-red-400">
                       {fieldError}
                     </p>
                   )}
@@ -328,7 +439,7 @@ export function HostedInquiryForm({
                   >
                     {t('fields.event_date')}{' '}
                     {field.required && (
-                      <span className="text-destructive" aria-hidden="true">
+                      <span className="text-destructive dark:text-red-400" aria-hidden="true">
                         {REQUIRED_MARK}
                       </span>
                     )}
@@ -346,7 +457,7 @@ export function HostedInquiryForm({
                     className="w-full min-h-[44px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   />
                   {hasFieldError && (
-                    <p id="error-event_date" className="text-xs text-destructive">
+                    <p id="error-event_date" className="text-xs text-destructive dark:text-red-400">
                       {fieldError}
                     </p>
                   )}
@@ -362,7 +473,7 @@ export function HostedInquiryForm({
                   >
                     {t('fields.event_location')}{' '}
                     {field.required && (
-                      <span className="text-destructive" aria-hidden="true">
+                      <span className="text-destructive dark:text-red-400" aria-hidden="true">
                         {REQUIRED_MARK}
                       </span>
                     )}
@@ -380,7 +491,10 @@ export function HostedInquiryForm({
                     className="w-full min-h-[44px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   />
                   {hasFieldError && (
-                    <p id="error-event_location" className="text-xs text-destructive">
+                    <p
+                      id="error-event_location"
+                      className="text-xs text-destructive dark:text-red-400"
+                    >
                       {fieldError}
                     </p>
                   )}
@@ -396,7 +510,7 @@ export function HostedInquiryForm({
                   >
                     {t('fields.message')}{' '}
                     {field.required && (
-                      <span className="text-destructive" aria-hidden="true">
+                      <span className="text-destructive dark:text-red-400" aria-hidden="true">
                         {REQUIRED_MARK}
                       </span>
                     )}
@@ -418,7 +532,7 @@ export function HostedInquiryForm({
                     {t('sensitiveDataHint')}
                   </p>
                   {hasFieldError && (
-                    <p id="error-message" className="text-xs text-destructive">
+                    <p id="error-message" className="text-xs text-destructive dark:text-red-400">
                       {fieldError}
                     </p>
                   )}
@@ -465,7 +579,10 @@ export function HostedInquiryForm({
             </label>
           </div>
           {fieldErrors.notice_acknowledged && (
-            <p id="error-notice_acknowledged" className="text-xs text-destructive">
+            <p
+              id="error-notice_acknowledged"
+              className="text-xs text-destructive dark:text-red-400"
+            >
               {fieldErrors.notice_acknowledged}
             </p>
           )}

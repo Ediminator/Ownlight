@@ -196,7 +196,19 @@ test.describe('TASK-0027: Public Hosted Inquiry Form E2E Tests', () => {
     // 4. German submit button
     await expect(page.locator('button[type="submit"]')).toContainText('Anfrage senden');
 
-    // 5. Submit in German and check German thanks page
+    // 5. Submit empty in German and verify localized error messages (I1-U02)
+    await page.click('button[type="submit"]');
+    await expect(page.locator('#error-summary')).toBeVisible();
+    await expect(page.locator('#error-summary-heading')).toContainText(
+      'Bitte korrigieren Sie die folgenden Fehler vor dem Absenden',
+    );
+    await expect(page.locator('#error-given_name')).toContainText('Dieses Feld ist erforderlich');
+    await expect(page.locator('#error-email')).toContainText('Dieses Feld ist erforderlich');
+    await expect(page.locator('#error-notice_acknowledged')).toContainText(
+      'Sie müssen die Datenschutzerklärung zur Kenntnis nehmen',
+    );
+
+    // 6. Submit in German and check German thanks page
     await page.fill('#field-given_name', 'Max');
     await page.fill('#field-email', 'max.mustermann@example.com');
     await page.check('#field-notice_acknowledged');
@@ -238,6 +250,23 @@ test.describe('TASK-0027: Public Hosted Inquiry Form E2E Tests', () => {
         fullPage: true,
       });
     }
+
+    // Verify dark mode error state achieves zero Axe WCAG 2.2 AA violations (I1-U01 regression)
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.goto(`/en/f/${slug}`);
+    await page.evaluate(() => {
+      document.documentElement.classList.add('dark');
+    });
+    await page.click('button[type="submit"]');
+    await expect(page.locator('#error-summary')).toBeVisible();
+
+    const darkAxeResults = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
+      .analyze();
+    expect(darkAxeResults.violations).toEqual([]);
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('dark');
+    });
 
     // Capture German form screenshot
     await page.setViewportSize({ width: 1280, height: 800 });

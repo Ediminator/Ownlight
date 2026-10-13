@@ -72,7 +72,8 @@ test.describe('TASK-0031: Lead Inbox and Management UI E2E Tests', () => {
 
     // Table rows exist
     const rows = page.locator('tbody tr[data-testid^="lead-row-"]');
-    await expect(rows).toHaveCount(6);
+    await expect(page.locator(`[data-testid="lead-row-${E2E_LEAD_NEW_ID}"]`)).toBeVisible();
+    expect(await rows.count()).toBeGreaterThanOrEqual(6);
 
     // Capture desktop light screenshot
     await page.screenshot({

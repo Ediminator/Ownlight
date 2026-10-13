@@ -45,6 +45,8 @@ import type { DbClient } from '@/server/db/client';
 import { reauthenticateAction } from '@/server/auth/mfa-actions';
 import { hashPasswordArgon2id } from '@/server/auth/passwords/policy';
 
+const DUMMY_REAUTH_PW = 'ValidOwnerPassword123!';
+
 describe('TASK-0031: Leads Inbox Actions Integration Tests (AC-3, AC-4, AC-5, AC-6, AC-8, AC-10)', () => {
   let testDb: TestDatabaseInstance;
   let dbClient: DbClient;
@@ -62,7 +64,7 @@ describe('TASK-0031: Leads Inbox Actions Integration Tests (AC-3, AC-4, AC-5, AC
     mockCookiesStore.clear();
     mockHeadersStore.clear();
 
-    const passwordHash = await hashPasswordArgon2id('ValidOwnerPassword123!');
+    const passwordHash = await hashPasswordArgon2id(DUMMY_REAUTH_PW);
 
     // 1. Seed owner user
     ownerUser = {
@@ -396,7 +398,7 @@ describe('TASK-0031: Leads Inbox Actions Integration Tests (AC-3, AC-4, AC-5, AC
     }
 
     // 3. Perform reauthentication step-up
-    const reauthRes = await reauthenticateAction({ password: 'ValidOwnerPassword123!' }, dbClient);
+    const reauthRes = await reauthenticateAction({ password: DUMMY_REAUTH_PW }, dbClient);
     expect(reauthRes.success).toBe(true);
 
     // 4. Call exportLeadDsarAction again -> should succeed
@@ -519,7 +521,7 @@ describe('TASK-0031: Leads Inbox Actions Integration Tests (AC-3, AC-4, AC-5, AC
 
   it('exportLeadDsarAction returns NOT_FOUND when lead does not exist', async () => {
     mockCookiesStore.set(SESSION_COOKIE_NAME, sessionToken);
-    await reauthenticateAction({ password: 'CorrectPassword123!' });
+    await reauthenticateAction({ password: DUMMY_REAUTH_PW });
 
     const nonExistentId = '018f0000-0000-7000-8000-999999999999';
     const res = await exportLeadDsarAction({ leadId: nonExistentId }, dbClient);

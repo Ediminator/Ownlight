@@ -1,5 +1,32 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { E2E_OWNER_EMAIL, E2E_OWNER_PASSWORD } from '../helpers/e2e-global-setup';
+
+const VALID_SETUP_TOKEN =
+  process.env.SETUP_TOKEN ?? 'c4d7e8f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9';
+
+async function ensureOwnerBootstrappedAndSignedIn(page: import('@playwright/test').Page) {
+  await page.goto('/en/setup');
+  const setupForm = page.locator('[data-testid="setup-form"]');
+  if (await setupForm.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await page.fill('[data-testid="setup-token-input"]', VALID_SETUP_TOKEN);
+    await page.fill('[data-testid="name-input"]', 'Studio Owner');
+    await page.fill('[data-testid="email-input"]', E2E_OWNER_EMAIL);
+    await page.fill('[data-testid="password-input"]', E2E_OWNER_PASSWORD);
+    await page.click('[data-testid="setup-submit-btn"]');
+    await expect(page).not.toHaveURL(/\/setup/);
+    return;
+  }
+
+  await page.goto('/en/sign-in');
+  const emailInput = page.locator('[data-testid="email-input"]');
+  if (await emailInput.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await emailInput.fill(E2E_OWNER_EMAIL);
+    await page.fill('[data-testid="password-input"]', E2E_OWNER_PASSWORD);
+    await page.click('[data-testid="signin-submit-btn"]');
+    await expect(page).not.toHaveURL(/\/sign-in$/);
+  }
+}
 
 const TEST_AUTH_COOKIE = {
   name: 'ownlight_session',
@@ -70,6 +97,8 @@ test.describe('App Shell, Theming, and Internationalization E2E', () => {
   test('AC-2: language switcher preserves current route and persists choice across reloads', async ({
     page,
   }) => {
+    await ensureOwnerBootstrappedAndSignedIn(page);
+
     // Navigate to /en/leads
     await page.goto('/en/leads');
     await expect(page.locator('h1')).toHaveText('Leads');

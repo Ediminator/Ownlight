@@ -75,6 +75,16 @@ describe('Shell Layout and Navigation Components', () => {
     expect(onNavigate).toHaveBeenCalled();
   });
 
+  it('renders NavLinks unread lead count badge when newLeadsCount > 0 and hides when 0', () => {
+    const withBadgeHtml = renderToStaticMarkup(<NavLinks newLeadsCount={5} />);
+    expect(withBadgeHtml).toContain('data-testid="new-leads-badge"');
+    expect(withBadgeHtml).toContain('5');
+    expect(withBadgeHtml).toContain('aria-label="translated-badgeAriaLabel"');
+
+    const withoutBadgeHtml = renderToStaticMarkup(<NavLinks newLeadsCount={0} />);
+    expect(withoutBadgeHtml).not.toContain('data-testid="new-leads-badge"');
+  });
+
   it('renders Sidebar component', () => {
     const html = renderToStaticMarkup(<Sidebar />);
     expect(html).toContain('translated-title');

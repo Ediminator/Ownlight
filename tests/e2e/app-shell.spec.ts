@@ -70,27 +70,27 @@ test.describe('App Shell, Theming, and Internationalization E2E', () => {
   test('AC-2: language switcher preserves current route and persists choice across reloads', async ({
     page,
   }) => {
-    // Navigate to /en/leads
-    await page.goto('/en/leads');
-    await expect(page.locator('h1')).toHaveText('Leads');
+    // Navigate to /en/projects
+    await page.goto('/en/projects');
+    await expect(page.locator('h1')).toHaveText('Projects');
 
     // Open language switcher
     await page.click('[data-testid="locale-switcher-trigger"]');
     await page.click('[data-testid="locale-option-de"]');
 
-    // Route preserved to /de/leads
-    await expect(page).toHaveURL(/\/de\/leads$/);
-    await expect(page.locator('h1')).toHaveText('Anfragen');
+    // Route preserved to /de/projects
+    await expect(page).toHaveURL(/\/de\/projects$/);
+    await expect(page.locator('h1')).toHaveText('Projekte');
 
     // Reload page to verify persistence
     await page.reload();
-    await expect(page).toHaveURL(/\/de\/leads$/);
-    await expect(page.locator('h1')).toHaveText('Anfragen');
-
-    // Open another page without locale prefix to verify cookie persistence
-    await page.goto('/projects');
     await expect(page).toHaveURL(/\/de\/projects$/);
     await expect(page.locator('h1')).toHaveText('Projekte');
+
+    // Open another page without locale prefix to verify cookie persistence
+    await page.goto('/calendar');
+    await expect(page).toHaveURL(/\/de\/calendar$/);
+    await expect(page.locator('h1')).toHaveText('Kalender');
   });
 
   test('AC-4: keyboard navigation has skip-link as first element, visible focus, and mobile drawer traps focus', async ({

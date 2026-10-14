@@ -1,7 +1,13 @@
 import { eq, and, inArray, sql, desc, type SQL } from 'drizzle-orm';
 import { type DbClient, db as defaultDb } from '@/server/db/client';
 import { leads, type Lead, type NewLead, type LeadStatus } from '@/server/db/schema/leads';
-import type { ListLeadsQuery } from './schema';
+import {
+  inquiryForms,
+  inquiryFormNoticeVersions,
+  type InquiryFormEventType,
+  type InquiryFormNoticeVersion,
+} from '@/server/db/schema/inquiry-forms';
+import type { ListLeadsQuery, LeadCounts } from './schema';
 
 /**
  * Inserts a new lead record into the database.
@@ -113,12 +119,21 @@ export async function listLeadsRecords(
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const rows = await client
+  const page = query.page && query.page > 0 ? query.page : undefined;
+  const offset = page ? (page - 1) * limit : undefined;
+
+  let queryBuilder = client
     .select()
     .from(leads)
     .where(whereClause)
     .orderBy(desc(leads.receivedAt), desc(leads.id))
     .limit(limit + 1);
+
+  if (offset !== undefined) {
+    queryBuilder = queryBuilder.offset(offset) as typeof queryBuilder;
+  }
+
+  const rows = await queryBuilder;
 
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
@@ -140,6 +155,76 @@ export async function listLeadsRecords(
 }
 
 /**
+ * Counts leads grouped by status and total.
+ */
+export type { LeadCounts };
+
+export async function getLeadCounts(client: DbClient = defaultDb): Promise<LeadCounts> {
+  const rows = await client
+    .select({
+      status: leads.status,
+      count: sql<number>`cast(count(*) as int)`,
+    })
+    .from(leads)
+    .groupBy(leads.status);
+
+  const counts = {
+    all: 0,
+    new: 0,
+    contacted: 0,
+    converted: 0,
+    archived: 0,
+    spam: 0,
+  };
+
+  for (const r of rows) {
+    if (r.status in counts) {
+      counts[r.status as keyof typeof counts] = r.count;
+      counts.all += r.count;
+    }
+  }
+
+  return counts;
+}
+
+export interface LeadWithDetails {
+  lead: Lead;
+  formName?: string | null;
+  noticeVersion?: InquiryFormNoticeVersion | null;
+  formEventTypes?: InquiryFormEventType[] | null;
+}
+
+/**
+ * Retrieves a lead with its related form name, notice version details, and event types.
+ */
+export async function getLeadWithDetails(
+  id: string,
+  client: DbClient = defaultDb,
+): Promise<LeadWithDetails | null> {
+  const lead = await getLeadById(id, client);
+  if (!lead) return null;
+
+  const [form] = await client
+    .select({ name: inquiryForms.name, eventTypes: inquiryForms.eventTypes })
+    .from(inquiryForms)
+    .where(eq(inquiryForms.id, lead.formId))
+    .limit(1);
+
+  const [noticeVersion] = await client
+    .select()
+    .from(inquiryFormNoticeVersions)
+    .where(eq(inquiryFormNoticeVersions.id, lead.noticeVersionId))
+    .limit(1);
+
+  return {
+    lead,
+    formName: form?.name ?? null,
+    noticeVersion: noticeVersion ?? null,
+    formEventTypes: form?.eventTypes ?? null,
+  };
+}
+
+/**
  * Deletes non-converted leads by their IDs.
  */
 export async function deleteNonConvertedLeads(
@@ -150,6 +235,18 @@ export async function deleteNonConvertedLeads(
   const deleted = await client
     .delete(leads)
     .where(and(inArray(leads.id, ids), sql`status != 'converted'`))
+    .returning({ id: leads.id });
+
+  return deleted.length;
+}
+
+/**
+ * Permanently deletes all spam leads (routine inbox hygiene, AC-5).
+ */
+export async function deleteAllSpamLeadsRecord(client: DbClient = defaultDb): Promise<number> {
+  const deleted = await client
+    .delete(leads)
+    .where(eq(leads.status, 'spam'))
     .returning({ id: leads.id });
 
   return deleted.length;

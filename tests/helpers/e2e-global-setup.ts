@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { seedDemo } from '../../scripts/seed-demo.mjs';
 import { seedAllE2eInquiryForms } from './e2e-inquiry-helper';
+import { seedAllE2eLeads } from './e2e-leads-helper';
 
 export const E2E_OWNER_EMAIL = 'owner@example.com';
 export const E2E_OWNER_PASSWORD = 'ValidOwnerPassword123!';
@@ -37,6 +38,9 @@ export default async function globalSetup() {
 
   // Seed inquiry forms for public inquiry E2E tests (TASK-0027)
   await seedAllE2eInquiryForms(pglite);
+
+  // Seed sample leads for lead inbox and management UI E2E tests (TASK-0031)
+  await seedAllE2eLeads(pglite);
 
   await pglite.close();
 }

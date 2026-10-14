@@ -69,9 +69,28 @@ vi.mock('@/server/settings/repo', () => ({
   getStudioSettings: vi.fn().mockResolvedValue({ timezone: 'UTC' }),
 }));
 
+vi.mock('@/server/leads/service', () => ({
+  getLeadCounts: vi.fn().mockResolvedValue({
+    all: 0,
+    new: 0,
+    contacted: 0,
+    converted: 0,
+    archived: 0,
+    spam: 0,
+  }),
+  listLeads: vi.fn().mockResolvedValue({
+    leads: [],
+    nextCursor: null,
+    hasMore: false,
+  }),
+}));
+
 describe('App placeholder and auth pages', () => {
-  it('renders LeadsPage component', () => {
-    const el = LeadsPage();
+  it('renders LeadsPage component', async () => {
+    const el = await LeadsPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({}),
+    });
     expect(React.isValidElement(el)).toBe(true);
   });
 

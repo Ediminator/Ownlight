@@ -12,3 +12,4 @@ export * from './google-contacts-outbox';
 export * from './inquiry-forms';
 export * from './leads';
 export * from './email-outbox';
+export * from './projects';

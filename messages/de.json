@@ -549,6 +549,9 @@
         "consent_withdrawn": "Einwilligung widerrufen: {purpose}",
         "inquiry_received": "Anfrage erhalten",
         "lead_converted": "Anfrage in Kunde umgewandelt",
+        "project_created": "Projekt angelegt",
+        "project_stage_changed": "Projektphase geändert von {from_stage} zu {to_stage}",
+        "shoot_scheduled": "Shooting geplant",
         "deleted_item": "Gelöschter Eintrag"
       },
       "note": {

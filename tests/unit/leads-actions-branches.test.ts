@@ -154,7 +154,7 @@ describe('Leads Actions Branch Coverage Tests (TASK-0031 Iteration 3)', () => {
     revalidateShouldThrow.current = false;
     mockRequireOwnerSession.mockResolvedValue({
       user: { id: '018f0000-0000-7000-8000-000000000099' },
-      session: { token: 'mock-session-token' },
+      session: { token: 'mock-token' },
     });
   });
 

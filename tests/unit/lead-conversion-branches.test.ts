@@ -107,6 +107,7 @@ describe('TASK-0032: Deep Branch Coverage for Lead Conversion & Email Outbox Pro
 
   afterEach(async () => {
     vi.restoreAllMocks();
+    delete (globalThis as unknown as { db: DbClient | undefined }).db;
     await testDb.destroy();
   });
 
@@ -491,6 +492,10 @@ describe('TASK-0032: Deep Branch Coverage for Lead Conversion & Email Outbox Pro
   });
 
   describe('email outbox processor branch coverage', () => {
+    beforeEach(async () => {
+      await dbClient.delete(emailOutbox);
+    });
+
     it('processEmailOutboxBatch: cleanly deletes outbox item when lead is deleted/missing (lines 103-107)', async () => {
       const missingLeadId = generateUuidV7();
       await enqueueLeadAutoReply(missingLeadId, dbClient);
@@ -626,7 +631,8 @@ describe('TASK-0032: Deep Branch Coverage for Lead Conversion & Email Outbox Pro
 
     it('processEmailOutboxBatch: handles SMTP sending failure when error is not an Error instance (lines 238-240, 253-264)', async () => {
       const nonErrorReason = new Error('SMTP 554 Relay Access Denied String');
-      Object.setPrototypeOf(nonErrorReason, null);
+      Object.setPrototypeOf(nonErrorReason, Object.prototype);
+      nonErrorReason.toString = () => 'SMTP 554 Relay Access Denied String';
       const mockTransporter = {
         sendMail: () => Promise.reject(nonErrorReason),
       } as unknown as Transporter;

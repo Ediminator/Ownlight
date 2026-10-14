@@ -72,34 +72,55 @@ export function formatLeadConvertedDate(
 export interface LeadDetailViewProps {
   leadWithDetails: LeadWithDetails;
   locale: string;
+  initialConvertModalOpen?: boolean;
+  initialConvertMode?: 'new_client' | 'existing_client';
+  initialConvertError?: string | null;
+  initialDeleteModalOpen?: boolean;
+  initialDeleteError?: string | null;
+  initialReauthModalOpen?: boolean;
+  initialReauthError?: string | null;
+  initialIsConverting?: boolean;
 }
 
-export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps) {
+export function LeadDetailView({
+  leadWithDetails,
+  locale,
+  initialConvertModalOpen,
+  initialConvertMode,
+  initialConvertError,
+  initialDeleteModalOpen,
+  initialDeleteError,
+  initialReauthModalOpen,
+  initialReauthError,
+  initialIsConverting,
+}: LeadDetailViewProps) {
   const t = useTranslations('leads');
   const router = useRouter();
 
   const [lead, setLead] = React.useState<Lead>(leadWithDetails.lead);
-  const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
-  const [reauthModalOpen, setReauthModalOpen] = React.useState(false);
-  const [convertModalOpen, setConvertModalOpen] = React.useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = React.useState(initialDeleteModalOpen ?? false);
+  const [reauthModalOpen, setReauthModalOpen] = React.useState(initialReauthModalOpen ?? false);
+  const [convertModalOpen, setConvertModalOpen] = React.useState(initialConvertModalOpen ?? false);
   const [reauthPassword, setReauthPassword] = React.useState('');
-  const [reauthError, setReauthError] = React.useState<string | null>(null);
+  const [reauthError, setReauthError] = React.useState<string | null>(initialReauthError ?? null);
   const [isReauthenticating, setIsReauthenticating] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
-  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+  const [deleteError, setDeleteError] = React.useState<string | null>(initialDeleteError ?? null);
 
   // Conversion state (TASK-0032)
   const [duplicates, setDuplicates] = React.useState<DuplicateEmailMatch[]>(
     leadWithDetails.duplicates ?? [],
   );
   const [convertMode, setConvertMode] = React.useState<'new_client' | 'existing_client'>(
-    'new_client',
+    initialConvertMode ?? 'new_client',
   );
   const [selectedExistingClientId, setSelectedExistingClientId] = React.useState<string>(
     leadWithDetails.duplicates?.[0]?.clientId ?? '',
   );
-  const [convertError, setConvertError] = React.useState<string | null>(null);
-  const [isConverting, setIsConverting] = React.useState(false);
+  const [convertError, setConvertError] = React.useState<string | null>(
+    initialConvertError ?? null,
+  );
+  const [isConverting, setIsConverting] = React.useState(initialIsConverting ?? false);
 
   // Focus restoration trigger refs (WCAG 2.4.3 / I1-U01)
   const convertHeaderTriggerRef = React.useRef<HTMLButtonElement | null>(null);

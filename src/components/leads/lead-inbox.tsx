@@ -35,6 +35,10 @@ export interface LeadInboxProps {
   initialEmailQuery?: string;
   initialPage?: number;
   hasMore?: boolean;
+  initialSelectedIds?: string[];
+  initialDeleteModalOpen?: boolean;
+  initialDeleteSpamModalOpen?: boolean;
+  initialErrorMsg?: string | null;
 }
 
 export function LeadInbox({
@@ -45,6 +49,10 @@ export function LeadInbox({
   initialEmailQuery = '',
   initialPage = 1,
   hasMore = false,
+  initialSelectedIds,
+  initialDeleteModalOpen,
+  initialDeleteSpamModalOpen,
+  initialErrorMsg,
 }: LeadInboxProps) {
   const t = useTranslations('leads');
   const router = useRouter();
@@ -68,12 +76,16 @@ export function LeadInbox({
     setCounts(initialCounts);
   }
 
-  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(
+    () => new Set(initialSelectedIds ?? []),
+  );
   const [isDeleting, setIsDeleting] = React.useState(false);
-  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(initialErrorMsg ?? null);
 
-  const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
-  const [deleteSpamModalOpen, setDeleteSpamModalOpen] = React.useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = React.useState(initialDeleteModalOpen ?? false);
+  const [deleteSpamModalOpen, setDeleteSpamModalOpen] = React.useState(
+    initialDeleteSpamModalOpen ?? false,
+  );
 
   const updateUrl = React.useCallback(
     (newStatus: LeadStatus | 'all', newQuery: string, newPage: number) => {

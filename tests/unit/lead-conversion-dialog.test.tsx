@@ -322,4 +322,252 @@ describe('TASK-0032: Lead Conversion Dialog & Banner Unit Tests', () => {
     const formattedDe = formatLeadConvertedDate('2026-10-12T14:30:00Z', 'de');
     expect(formattedDe).toContain('2026');
   });
+
+  it('renders conversion modal with preview card when initialConvertModalOpen is true', () => {
+    const detail: LeadWithDetails = {
+      lead: createDummyLead({
+        status: 'new',
+        message: 'Looking forward to shooting!',
+        eventTypeKey: 'wedding',
+        eventDate: '2026-08-15',
+        eventLocation: 'Potsdam, Germany',
+      }),
+      formName: 'Wedding Form',
+      noticeVersion: null,
+      formEventTypes: [
+        { key: 'wedding', label_en: 'Wedding Photography', label_de: 'Hochzeitsfotografie' },
+      ],
+      duplicates: [],
+    };
+
+    const html = renderToStaticMarkup(
+      <LeadDetailView leadWithDetails={detail} locale="en" initialConvertModalOpen={true} />,
+    );
+
+    expect(html).toContain('data-testid="convert-lead-dialog"');
+    expect(html).toContain('data-testid="conversion-preview"');
+    expect(html).toContain('Jane Doe');
+    expect(html).toContain('Wedding Photography');
+    expect(html).toContain('Looking forward to shooting!');
+    expect(html).toContain('data-testid="confirm-convert-btn"');
+    expect(html).toContain('data-testid="cancel-convert-btn"');
+  });
+
+  it('renders conversion modal with existing client select and duplicate alert', () => {
+    const detail: LeadWithDetails = {
+      lead: createDummyLead({ status: 'new' }),
+      formName: 'Inquiry Form',
+      noticeVersion: null,
+      formEventTypes: null,
+      duplicates: [
+        { clientId: '018f0000-0000-7000-8000-000000000088', displayName: 'Existing Client A' },
+      ],
+    };
+
+    const html = renderToStaticMarkup(
+      <LeadDetailView
+        leadWithDetails={detail}
+        locale="en"
+        initialConvertModalOpen={true}
+        initialConvertMode="existing_client"
+      />,
+    );
+
+    expect(html).toContain('data-testid="duplicate-alert"');
+    expect(html).toContain('data-testid="existing-client-select"');
+    expect(html).toContain('Existing Client A');
+  });
+
+  it('renders conversion modal with empty duplicates placeholder in existing client mode', () => {
+    const detail: LeadWithDetails = {
+      lead: createDummyLead({ status: 'new' }),
+      formName: 'Inquiry Form',
+      noticeVersion: null,
+      formEventTypes: null,
+      duplicates: [],
+    };
+
+    const html = renderToStaticMarkup(
+      <LeadDetailView
+        leadWithDetails={detail}
+        locale="en"
+        initialConvertModalOpen={true}
+        initialConvertMode="existing_client"
+      />,
+    );
+
+    expect(html).toContain('data-testid="existing-client-select"');
+    expect(html).toContain('Choose a client...');
+  });
+
+  it('renders conversion modal in converting state with loader and confirming label', () => {
+    const detail: LeadWithDetails = {
+      lead: createDummyLead({ status: 'new' }),
+      formName: 'Inquiry Form',
+      noticeVersion: null,
+      formEventTypes: null,
+      duplicates: [],
+    };
+
+    const html = renderToStaticMarkup(
+      <LeadDetailView
+        leadWithDetails={detail}
+        locale="en"
+        initialConvertModalOpen={true}
+        initialIsConverting={true}
+      />,
+    );
+
+    expect(html).toContain('animate-spin');
+    expect(html).toContain('Converting...');
+  });
+
+  it('renders conversion modal with error message when initialConvertError is provided', () => {
+    const detail: LeadWithDetails = {
+      lead: createDummyLead({ status: 'new' }),
+      formName: 'Inquiry Form',
+      noticeVersion: null,
+      formEventTypes: null,
+      duplicates: [],
+    };
+
+    const html = renderToStaticMarkup(
+      <LeadDetailView
+        leadWithDetails={detail}
+        locale="en"
+        initialConvertModalOpen={true}
+        initialConvertError="Lead conversion failed unexpectedly"
+      />,
+    );
+
+    expect(html).toContain('data-testid="convert-error"');
+    expect(html).toContain('Lead conversion failed unexpectedly');
+  });
+
+  it('renders delete modal and reauth modal when their initial open props are true', () => {
+    const detail: LeadWithDetails = {
+      lead: createDummyLead({ status: 'new' }),
+      formName: 'Inquiry Form',
+      noticeVersion: null,
+      formEventTypes: null,
+      duplicates: [],
+    };
+
+    const deleteHtml = renderToStaticMarkup(
+      <LeadDetailView
+        leadWithDetails={detail}
+        locale="en"
+        initialDeleteModalOpen={true}
+        initialDeleteError="Cannot delete converted lead"
+      />,
+    );
+    expect(deleteHtml).toContain('data-testid="delete-lead-modal"');
+    expect(deleteHtml).toContain('Cannot delete converted lead');
+
+    const reauthHtml = renderToStaticMarkup(
+      <LeadDetailView
+        leadWithDetails={detail}
+        locale="en"
+        initialReauthModalOpen={true}
+        initialReauthError="Incorrect owner password"
+      />,
+    );
+    expect(reauthHtml).toContain('data-testid="reauth-modal"');
+    expect(reauthHtml).toContain('Incorrect owner password');
+  });
+
+  it('renders lead in various statuses (contacted, spam, archived) with respective badges', () => {
+    const detailContacted: LeadWithDetails = {
+      lead: createDummyLead({ status: 'contacted' }),
+      formName: 'Form',
+      noticeVersion: null,
+      formEventTypes: null,
+      duplicates: [],
+    };
+    const htmlContacted = renderToStaticMarkup(
+      <LeadDetailView leadWithDetails={detailContacted} locale="en" />,
+    );
+    expect(htmlContacted).toContain('data-testid="lead-status-badge"');
+    expect(htmlContacted).not.toContain('data-testid="mark-contacted-btn"');
+
+    const detailSpam: LeadWithDetails = {
+      lead: createDummyLead({ status: 'spam' }),
+      formName: 'Form',
+      noticeVersion: null,
+      formEventTypes: null,
+      duplicates: [],
+    };
+    const htmlSpam = renderToStaticMarkup(
+      <LeadDetailView leadWithDetails={detailSpam} locale="en" />,
+    );
+    expect(htmlSpam).not.toContain('data-testid="mark-spam-btn"');
+
+    const detailArchived: LeadWithDetails = {
+      lead: createDummyLead({ status: 'archived' }),
+      formName: 'Form',
+      noticeVersion: null,
+      formEventTypes: null,
+      duplicates: [],
+    };
+    const htmlArchived = renderToStaticMarkup(
+      <LeadDetailView leadWithDetails={detailArchived} locale="en" />,
+    );
+    expect(htmlArchived).not.toContain('data-testid="mark-archived-btn"');
+  });
+
+  it('renders notice acknowledgement, privacy policy link, and localized event types', () => {
+    currentLocale = 'de';
+    const detail: LeadWithDetails = {
+      lead: createDummyLead({
+        status: 'new',
+        eventTypeKey: 'portrait',
+        verification: 'unverified',
+        deliveryMode: 'embed',
+        autoReplyStatus: 'failed',
+      }),
+      formName: 'Porträt-Formular',
+      noticeVersion: {
+        id: 'notice-v2',
+        formId: 'form-1',
+        version: 2,
+        acknowledgementTextEn: 'English notice acknowledgement',
+        acknowledgementTextDe: 'Deutsche Datenschutzerklärung zur Kenntnis genommen',
+        privacyPolicyUrl: 'https://example.org/datenschutz',
+        createdByActorId: 'owner-1',
+        createdAt: new Date(),
+      },
+      formEventTypes: [
+        { key: 'portrait', label_en: 'Portrait Shoot', label_de: 'Porträt-Shooting' },
+      ],
+      duplicates: [],
+    };
+
+    const html = renderToStaticMarkup(<LeadDetailView leadWithDetails={detail} locale="de" />);
+
+    expect(html).toContain('data-testid="notice-version"');
+    expect(html).toContain('v2');
+    expect(html).toContain('data-testid="privacy-policy-link"');
+    expect(html).toContain('https://example.org/datenschutz');
+    expect(html).toContain('Deutsche Datenschutzerklärung zur Kenntnis genommen');
+    expect(html).toContain('Porträt-Shooting');
+  });
+
+  it('renders converted banner without link when lead.clientId is null', () => {
+    const detail: LeadWithDetails = {
+      lead: createDummyLead({
+        status: 'converted',
+        clientId: null,
+        convertedAt: null,
+      }),
+      formName: 'Form',
+      noticeVersion: null,
+      formEventTypes: null,
+      duplicates: [],
+    };
+
+    const html = renderToStaticMarkup(<LeadDetailView leadWithDetails={detail} locale="en" />);
+
+    expect(html).toContain('data-testid="lead-converted-banner"');
+    expect(html).not.toContain('data-testid="converted-client-link"');
+  });
 });

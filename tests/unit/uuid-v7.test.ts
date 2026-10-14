@@ -47,6 +47,10 @@ describe('UUIDv7 RFC 9562 implementation', () => {
     expect(isUuidV7('')).toBe(false);
     expect(isUuidV7(null)).toBe(false);
     expect(isUuidV7(undefined)).toBe(false);
+    expect(isUuidV7(12345)).toBe(false);
+    expect(isUuidV7({})).toBe(false);
+    expect(isUuidV7([])).toBe(false);
+    expect(isUuidV7(true)).toBe(false);
     expect(isUuidV7('not-a-uuid')).toBe(false);
     // UUIDv4 (version 4 instead of 7)
     expect(isUuidV7('c9bf9e57-1685-4c89-bafb-ff5af830be8a')).toBe(false);

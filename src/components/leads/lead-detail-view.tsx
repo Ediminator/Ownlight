@@ -221,25 +221,27 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
   };
 
   // Open conversion modal and check duplicates (AC-1, AC-2, I1-U01)
-  const handleOpenConvertModal = async (e?: React.MouseEvent<HTMLButtonElement>) => {
+  const handleOpenConvertModal = (e?: React.MouseEvent<HTMLButtonElement>) => {
     if (e?.currentTarget) {
       lastConvertTriggerRef.current = e.currentTarget;
     }
     setConvertError(null);
     setConvertModalOpen(true);
-    try {
-      const res = await getLeadDuplicatesAction({ leadId: lead.id });
-      if (res.success) {
-        setDuplicates(res.duplicates);
-        if (res.duplicates.length > 0) {
-          if (!selectedExistingClientId && res.duplicates[0]) {
-            setSelectedExistingClientId(res.duplicates[0].clientId);
+    void (async () => {
+      try {
+        const res = await getLeadDuplicatesAction({ leadId: lead.id });
+        if (res.success) {
+          setDuplicates(res.duplicates);
+          if (res.duplicates.length > 0) {
+            if (!selectedExistingClientId && res.duplicates[0]) {
+              setSelectedExistingClientId(res.duplicates[0].clientId);
+            }
           }
         }
+      } catch {
+        // Keep existing state
       }
-    } catch {
-      // Keep existing state
-    }
+    })();
   };
 
   const handleConvertCloseAutoFocus = (e: Event) => {

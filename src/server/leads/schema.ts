@@ -84,6 +84,37 @@ export const exportLeadDsarActionInputSchema = z.object({
 
 export type ExportLeadDsarActionInput = z.infer<typeof exportLeadDsarActionInputSchema>;
 
+export const convertLeadToClientActionInputSchema = z
+  .object({
+    leadId: z.string().uuid({ message: 'leadId must be a valid UUID' }),
+    mode: z.enum(['new_client', 'existing_client']),
+    existingClientId: z
+      .string()
+      .uuid({ message: 'existingClientId must be a valid UUID' })
+      .optional()
+      .nullable(),
+  })
+  .refine(
+    (data) => {
+      if (data.mode === 'existing_client') {
+        return Boolean(data.existingClientId);
+      }
+      return true;
+    },
+    {
+      message: 'existingClientId is required when mode is existing_client',
+      path: ['existingClientId'],
+    },
+  );
+
+export type ConvertLeadToClientActionInput = z.infer<typeof convertLeadToClientActionInputSchema>;
+
+export const getLeadDuplicatesActionInputSchema = z.object({
+  leadId: z.string().uuid({ message: 'leadId must be a valid UUID' }),
+});
+
+export type GetLeadDuplicatesActionInput = z.infer<typeof getLeadDuplicatesActionInputSchema>;
+
 export interface LeadCounts {
   all: number;
   new: number;

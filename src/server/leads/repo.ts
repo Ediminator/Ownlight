@@ -8,6 +8,7 @@ import {
   type InquiryFormNoticeVersion,
 } from '@/server/db/schema/inquiry-forms';
 import type { ListLeadsQuery, LeadCounts } from './schema';
+import { findDuplicateEmails, type DuplicateEmailMatch } from '@/server/clients/repo';
 
 /**
  * Inserts a new lead record into the database.
@@ -192,10 +193,11 @@ export interface LeadWithDetails {
   formName?: string | null;
   noticeVersion?: InquiryFormNoticeVersion | null;
   formEventTypes?: InquiryFormEventType[] | null;
+  duplicates?: DuplicateEmailMatch[] | null;
 }
 
 /**
- * Retrieves a lead with its related form name, notice version details, and event types.
+ * Retrieves a lead with its related form name, notice version details, event types, and duplicate email matches.
  */
 export async function getLeadWithDetails(
   id: string,
@@ -216,11 +218,17 @@ export async function getLeadWithDetails(
     .where(eq(inquiryFormNoticeVersions.id, lead.noticeVersionId))
     .limit(1);
 
+  let duplicates: DuplicateEmailMatch[] = [];
+  if (lead.emailNormalized) {
+    duplicates = await findDuplicateEmails(lead.emailNormalized, null, client);
+  }
+
   return {
     lead,
     formName: form?.name ?? null,
     noticeVersion: noticeVersion ?? null,
     formEventTypes: form?.eventTypes ?? null,
+    duplicates,
   };
 }
 

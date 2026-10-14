@@ -15,6 +15,7 @@ import {
   FileText,
   ShieldCheck,
   ShieldAlert,
+  Mail,
 } from 'lucide-react';
 import type { ResolvedTimelineItem } from '@/server/timeline/repo';
 import { formatDateTime } from '@/lib/formatters';
@@ -342,6 +343,12 @@ export function ClientTimeline({
                       {event.type === 'consent.withdrawn' && (
                         <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                       )}
+                      {event.type === 'inquiry.received' && (
+                        <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      )}
+                      {event.type === 'lead.converted' && (
+                        <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      )}
                       {isNote && <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
                     </span>
 
@@ -349,6 +356,12 @@ export function ClientTimeline({
                       <div className="flex flex-wrap items-center gap-1.5 font-medium text-foreground">
                         {event.type === 'client.created' && (
                           <span>{t('events.client_created')}</span>
+                        )}
+                        {event.type === 'inquiry.received' && (
+                          <span>{t('events.inquiry_received')}</span>
+                        )}
+                        {event.type === 'lead.converted' && (
+                          <span>{t('events.lead_converted')}</span>
                         )}
                         {event.type === 'client.contact.added' && (
                           <span>

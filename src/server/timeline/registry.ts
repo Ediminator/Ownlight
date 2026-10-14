@@ -46,6 +46,16 @@ const INITIAL_EVENT_TYPES: TimelineEventTypeDefinition[] = [
     dataKeys: ['purpose'],
     messageKey: 'clients.timeline.events.consent_withdrawn',
   },
+  {
+    type: 'inquiry.received',
+    dataKeys: [],
+    messageKey: 'clients.timeline.events.inquiry_received',
+  },
+  {
+    type: 'lead.converted',
+    dataKeys: ['mode'],
+    messageKey: 'clients.timeline.events.lead_converted',
+  },
 ];
 
 const registry = new Map<string, TimelineEventTypeDefinition>();

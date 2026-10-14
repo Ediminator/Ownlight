@@ -36,7 +36,8 @@ This document establishes the mandatory security standards and controls for the 
     .where(and(eq(clients.id, clientId), eq(clients.studioId, studioId)));
   ```
 - **Insecure Direct Object Reference (IDOR) Testing:** Every resource must have automated negative integration tests verifying that unauthorized actors receive 404/denial.
-- **Lead Management Authorization & Step-Up Controls (TASK-0031):** All lead inbox, detail, and triage server actions (`changeLeadStatusAction`, `deleteLeadsAction`, `exportLeadDsarAction`, `getLeadCountsAction`) enforce `requireOwnerSession({ client })` and explicitly reject requests containing API key Bearer tokens with `UNAUTHORIZED`, restricting lead management to authenticated interactive web sessions. DSAR exports additionally enforce step-up re-authentication within a 5-minute freshness window (`assertFreshReauthentication`). Deletion of converted leads is strictly forbidden to preserve statutory records.
+- **Lead Management & Conversion Authorization (TASK-0031, TASK-0032):** All lead inbox, detail, triage, and conversion server actions (`changeLeadStatusAction`, `deleteLeadsAction`, `exportLeadDsarAction`, `getLeadCountsAction`, `convertLeadToClientAction`, `getLeadDuplicatesAction`) enforce `requireOwnerSession({ client })` or `requireOwnerWebSession({ client })` and explicitly reject requests containing API key Bearer tokens with `UNAUTHORIZED`, restricting lead management and conversion strictly to authenticated interactive web sessions. DSAR exports additionally enforce step-up re-authentication within a 5-minute freshness window (`assertFreshReauthentication`). Deletion of converted leads is strictly forbidden to preserve statutory records.
+- **Data Minimisation on Lead Conversion (GDPR Art. 5(1)(c)):** Upon converting a lead into a client record (`convertLeadToClient`), all lead PII fields (`given_name`, `family_name`, `email`, `email_normalized`, `phone`, `message`) are set to `NULL` within the conversion transaction. Non-PII shoot metadata (`event_type_key`, `event_date`, `event_location`) and form lineage metadata are preserved to pre-fill future project workflows.
 
 ---
 
@@ -86,7 +87,7 @@ This document establishes the mandatory security standards and controls for the 
 ## 6. Logging & Error Handling (ASVS V16)
 
 - **PII-Safe Structured Logging:** Pino-based JSON logger with automatic redaction paths for `email`, `name`, `phone`, `address`, `password`, `token`, `authorization`, `cookie`, `ip`.
-- **Audit Logging:** Append-only `audit_events` table for security-relevant and privacy-relevant operations (authentication, role changes, exports, deletions, signature events).
+- **Audit Logging:** Append-only `audit_events` table for security-relevant and privacy-relevant operations (authentication, role changes, exports, deletions, signature events, `lead.converted`). Audit payloads must never store customer names, emails, phones, or message text.
 - **Error Messages:** User-facing responses must provide generic, localised error descriptions with correlation IDs. Detailed stack traces must never be exposed to clients.
 
 ---

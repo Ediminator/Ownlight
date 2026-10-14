@@ -90,6 +90,7 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
   ['lead.auto_reply.sent', ['reason']],
   ['lead.auto_reply.suppressed', ['reason']],
   ['lead.auto_reply.failed', ['reason']],
+  ['lead.converted', ['client_id', 'mode']],
 ]);
 
 /**

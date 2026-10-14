@@ -547,6 +547,8 @@
         "note_created": "Notiz hinzugefügt",
         "consent_granted": "Einwilligung erteilt: {purpose}",
         "consent_withdrawn": "Einwilligung widerrufen: {purpose}",
+        "inquiry_received": "Anfrage erhalten",
+        "lead_converted": "Anfrage in Kunde umgewandelt",
         "deleted_item": "Gelöschter Eintrag"
       },
       "note": {
@@ -992,6 +994,34 @@
       "exportDsar": "Datenexport (DSAR)",
       "convertToClient": "In Kund:in umwandeln",
       "conversionStub": "Die Konvertierung in Kund:innen wird in TASK-0032 bereitgestellt."
+    },
+    "convert": {
+      "title": "In Kunde umwandeln",
+      "description": "Wandeln Sie diese Interessenten-Anfrage in einen Kundeneintrag um.",
+      "modeLabel": "Umwandlungsmodus",
+      "newClient": "Neuen Kunden anlegen",
+      "newClientDescription": "Erstellt einen neuen Kunden und primären Kontakt.",
+      "existingClient": "Mit bestehendem Kunden verknüpfen",
+      "existingClientDescription": "Verknüpft diese Anfrage mit einem existierenden Kunden ohne Kontaktdaten zu ändern.",
+      "selectClient": "Bestehenden Kunden auswählen",
+      "selectClientPlaceholder": "Kunde auswählen...",
+      "duplicateAlertTitle": "Bestehender Kunde mit gleicher E-Mail",
+      "duplicateAlertMessage": "Ein bestehender Kunde stimmt mit der E-Mail-Adresse {email} überein.",
+      "matchingClientName": "Bestehender Kunde: {name}",
+      "previewTitle": "Vorschau der Umwandlung",
+      "clientName": "Kundenname",
+      "primaryContact": "Primärer Kontakt",
+      "inquiryNote": "Zu erstellende Notiz",
+      "retainedDetails": "Behaltene Auftragsdetails",
+      "confirm": "In Kunde umwandeln",
+      "confirming": "Wird umgewandelt...",
+      "cancel": "Abbrechen",
+      "successToast": "Anfrage erfolgreich in Kunde umgewandelt",
+      "convertedBanner": "In Kunde umgewandelt am {date}",
+      "viewClient": "Kundenprofil anzeigen",
+      "noClientFound": "Kunde nicht gefunden",
+      "errorRequiredClient": "Bitte wählen Sie einen bestehenden Kunden aus.",
+      "errorGeneric": "Umwandlung fehlgeschlagen. Bitte versuchen Sie es erneut."
     },
     "detail": {
       "backToLeads": "Zurück zu allen Anfragen",

@@ -547,6 +547,8 @@
         "note_created": "Note added",
         "consent_granted": "Consent granted: {purpose}",
         "consent_withdrawn": "Consent withdrawn: {purpose}",
+        "inquiry_received": "Inquiry received",
+        "lead_converted": "Lead converted to client",
         "deleted_item": "Deleted item"
       },
       "note": {
@@ -992,6 +994,34 @@
       "exportDsar": "Export lead data (DSAR)",
       "convertToClient": "Convert to client",
       "conversionStub": "Lead conversion to client will be available in TASK-0032."
+    },
+    "convert": {
+      "title": "Convert to client",
+      "description": "Convert this prospective lead into a client record.",
+      "modeLabel": "Conversion mode",
+      "newClient": "Create new client",
+      "newClientDescription": "Creates a new client and primary contact record.",
+      "existingClient": "Link to existing client",
+      "existingClientDescription": "Links this lead to an existing client record without altering contacts.",
+      "selectClient": "Select existing client",
+      "selectClientPlaceholder": "Choose a client...",
+      "duplicateAlertTitle": "Existing client matches email",
+      "duplicateAlertMessage": "An existing client matches the email address {email}.",
+      "matchingClientName": "Existing client: {name}",
+      "previewTitle": "Conversion preview",
+      "clientName": "Client name",
+      "primaryContact": "Primary contact",
+      "inquiryNote": "Inquiry note to create",
+      "retainedDetails": "Shoot details retained",
+      "confirm": "Convert to client",
+      "confirming": "Converting...",
+      "cancel": "Cancel",
+      "successToast": "Lead successfully converted to client",
+      "convertedBanner": "Converted to client on {date}",
+      "viewClient": "View client profile",
+      "noClientFound": "Client not found",
+      "errorRequiredClient": "Please select an existing client to link.",
+      "errorGeneric": "Conversion failed. Please try again."
     },
     "detail": {
       "backToLeads": "Back to Leads",

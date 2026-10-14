@@ -148,6 +148,8 @@ export async function requireOwnerSession(
   };
 }
 
+export const requireOwnerWebSession = requireOwnerSession;
+
 /**
  * Central authorization guard (ADR-0006).
  * Accepts either:

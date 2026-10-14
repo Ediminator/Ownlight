@@ -2,7 +2,7 @@
 
 import 'server-only';
 import { headers } from 'next/headers';
-import { db } from '@/server/db/client';
+import { db, type DbClient } from '@/server/db/client';
 import { clients, clientContacts } from '@/server/db/schema/clients';
 import { eq, and } from 'drizzle-orm';
 import {
@@ -203,4 +203,111 @@ export async function executeErasureAction(rawInput: unknown): Promise<ExecuteEr
       actorId: auth.user.id,
     },
   });
+}
+
+export type EraseClientDataActionResult =
+  | ExecuteErasureActionResult
+  | { success: false; code: 'UNAUTHENTICATED' | 'FORBIDDEN' | 'VALIDATION_FAILED'; error: string };
+
+/**
+ * Production erasure action for client data (AC-2, AC-3, AC-4, AC-7).
+ * Governed by Process Rule R-A.
+ */
+export async function eraseClientDataAction(
+  rawInput: unknown,
+  client: DbClient = db,
+): Promise<EraseClientDataActionResult> {
+  const security = await verifyRequestSecurity();
+  if (!security.allowed) {
+    return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
+  }
+
+  let auth: AuthContext;
+  try {
+    auth = await requireOwnerSession({ client });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
+    }
+    return { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' };
+  }
+
+  // Support either { clientId: string, confirmation: string } or { subject: ErasureSubject, confirmation: string }
+  let payload: unknown = rawInput;
+  if (typeof payload === 'object' && payload !== null) {
+    const obj = payload as Record<string, unknown>;
+    if ('clientId' in obj && !('subject' in obj)) {
+      payload = {
+        subject: { kind: 'client', clientId: obj.clientId },
+        confirmation: obj.confirmation,
+      };
+    }
+  }
+
+  const parsed = executeErasureInputSchema.safeParse(payload);
+  if (!parsed.success) {
+    return { success: false, code: 'VALIDATION_FAILED', error: 'VALIDATION_FAILED' };
+  }
+
+  const { subject, confirmation } = parsed.data;
+
+  // Step-up re-authentication within 5 minutes
+  try {
+    await assertFreshReauthentication(auth.user.id, client, auth.session?.token);
+  } catch {
+    return {
+      success: false,
+      code: 'REAUTH_REQUIRED',
+      error: 'REAUTH_REQUIRED',
+    };
+  }
+
+  // Verify subject existence
+  const [clientRow] = await client
+    .select({ id: clients.id, displayName: clients.displayName })
+    .from(clients)
+    .where(eq(clients.id, subject.clientId))
+    .limit(1);
+
+  if (!clientRow) {
+    return { success: false, code: 'NOT_FOUND', error: 'NOT_FOUND' };
+  }
+
+  if (subject.kind === 'contact') {
+    const [contactRow] = await client
+      .select({ id: clientContacts.id })
+      .from(clientContacts)
+      .where(
+        and(
+          eq(clientContacts.id, subject.contactId),
+          eq(clientContacts.clientId, subject.clientId),
+        ),
+      )
+      .limit(1);
+
+    if (!contactRow) {
+      return { success: false, code: 'NOT_FOUND', error: 'NOT_FOUND' };
+    }
+  }
+
+  // Validate confirmation matches client display name exactly
+  if (confirmation.trim() !== clientRow.displayName.trim()) {
+    return {
+      success: false,
+      code: 'CONFIRMATION_MISMATCH',
+      error: 'Confirmation does not match client name',
+    };
+  }
+
+  // Execute subject erasure
+  return await erasureService.eraseSubject(
+    subject,
+    {
+      actor: {
+        actorType: 'owner',
+        actorId: auth.user.id,
+      },
+    },
+    client,
+  );
 }

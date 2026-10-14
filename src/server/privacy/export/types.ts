@@ -5,7 +5,7 @@ import type { Lead } from '@/server/db/schema/leads';
 export type ExportSubjectKind = 'client' | 'contact' | 'lead';
 
 export interface ContactExportSubject {
-  kind?: 'contact';
+  kind?: 'contact' | 'client';
   contactId: string;
   clientId: string;
   contact: ClientContact;

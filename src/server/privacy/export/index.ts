@@ -6,3 +6,4 @@ export * from './registry';
 export * from './json';
 export * from './html';
 export * from './service';
+export * from './actions';

@@ -423,6 +423,39 @@ export const INITIAL_CATEGORIES: readonly CategoryDefinition[] = [
       de: 'Von der betroffenen Person vor Konvertierung übermitteltes Anfrageformular.',
     },
   },
+  {
+    id: 'projects',
+    titleKey: 'privacy.export.categories.projects.title',
+    purposeKey: 'privacy.export.categories.projects.purpose',
+    lawfulBasisKey: 'privacy.export.categories.projects.lawful_basis',
+    retentionKey: 'privacy.export.categories.projects.retention',
+    recipientsKey: 'privacy.export.categories.projects.recipients',
+    sourceKey: 'privacy.export.categories.projects.source',
+    title: {
+      en: 'Projects & Shoots',
+      de: 'Projekte & Shootings',
+    },
+    purpose: {
+      en: 'Execution and fulfillment of photography commissions, shoot logistics, and client communication.',
+      de: 'Durchführung und Erfüllung von Fotografieaufträgen, Shooting-Logistik und Kundenkommunikation.',
+    },
+    lawfulBasis: {
+      en: 'Art. 6(1)(b) GDPR (Performance of a contract / pre-contractual measures).',
+      de: 'Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung / vorvertragliche Maßnahmen).',
+    },
+    retention: {
+      en: 'Statutory commercial and tax retention period (6 to 10 years for contracts and financial commission records under § 257 HGB / § 147 AO), or until project archive retention period expires.',
+      de: 'Handels- und steuerrechtliche Aufbewahrungsfristen (6 bis 10 Jahre für Verträge und buchungsrelevante Unterlagen gemäß § 257 HGB / § 147 AO) bzw. Ablauf der Projektarchivierungsfrist.',
+    },
+    recipients: {
+      en: 'None (stored locally on the self-hosted studio instance).',
+      de: 'Keine (ausschließlich lokale Speicherung auf der selbst gehosteten Studio-Instanz).',
+    },
+    source: {
+      en: 'Provided by the client or generated during project fulfillment.',
+      de: 'Vom Kunden bereitgestellt oder im Rahmen der Projektdurchführung erfasst.',
+    },
+  },
 ];
 
 const categoryRegistry = new Map<string, CategoryDefinition>();

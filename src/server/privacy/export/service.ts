@@ -8,6 +8,7 @@ import { generateHtmlExport } from './html';
 import type { ExportCollectedData } from './types';
 
 export interface GenerateExportOptions {
+  clientId?: string;
   contactId?: string;
   leadId?: string;
   format: 'json' | 'html';
@@ -27,7 +28,7 @@ export interface GenerateExportResult {
 
 /**
  * Orchestrates full personal data export generation:
- * 1. Collects personal data via domain provider registry (contact or lead)
+ * 1. Collects personal data via domain provider registry (contact, client or lead)
  * 2. Formats as JSON or self-contained HTML
  * 3. Records privacy.export.generated audit event with allowlisted metadata
  * 4. Structured logging containing zero personal data
@@ -38,13 +39,18 @@ export async function generateExport(
   const startTime = Date.now();
   const dbClient = options.client ?? defaultDb;
 
-  const subjectId = options.leadId ?? options.contactId;
+  const subjectId = options.leadId ?? options.clientId ?? options.contactId;
   if (!subjectId) {
     return null;
   }
   const isLead = typeof options.leadId === 'string';
-  const subjectTarget = isLead ? { leadId: subjectId } : { contactId: subjectId };
-  const subjectKind = isLead ? 'lead' : 'contact';
+  const isClient = typeof options.clientId === 'string' && !options.contactId;
+  const subjectTarget = isLead
+    ? { leadId: subjectId }
+    : isClient
+      ? { clientId: options.clientId }
+      : { contactId: subjectId };
+  const subjectKind = isLead ? 'lead' : isClient ? 'client' : 'contact';
 
   // 1. Collect export data across registered domain providers
   const collected = await collectExportData(subjectTarget, dbClient);
@@ -81,7 +87,9 @@ export async function generateExport(
     auditMetadata.subject_kind = 'lead';
     auditMetadata.lead_id = options.leadId;
   } else {
-    auditMetadata.contact_id = options.contactId;
+    auditMetadata.contact_id =
+      options.contactId ??
+      (collected.subject.kind === 'lead' ? undefined : collected.subject.contactId);
   }
 
   await audit(

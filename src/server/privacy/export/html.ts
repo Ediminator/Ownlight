@@ -28,12 +28,32 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;');
 }
 
+const GERMAN_COLUMN_HEADERS: Record<string, string> = {
+  project: 'Projekt',
+  project_title: 'Projekt',
+  stage: 'Phase',
+  stage_name: 'Phase',
+  shoot_date: 'Shooting-Datum',
+  shooting_date: 'Shooting-Datum',
+  locations: 'Orte',
+  timeline: 'Zeitplan',
+  tasks: 'Aufgaben',
+  participants: 'Teilnehmer',
+  role: 'Rolle',
+};
+
 /**
  * Formats a raw database / schema column identifier (e.g. `display_name`, `client.created`, `occurred_at`)
- * into a human-readable Title Case column header.
+ * into a human-readable Title Case column header, localized for en/de.
  */
-export function formatColumnHeader(key: string): string {
+export function formatColumnHeader(key: string, locale: 'en' | 'de' = 'en'): string {
   if (!key) return '';
+  if (locale === 'de') {
+    const germanHeader = GERMAN_COLUMN_HEADERS[key.toLowerCase()];
+    if (germanHeader) {
+      return germanHeader;
+    }
+  }
   const acronyms = new Set(['id', 'ip', 'url', 'vat', 'gdpr', 'ccpa', 'dsar']);
   return key
     .replace(/[._]/g, ' ')
@@ -44,6 +64,31 @@ export function formatColumnHeader(key: string): string {
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(' ');
+}
+
+/**
+ * Renders an accessible, localized HTML table for DSAR export categories.
+ */
+export function formatHtmlTable(
+  headers: string[],
+  rows: (string | number | boolean | null | undefined)[][],
+  label = 'Data Table',
+): string {
+  const thead = headers.map((h) => `<th scope="col">${escapeHtml(h)}</th>`).join('');
+  const tbody = rows
+    .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell ?? '-')}</td>`).join('')}</tr>`)
+    .join('');
+
+  return `<div class="table-wrapper" tabindex="0" role="region" aria-label="${escapeHtml(label)}">
+  <table class="data-table">
+    <thead>
+      <tr>${thead}</tr>
+    </thead>
+    <tbody>
+      ${tbody}
+    </tbody>
+  </table>
+</div>`;
 }
 
 const UI_STRINGS = {
@@ -193,7 +238,7 @@ export function generateHtmlExport(data: ExportCollectedData, locale: 'en' | 'de
           <table class="data-table">
             <thead>
               <tr>
-                ${keys.map((k) => `<th scope="col">${escapeHtml(formatColumnHeader(k))}</th>`).join('')}
+                ${keys.map((k) => `<th scope="col">${escapeHtml(formatColumnHeader(k, locale))}</th>`).join('')}
               </tr>
             </thead>
             <tbody>

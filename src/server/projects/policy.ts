@@ -23,9 +23,11 @@ export async function authorizeProjectRead(
   contextOrOptions?: AuthContext | RequireAuthOptions,
   dbClient?: DbClient,
 ): Promise<AuthContext> {
+  const effectiveClient =
+    dbClient ?? (!isAuthContext(contextOrOptions) ? contextOrOptions?.client : undefined);
   const context = isAuthContext(contextOrOptions)
     ? contextOrOptions
-    : await requireAuth({ ...(contextOrOptions ?? {}), client: dbClient });
+    : await requireAuth({ ...(contextOrOptions ?? {}), client: effectiveClient });
 
   if (context.user.role !== 'owner') {
     throw new ForbiddenError('Owner role required to read project resources.');
@@ -52,9 +54,11 @@ export async function authorizeProjectWrite(
   contextOrOptions?: AuthContext | RequireAuthOptions,
   dbClient?: DbClient,
 ): Promise<AuthContext> {
+  const effectiveClient =
+    dbClient ?? (!isAuthContext(contextOrOptions) ? contextOrOptions?.client : undefined);
   const context = isAuthContext(contextOrOptions)
     ? contextOrOptions
-    : await requireAuth({ ...(contextOrOptions ?? {}), client: dbClient });
+    : await requireAuth({ ...(contextOrOptions ?? {}), client: effectiveClient });
 
   if (context.user.role !== 'owner') {
     if (context.authType === 'apiKey') {
@@ -69,7 +73,7 @@ export async function authorizeProjectWrite(
             outcome: 'denied',
             metadata: null,
           },
-          dbClient,
+          effectiveClient,
         );
       } catch {
         // Suppress secondary audit error during auth denial
@@ -92,7 +96,7 @@ export async function authorizeProjectWrite(
             outcome: 'denied',
             metadata: null,
           },
-          dbClient,
+          effectiveClient,
         );
       } catch {
         // Suppress secondary audit error during auth denial

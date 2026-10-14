@@ -1216,5 +1216,221 @@ describe('Projects Domain Unit & Branch Tests', () => {
       const projAfter = await repo.findProjectById(proj.id, dbClient);
       expect(projAfter?.primaryShootStartsAt).toBeNull();
     });
+
+    it('service.ts & policy.ts: covers optional fields and error branches', async () => {
+      // 1. policy.ts: authorizeProjectRead and authorizeProjectWrite with options object (not AuthContext)
+      const sessionRecord = await createSession(ownerUser.id, dbClient);
+      mockCookiesStore.set(SESSION_COOKIE_NAME, sessionRecord.token);
+      const readAuth = await authorizeProjectRead({ client: dbClient });
+      expect(readAuth.user.role).toBe('owner');
+      const writeAuth = await authorizeProjectWrite('project.create', null, { client: dbClient });
+      expect(writeAuth.user.role).toBe('owner');
+
+      // 2. policy.ts: apiKey missing projects:write audits denied attempt
+      const apiKeyMissingWrite: AuthContext = {
+        authType: 'apiKey',
+        user: createMockUser('owner'),
+        apiKey: createMockApiKey(['clients:read']),
+        scopes: ['clients:read'],
+      };
+      await expect(
+        authorizeProjectWrite('project.create', 'proj-123', apiKeyMissingWrite, dbClient),
+      ).rejects.toThrow(ForbiddenError);
+
+      const clientId = generateUuidV7();
+      await dbClient.insert(clients).values({
+        id: clientId,
+        kind: 'person',
+        displayName: 'Branch Boost Client',
+        preferredLocale: 'en',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      const initialStage = await getInitialPipelineStage(dbClient);
+      if (!initialStage) return;
+
+      // 3. createProject error branches
+      const dummyId = generateUuidV7();
+      const resBadClient = await projectService.createProject(
+        { clientId: dummyId, title: 'No Client' },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(resBadClient.success).toBe(false);
+
+      const resBadStage = await projectService.createProject(
+        { clientId, title: 'Bad Stage', stageId: dummyId },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(resBadStage.success).toBe(false);
+
+      // 4. createProject success and updateProject with all optional fields
+      const pRes = await projectService.createProject(
+        { clientId, title: 'Full Project' },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(pRes.success).toBe(true);
+      if (!pRes.success) return;
+      const projId = pRes.data.projectId;
+
+      const resUpBadStage = await projectService.updateProject(
+        { projectId: projId, stageId: dummyId },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(resUpBadStage.success).toBe(false);
+
+      const resUpFull = await projectService.updateProject(
+        {
+          projectId: projId,
+          title: 'Updated Title',
+          projectTypeKey: 'commercial',
+          stageId: initialStage.id,
+          priceMinor: 150000,
+          currency: 'EUR',
+          notes: 'Full notes',
+        },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(resUpFull.success).toBe(true);
+
+      // 5. createShoot with location string and updateShoot with all fields
+      const shootRes = await projectService.createShoot(
+        {
+          projectId: projId,
+          title: 'Shoot with Loc',
+          startsAt: new Date('2027-02-01T10:00:00Z'),
+          location: 'Main Studio',
+        },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(shootRes.success).toBe(true);
+      if (!shootRes.success) return;
+      const shootId = shootRes.data.shootId;
+
+      const shootUpRes = await projectService.updateShoot(
+        {
+          shootId,
+          title: 'Updated Shoot',
+          startsAt: new Date('2027-02-01T11:00:00Z'),
+          endsAt: new Date('2027-02-01T14:00:00Z'),
+          timezone: 'Europe/Berlin',
+          notes: 'Bring gear',
+        },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(shootUpRes.success).toBe(true);
+
+      // 6. location error and full update
+      const locRes = await projectService.createShootLocation(
+        { shootId, name: 'Original Venue' },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(locRes.success).toBe(true);
+      if (!locRes.success) return;
+      const locId = locRes.data.locationId;
+
+      const locUpRes = await projectService.updateShootLocation(
+        {
+          locationId: locId,
+          name: 'Updated Venue',
+          addressLine1: 'Street 1',
+          addressLine2: 'Apt 2',
+          postalCode: '10115',
+          city: 'Berlin',
+          countryCode: 'DE',
+          notes: 'Ring bell',
+          order: 2,
+        },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(locUpRes.success).toBe(true);
+
+      // 7. timeline item error branches and full update
+      const badLocItem = await projectService.createShootTimelineItem(
+        {
+          shootId,
+          locationId: dummyId,
+          title: 'Bad Loc Item',
+          startsAt: new Date('2027-02-01T11:00:00Z'),
+        },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(badLocItem.success).toBe(false);
+
+      const itemRes = await projectService.createShootTimelineItem(
+        {
+          shootId,
+          locationId: locId,
+          title: 'Good Item',
+          startsAt: new Date('2027-02-01T11:00:00Z'),
+        },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(itemRes.success).toBe(true);
+      if (!itemRes.success) return;
+      const itemId = itemRes.data.itemId;
+
+      const upBadLocItem = await projectService.updateShootTimelineItem(
+        { itemId, locationId: dummyId },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(upBadLocItem.success).toBe(false);
+
+      const upFullItem = await projectService.updateShootTimelineItem(
+        {
+          itemId,
+          locationId: locId,
+          title: 'Updated Item Title',
+          description: 'Detailed description',
+          startsAt: new Date('2027-02-01T11:15:00Z'),
+          endsAt: new Date('2027-02-01T12:00:00Z'),
+          order: 3,
+        },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(upFullItem.success).toBe(true);
+
+      const delMissingItem = await projectService.deleteShootTimelineItem(
+        { itemId: dummyId },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(delMissingItem.success).toBe(false);
+
+      // 8. participant error branches
+      const badProjPart = await projectService.createProjectParticipant(
+        { projectId: dummyId, name: 'Nobody', role: 'Client' },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(badProjPart.success).toBe(false);
+
+      const delMissingPart = await projectService.deleteProjectParticipant(
+        { participantId: dummyId },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(delMissingPart.success).toBe(false);
+
+      // 9. task error branch
+      const badProjTask = await projectService.createProjectTask(
+        { projectId: dummyId, title: 'No Project Task' },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(badProjTask.success).toBe(false);
+    });
   });
 });

@@ -19,6 +19,7 @@ import {
   ExternalLink,
   Shield,
   Info,
+  Loader2,
 } from 'lucide-react';
 import {
   Dialog,
@@ -32,29 +33,99 @@ import {
   changeLeadStatusAction,
   deleteLeadsAction,
   exportLeadDsarAction,
+  convertLeadToClientAction,
+  getLeadDuplicatesAction,
 } from '@/server/leads/actions';
 import { reauthenticateAction } from '@/server/auth/mfa-actions';
 import type { Lead, LeadStatus } from '@/server/db/schema/leads';
 import type { LeadWithDetails } from '@/server/leads/service';
+import type { DuplicateEmailMatch } from '@/server/clients/repo';
+
+/**
+ * Restores focus to the invoking trigger element upon modal dismissal (WCAG 2.4.3 / I1-U01).
+ */
+export function restoreFocusToTrigger(
+  lastTrigger: HTMLElement | null,
+  fallbackTrigger: HTMLElement | null,
+  e?: { preventDefault?: () => void },
+): boolean {
+  const target = lastTrigger ?? fallbackTrigger;
+  if (target) {
+    e?.preventDefault?.();
+    target.focus();
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Formats lead conversion date localized with medium style (ADR-0015 §6).
+ */
+export function formatLeadConvertedDate(
+  date: Date | string | null | undefined,
+  locale: string,
+): string {
+  if (!date) return '—';
+  return new Date(date).toLocaleDateString(locale, { dateStyle: 'medium' });
+}
 
 export interface LeadDetailViewProps {
   leadWithDetails: LeadWithDetails;
   locale: string;
+  initialConvertModalOpen?: boolean;
+  initialConvertMode?: 'new_client' | 'existing_client';
+  initialConvertError?: string | null;
+  initialDeleteModalOpen?: boolean;
+  initialDeleteError?: string | null;
+  initialReauthModalOpen?: boolean;
+  initialReauthError?: string | null;
+  initialIsConverting?: boolean;
 }
 
-export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps) {
+export function LeadDetailView({
+  leadWithDetails,
+  locale,
+  initialConvertModalOpen,
+  initialConvertMode,
+  initialConvertError,
+  initialDeleteModalOpen,
+  initialDeleteError,
+  initialReauthModalOpen,
+  initialReauthError,
+  initialIsConverting,
+}: LeadDetailViewProps) {
   const t = useTranslations('leads');
   const router = useRouter();
 
   const [lead, setLead] = React.useState<Lead>(leadWithDetails.lead);
-  const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
-  const [reauthModalOpen, setReauthModalOpen] = React.useState(false);
-  const [convertModalOpen, setConvertModalOpen] = React.useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = React.useState(initialDeleteModalOpen ?? false);
+  const [reauthModalOpen, setReauthModalOpen] = React.useState(initialReauthModalOpen ?? false);
+  const [convertModalOpen, setConvertModalOpen] = React.useState(initialConvertModalOpen ?? false);
   const [reauthPassword, setReauthPassword] = React.useState('');
-  const [reauthError, setReauthError] = React.useState<string | null>(null);
+  const [reauthError, setReauthError] = React.useState<string | null>(initialReauthError ?? null);
   const [isReauthenticating, setIsReauthenticating] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
-  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+  const [deleteError, setDeleteError] = React.useState<string | null>(initialDeleteError ?? null);
+
+  // Conversion state (TASK-0032)
+  const [duplicates, setDuplicates] = React.useState<DuplicateEmailMatch[]>(
+    leadWithDetails.duplicates ?? [],
+  );
+  const [convertMode, setConvertMode] = React.useState<'new_client' | 'existing_client'>(
+    initialConvertMode ?? 'new_client',
+  );
+  const [selectedExistingClientId, setSelectedExistingClientId] = React.useState<string>(
+    leadWithDetails.duplicates?.[0]?.clientId ?? '',
+  );
+  const [convertError, setConvertError] = React.useState<string | null>(
+    initialConvertError ?? null,
+  );
+  const [isConverting, setIsConverting] = React.useState(initialIsConverting ?? false);
+
+  // Focus restoration trigger refs (WCAG 2.4.3 / I1-U01)
+  const convertHeaderTriggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const convertFooterTriggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const lastConvertTriggerRef = React.useRef<HTMLButtonElement | null>(null);
 
   const fullName = [lead.givenName, lead.familyName].filter(Boolean).join(' ') || '—';
   const receivedFormatted = new Date(lead.receivedAt).toLocaleString(locale, {
@@ -170,6 +241,65 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
     }
   };
 
+  // Open conversion modal and check duplicates (AC-1, AC-2, I1-U01)
+  const handleOpenConvertModal = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    if (e?.currentTarget) {
+      lastConvertTriggerRef.current = e.currentTarget;
+    }
+    setConvertError(null);
+    setConvertModalOpen(true);
+    void (async () => {
+      try {
+        const res = await getLeadDuplicatesAction({ leadId: lead.id });
+        if (res.success) {
+          setDuplicates(res.duplicates);
+          if (res.duplicates.length > 0) {
+            if (!selectedExistingClientId && res.duplicates[0]) {
+              setSelectedExistingClientId(res.duplicates[0].clientId);
+            }
+          }
+        }
+      } catch {
+        // Keep existing state
+      }
+    })();
+  };
+
+  const handleConvertCloseAutoFocus = (e: Event) => {
+    restoreFocusToTrigger(lastConvertTriggerRef.current, convertHeaderTriggerRef.current, e);
+  };
+
+  // Confirm conversion execution (AC-1, AC-2, AC-3)
+  const handleConfirmConvert = async () => {
+    if (convertMode === 'existing_client' && !selectedExistingClientId) {
+      setConvertError(t('convert.errorRequiredClient'));
+      return;
+    }
+
+    setIsConverting(true);
+    setConvertError(null);
+
+    try {
+      const res = await convertLeadToClientAction({
+        leadId: lead.id,
+        mode: convertMode,
+        existingClientId: convertMode === 'existing_client' ? selectedExistingClientId : null,
+      });
+
+      if (!res.success) {
+        setConvertError(res.error || t('convert.errorGeneric'));
+        return;
+      }
+
+      setConvertModalOpen(false);
+      router.push(`/${locale}/clients/${res.clientId}`);
+    } catch {
+      setConvertError(t('convert.errorGeneric'));
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Back Link */}
@@ -183,6 +313,36 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
           <span>{t('detail.backToLeads')}</span>
         </Link>
       </div>
+
+      {/* Converted Banner (ADR-0015 §6, TASK-0032) */}
+      {lead.status === 'converted' && (
+        <div
+          data-testid="lead-converted-banner"
+          className="p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-emerald-950 dark:text-emerald-100 shadow-sm"
+        >
+          <div className="flex items-center gap-2.5 font-semibold text-sm">
+            <CheckCircle
+              className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0"
+              aria-hidden="true"
+            />
+            <span>
+              {t('convert.convertedBanner', {
+                date: formatLeadConvertedDate(lead.convertedAt, locale),
+              })}
+            </span>
+          </div>
+          {lead.clientId && (
+            <Link
+              href={`/clients/${lead.clientId}`}
+              data-testid="converted-client-link"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-800 hover:bg-emerald-900 text-white dark:bg-emerald-700 dark:hover:bg-emerald-600 text-xs font-semibold shadow-sm transition-colors shrink-0"
+            >
+              <span>{t('convert.viewClient')}</span>
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Header Card */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -246,61 +406,74 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
         </div>
 
         {/* Hygiene & Status Actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          {lead.status !== 'contacted' && (
+        {lead.status !== 'converted' && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              ref={convertHeaderTriggerRef}
+              type="button"
+              data-testid="convert-lead-btn"
+              onClick={handleOpenConvertModal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
+            >
+              <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{t('actions.convertToClient')}</span>
+            </button>
+
+            {lead.status !== 'contacted' && (
+              <button
+                type="button"
+                data-testid="mark-contacted-btn"
+                onClick={() => {
+                  void handleStatusChange('contacted');
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              >
+                <CheckCircle className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
+                <span>{t('actions.markContacted')}</span>
+              </button>
+            )}
+
+            {lead.status !== 'spam' && (
+              <button
+                type="button"
+                data-testid="mark-spam-btn"
+                onClick={() => {
+                  void handleStatusChange('spam');
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              >
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
+                <span>{t('actions.markSpam')}</span>
+              </button>
+            )}
+
+            {lead.status !== 'archived' && (
+              <button
+                type="button"
+                data-testid="mark-archived-btn"
+                onClick={() => {
+                  void handleStatusChange('archived');
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              >
+                <Archive className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                <span>{t('actions.archive')}</span>
+              </button>
+            )}
+
             <button
               type="button"
-              data-testid="mark-contacted-btn"
+              data-testid="delete-lead-btn"
               onClick={() => {
-                void handleStatusChange('contacted');
+                setDeleteModalOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-destructive/10 text-destructive dark:text-red-400 hover:bg-destructive/20 border border-destructive/20 dark:border-red-900/40 transition-colors"
             >
-              <CheckCircle className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
-              <span>{t('actions.markContacted')}</span>
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{t('actions.delete')}</span>
             </button>
-          )}
-
-          {lead.status !== 'spam' && (
-            <button
-              type="button"
-              data-testid="mark-spam-btn"
-              onClick={() => {
-                void handleStatusChange('spam');
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-            >
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
-              <span>{t('actions.markSpam')}</span>
-            </button>
-          )}
-
-          {lead.status !== 'archived' && (
-            <button
-              type="button"
-              data-testid="mark-archived-btn"
-              onClick={() => {
-                void handleStatusChange('archived');
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-            >
-              <Archive className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-              <span>{t('actions.archive')}</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            data-testid="delete-lead-btn"
-            onClick={() => {
-              setDeleteModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-destructive/10 text-destructive dark:text-red-400 hover:bg-destructive/20 border border-destructive/20 dark:border-red-900/40 transition-colors"
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{t('actions.delete')}</span>
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Grid of details */}
@@ -509,18 +682,19 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
             <span>{t('actions.exportDsar')}</span>
           </button>
 
-          {/* Convert to client placeholder (stubbed for TASK-0032) */}
-          <button
-            type="button"
-            data-testid="convert-to-client-btn"
-            onClick={() => {
-              setConvertModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium transition-colors"
-          >
-            <UserPlus className="h-4 w-4" aria-hidden="true" />
-            <span>{t('actions.convertToClient')}</span>
-          </button>
+          {/* Convert to client button */}
+          {lead.status !== 'converted' && (
+            <button
+              ref={convertFooterTriggerRef}
+              type="button"
+              data-testid="convert-to-client-btn"
+              onClick={handleOpenConvertModal}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium transition-colors"
+            >
+              <UserPlus className="h-4 w-4" aria-hidden="true" />
+              <span>{t('actions.convertToClient')}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -639,24 +813,235 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
         </DialogContent>
       </Dialog>
 
-      {/* Convert to Client Placeholder Dialog (Stub for TASK-0032) */}
+      {/* Lead Conversion Dialog (TASK-0032) */}
       <Dialog open={convertModalOpen} onOpenChange={setConvertModalOpen}>
-        <DialogContent data-testid="convert-stub-modal">
+        <DialogContent
+          data-testid="convert-lead-dialog"
+          className="max-w-xl max-h-[90vh] overflow-y-auto"
+          onCloseAutoFocus={handleConvertCloseAutoFocus}
+        >
           <DialogHeader>
-            <DialogTitle>{t('actions.convertToClient')}</DialogTitle>
+            <DialogTitle>{t('convert.title')}</DialogTitle>
             <DialogDescription className="text-sm text-zinc-700 dark:text-zinc-300">
-              {t('actions.conversionStub')}
+              {t('convert.description')}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+
+          {/* Duplicate Alert if matches found (AC-2) */}
+          {duplicates.length > 0 && (
+            <div
+              role="alert"
+              data-testid="duplicate-alert"
+              className="p-3.5 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-950 dark:text-amber-100 space-y-1.5 text-xs"
+            >
+              <div className="flex items-center gap-2 font-semibold">
+                <AlertTriangle
+                  className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0"
+                  aria-hidden="true"
+                />
+                <span>{t('convert.duplicateAlertTitle')}</span>
+              </div>
+              <p className="leading-relaxed">
+                {t('convert.duplicateAlertMessage', { email: lead.email ?? '' })}
+              </p>
+              <div className="font-medium text-amber-900 dark:text-amber-200">
+                {t('convert.matchingClientName', {
+                  name: duplicates.map((d) => d.displayName).join(', '),
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Mode Selection */}
+          <div className="space-y-3">
+            <label className="text-xs font-semibold text-foreground block">
+              {t('convert.modeLabel')}
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label
+                data-testid="convert-mode-new-label"
+                className={`relative flex flex-col p-3 rounded-lg border cursor-pointer transition-colors ${
+                  convertMode === 'new_client'
+                    ? 'border-primary bg-primary/5 dark:bg-primary/10 ring-1 ring-primary'
+                    : 'border-border bg-card hover:bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">
+                    {t('convert.newClient')}
+                  </span>
+                  <input
+                    type="radio"
+                    name="convert-mode"
+                    data-testid="convert-mode-new"
+                    value="new_client"
+                    checked={convertMode === 'new_client'}
+                    onChange={() => {
+                      setConvertMode('new_client');
+                    }}
+                    className="h-4 w-4 text-primary focus:ring-primary border-border"
+                  />
+                </div>
+                <span className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                  {t('convert.newClientDescription')}
+                </span>
+              </label>
+
+              <label
+                data-testid="convert-mode-existing-label"
+                className={`relative flex flex-col p-3 rounded-lg border cursor-pointer transition-colors ${
+                  convertMode === 'existing_client'
+                    ? 'border-primary bg-primary/5 dark:bg-primary/10 ring-1 ring-primary'
+                    : 'border-border bg-card hover:bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">
+                    {t('convert.existingClient')}
+                  </span>
+                  <input
+                    type="radio"
+                    name="convert-mode"
+                    data-testid="mode-existing-client"
+                    value="existing_client"
+                    checked={convertMode === 'existing_client'}
+                    onChange={() => {
+                      setConvertMode('existing_client');
+                    }}
+                    className="h-4 w-4 text-primary focus:ring-primary border-border"
+                  />
+                </div>
+                <span className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                  {t('convert.existingClientDescription')}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Existing client picker if existing_client chosen */}
+          {convertMode === 'existing_client' && (
+            <div className="space-y-1.5">
+              <label
+                htmlFor="existing-client-select"
+                className="text-xs font-semibold text-foreground"
+              >
+                {t('convert.selectClient')}
+              </label>
+              <select
+                id="existing-client-select"
+                data-testid="existing-client-select"
+                value={selectedExistingClientId}
+                onChange={(e) => {
+                  setSelectedExistingClientId(e.target.value);
+                }}
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+              >
+                {duplicates.length > 0 ? (
+                  duplicates.map((dup) => (
+                    <option key={dup.clientId} value={dup.clientId}>
+                      {dup.displayName} ({dup.clientId.slice(0, 8)}…)
+                    </option>
+                  ))
+                ) : (
+                  <option value="">{t('convert.selectClientPlaceholder')}</option>
+                )}
+              </select>
+            </div>
+          )}
+
+          {/* Preview Card */}
+          <div
+            data-testid="conversion-preview"
+            className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 space-y-3 text-xs"
+          >
+            <h3 className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">
+              {t('convert.previewTitle')}
+            </h3>
+
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <dt className="text-zinc-800 dark:text-zinc-200 font-medium">
+                  {t('convert.clientName')}
+                </dt>
+                <dd className="font-bold text-zinc-950 dark:text-zinc-50">{fullName}</dd>
+              </div>
+              <div>
+                <dt className="text-zinc-800 dark:text-zinc-200 font-medium">
+                  {t('convert.primaryContact')}
+                </dt>
+                <dd className="font-bold text-zinc-950 dark:text-zinc-50">
+                  {lead.email ?? '—'}
+                  {lead.phone ? ` • ${lead.phone}` : ''}
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-zinc-800 dark:text-zinc-200 font-medium">
+                  {t('convert.retainedDetails')}
+                </dt>
+                <dd className="font-bold text-zinc-950 dark:text-zinc-50">
+                  {[eventTypeLabel, lead.eventDate, lead.eventLocation]
+                    .filter(Boolean)
+                    .join(' • ') || '—'}
+                </dd>
+              </div>
+              {lead.message && (
+                <div className="sm:col-span-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                  <dt className="text-zinc-800 dark:text-zinc-200 font-medium mb-1">
+                    {t('convert.inquiryNote')}
+                  </dt>
+                  <dd className="p-2.5 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 text-xs leading-relaxed font-sans max-h-24 overflow-y-auto whitespace-pre-wrap">
+                    <strong className="block text-zinc-800 dark:text-zinc-200 font-semibold mb-1">
+                      Inquiry message ({leadWithDetails.formName ?? 'Inquiry form'},{' '}
+                      {new Date(lead.receivedAt).toISOString().slice(0, 10)})
+                    </strong>
+                    {lead.message}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
+
+          {convertError && (
+            <div
+              role="alert"
+              data-testid="convert-error"
+              className="p-3 text-xs rounded bg-destructive/10 text-destructive border border-destructive/20 font-medium"
+            >
+              {convertError}
+            </div>
+          )}
+
+          <DialogFooter className="flex gap-2">
             <button
               type="button"
+              data-testid="cancel-convert-btn"
+              disabled={isConverting}
               onClick={() => {
                 setConvertModalOpen(false);
               }}
-              className="px-4 py-2 text-sm rounded-md bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-medium"
+              className="px-4 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-medium shadow-sm transition-colors"
             >
-              OK
+              {t('convert.cancel')}
+            </button>
+            <button
+              type="button"
+              data-testid="confirm-convert-btn"
+              disabled={
+                isConverting || (convertMode === 'existing_client' && !selectedExistingClientId)
+              }
+              onClick={() => {
+                void handleConfirmConvert();
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-md bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-medium disabled:opacity-50"
+            >
+              {isConverting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" aria-hidden="true" />
+                  <span>{t('convert.confirming')}</span>
+                </>
+              ) : (
+                <span>{t('convert.confirm')}</span>
+              )}
             </button>
           </DialogFooter>
         </DialogContent>

@@ -496,4 +496,66 @@ describe('LeadDetailView Component (Unit Tests)', () => {
     // autoReply hidden until 2xl
     expect(inboxHtml).toContain('hidden 2xl:table-cell');
   });
+
+  it('renders batch action bar and bulk action buttons when items are selected', () => {
+    const html = renderToStaticMarkup(
+      <LeadInbox
+        initialLeads={[createDummyLead({ id: 'lead-selected-1' })]}
+        initialCounts={dummyCounts}
+        locale="en"
+        initialSelectedIds={['lead-selected-1']}
+      />,
+    );
+    expect(html).toContain('data-testid="bulk-mark-contacted-btn"');
+    expect(html).toContain('data-testid="bulk-mark-spam-btn"');
+    expect(html).toContain('data-testid="bulk-archive-btn"');
+    expect(html).toContain('data-testid="bulk-delete-btn"');
+  });
+
+  it('renders delete-selected-modal and delete-all-spam-modal when opened', () => {
+    const deleteModalHtml = renderToStaticMarkup(
+      <LeadInbox
+        initialLeads={[createDummyLead({ id: 'lead-1' })]}
+        initialCounts={dummyCounts}
+        locale="en"
+        initialSelectedIds={['lead-1']}
+        initialDeleteModalOpen={true}
+        initialErrorMsg="Failed to delete selected leads"
+      />,
+    );
+    expect(deleteModalHtml).toContain('data-testid="delete-selected-modal"');
+    expect(deleteModalHtml).toContain('Failed to delete selected leads');
+
+    const spamModalHtml = renderToStaticMarkup(
+      <LeadInbox
+        initialLeads={[createDummyLead({ id: 'lead-spam-1', status: 'spam' })]}
+        initialCounts={dummyCounts}
+        locale="en"
+        initialStatus="spam"
+        initialDeleteSpamModalOpen={true}
+      />,
+    );
+    expect(spamModalHtml).toContain('data-testid="delete-all-spam-modal"');
+    expect(spamModalHtml).toContain('data-testid="delete-all-spam-btn"');
+  });
+
+  it('renders empty table message and pagination controls when on later page', () => {
+    const emptyHtml = renderToStaticMarkup(
+      <LeadInbox initialLeads={[]} initialCounts={dummyCounts} locale="en" initialStatus="all" />,
+    );
+    expect(emptyHtml).toContain('leads.table.emptyTitle');
+
+    const pagedHtml = renderToStaticMarkup(
+      <LeadInbox
+        initialLeads={[createDummyLead()]}
+        initialCounts={dummyCounts}
+        locale="en"
+        initialPage={2}
+        hasMore={true}
+      />,
+    );
+    expect(pagedHtml).toContain('leads.pagination.page');
+    expect(pagedHtml).toContain('leads.pagination.prev');
+    expect(pagedHtml).toContain('leads.pagination.next');
+  });
 });

@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
 import {
   requireOwnerSession,
+  requireOwnerWebSession,
   extractBearerToken,
   ForbiddenError,
   type AuthContext,
@@ -13,11 +14,15 @@ import {
 import { assertFreshReauthentication } from '@/server/auth/reauth';
 import { generateExport } from '@/server/privacy/export/service';
 import { changeLeadStatus, deleteLeads, deleteAllSpamLeads } from './service';
-import { getLeadCounts } from './repo';
+import { getLeadCounts, getLeadById } from './repo';
+import { convertLeadToClient } from './convert';
+import { findDuplicateEmails, type DuplicateEmailMatch } from '@/server/clients/repo';
 import {
   changeLeadStatusActionInputSchema,
   deleteLeadsActionInputSchema,
   exportLeadDsarActionInputSchema,
+  convertLeadToClientActionInputSchema,
+  getLeadDuplicatesActionInputSchema,
   type LeadCounts,
 } from './schema';
 import type { Lead, LeadStatus } from '@/server/db/schema/leads';
@@ -307,4 +312,135 @@ export async function getLeadCountsAction(client: DbClient = defaultDb): Promise
 
   const counts: LeadCounts = await getLeadCounts(client);
   return { success: true, data: counts };
+}
+
+/**
+ * Converts a lead into a client record (ADR-0015 §8, TASK-0032).
+ * Requires active owner web session; rejects unauthenticated (UNAUTHENTICATED) and API keys (UNAUTHORIZED) (AC-8).
+ */
+export async function convertLeadToClientAction(
+  leadIdOrInput: unknown,
+  maybeInputOrClient?: unknown,
+  maybeClient?: DbClient,
+): Promise<
+  | { success: true; clientId: string; data: { clientId: string } }
+  | { success: false; code: string; error: string; fields?: string[] }
+> {
+  let client: DbClient = defaultDb;
+  let rawInput: unknown;
+
+  if (
+    typeof leadIdOrInput === 'string' &&
+    maybeInputOrClient &&
+    typeof maybeInputOrClient === 'object' &&
+    !('transaction' in maybeInputOrClient)
+  ) {
+    rawInput = { leadId: leadIdOrInput, ...(maybeInputOrClient as Record<string, unknown>) };
+    if (maybeClient) client = maybeClient;
+  } else if (typeof leadIdOrInput === 'object' && leadIdOrInput !== null) {
+    rawInput = leadIdOrInput;
+    if (
+      maybeInputOrClient &&
+      typeof maybeInputOrClient === 'object' &&
+      'transaction' in maybeInputOrClient
+    ) {
+      client = maybeInputOrClient as DbClient;
+    }
+  } else {
+    rawInput = { leadId: leadIdOrInput };
+  }
+
+  // 1. Deny Bearer / API keys with UNAUTHORIZED (AC-8)
+  if (await checkBearerRejection()) {
+    return { success: false, code: 'UNAUTHORIZED', error: 'UNAUTHORIZED' };
+  }
+
+  // 2. Enforce active owner web session; unauthenticated gets UNAUTHENTICATED (AC-8)
+  let auth: AuthContext;
+  try {
+    auth = await requireOwnerWebSession({ client });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
+    }
+    return { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' };
+  }
+
+  // 3. Validation
+  const parsed = convertLeadToClientActionInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      success: false,
+      code: 'VALIDATION_FAILED',
+      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
+      fields: parsed.error.issues.map((i) => i.path.join('.')),
+    };
+  }
+
+  // 4. Domain service execution
+  const result = await convertLeadToClient(
+    parsed.data.leadId,
+    {
+      mode: parsed.data.mode,
+      existingClientId: parsed.data.existingClientId,
+    },
+    auth.user.id,
+    client,
+  );
+
+  if (result.success) {
+    safeRevalidate('/leads');
+    safeRevalidate('/clients');
+  }
+
+  return result;
+}
+
+/**
+ * Checks for duplicate clients by normalized email for lead conversion triage (AC-2).
+ * Requires active owner web session; denies unauthenticated and API keys.
+ */
+export async function getLeadDuplicatesAction(
+  rawInput: unknown,
+  client: DbClient = defaultDb,
+): Promise<
+  | {
+      success: true;
+      duplicates: DuplicateEmailMatch[];
+      data: { duplicates: DuplicateEmailMatch[] };
+    }
+  | { success: false; code: string; error: string; fields?: string[] }
+> {
+  if (await checkBearerRejection()) {
+    return { success: false, code: 'UNAUTHORIZED', error: 'UNAUTHORIZED' };
+  }
+
+  try {
+    await requireOwnerWebSession({ client });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
+    }
+    return { success: false, code: 'UNAUTHORIZED', error: 'UNAUTHORIZED' };
+  }
+
+  const parsed = getLeadDuplicatesActionInputSchema.safeParse(
+    typeof rawInput === 'string' ? { leadId: rawInput } : rawInput,
+  );
+  if (!parsed.success) {
+    return {
+      success: false,
+      code: 'VALIDATION_FAILED',
+      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
+      fields: parsed.error.issues.map((i) => i.path.join('.')),
+    };
+  }
+
+  const lead = await getLeadById(parsed.data.leadId, client);
+  if (!lead?.emailNormalized) {
+    return { success: true, duplicates: [], data: { duplicates: [] } };
+  }
+
+  const duplicates = await findDuplicateEmails(lead.emailNormalized, null, client);
+  return { success: true, duplicates, data: { duplicates } };
 }

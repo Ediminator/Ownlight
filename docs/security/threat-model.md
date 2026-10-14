@@ -201,3 +201,41 @@ The lead inbox and management UI (`/{locale}/leads` and `/{locale}/leads/[id]`) 
 - **Mitigation:**
   - Complete entity escaping: Inquiry messages are rendered strictly as text nodes in React JSX (`whitespace-pre-wrap font-sans break-words`), never via raw HTML injection sinks.
   - Discretion notice: Detail view displays a prominent discretion warning banner reminding the photographer that message content originates from untrusted public visitors.
+
+---
+
+## 7. Lead-to-Client Conversion STRIDE Threat Analysis (TASK-0032 / ADR-0015 §8)
+
+Lead-to-client conversion transitions an unconverted prospect into a long-lived client entity, transferring personal data into `clients`, `client_contacts`, and `client_notes`, while updating relationship timeline and audit records.
+
+### Spoofing & Authorization Control
+
+- **Threat:** Unauthenticated visitors or automated API clients trigger lead conversion or attach leads to unintended clients.
+- **Mitigation:**
+  - Owner web session enforcement: `convertLeadToClientAction` enforces `requireOwnerWebSession`, requiring an active studio owner session.
+  - API key rejection: Requests carrying API key / Bearer authentication tokens are rejected with `UNAUTHORIZED`.
+  - Unauthenticated requests are rejected with `UNAUTHENTICATED`.
+
+### Tampering & Transactional Integrity
+
+- **Threat:** Partial conversion leaves orphaned clients, duplicate contacts, corrupted status, or un-synchronized timeline events.
+- **Mitigation:**
+  - Single atomic database transaction: `convertLeadToClient` executes client creation, primary contact insertion, note generation, timeline event emissions, lead row updates, and audit logging within an atomic transaction.
+  - Extension step failure safety: Registered conversion steps (`registerLeadConversionStep`) execute inside the transaction; any thrown error triggers an immediate transaction rollback.
+  - State machine transition check: Attempting to convert leads with status `spam`, `archived`, or already `converted` fails fast with `INVALID_TRANSITION`.
+  - Duplicate detection & IDOR defense: Evaluates duplicate clients via `email_normalized`. In `existing_client` mode, `existingClientId` is validated to exist before linking, preventing invalid foreign key linkages.
+
+### Information Disclosure & Data Minimization (GDPR Art. 5(1)(c))
+
+- **Threat:** Redundant copies of client PII persist indefinitely across both `leads` and `clients` tables, complicating data subject rights (erasure, export) and expanding attack surface.
+- **Mitigation:**
+  - PII Nulling: Upon successful conversion, the lead row's PII columns (`given_name`, `family_name`, `email`, `email_normalized`, `phone`, `message`) are set to `NULL`.
+  - Shoot metadata retention: Non-PII shoot metadata (`event_type_key`, `event_date`, `event_location`, `form_id`, `notice_version_id`, `locale`, `received_at`) is retained to pre-fill future project creation in Epic E3.
+  - No PII in audit metadata or timeline payloads: `lead.converted` audit event records only `{ client_id, mode }`; `inquiry.received` timeline event contains no copied PII.
+
+### Repudiation & Relationship Timeline
+
+- **Threat:** Disputes regarding client acquisition source or conversion attribution.
+- **Mitigation:**
+  - Immutable audit trail: Emits append-only `lead.converted` audit log with actor ID (`actorType: 'owner'`).
+  - Relationship timeline integration: Emits `inquiry.received` (actor `system`, timestamp = `received_at`) and `lead.converted` (actor `owner`, timestamp = `now()`) into the client's relationship history.

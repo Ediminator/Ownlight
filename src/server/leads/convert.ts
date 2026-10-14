@@ -10,6 +10,7 @@ import { insertClientNoteRecord } from '@/server/timeline/repo';
 import { generateUuidV7 } from '@/lib/id';
 import { resolveActor, type ActorInput } from './service';
 import { getLeadConversionSteps } from './conversion-steps';
+import '@/server/projects/conversion-step';
 
 export interface ConvertLeadOptions {
   mode: 'new_client' | 'existing_client';
@@ -17,7 +18,7 @@ export interface ConvertLeadOptions {
 }
 
 export type ConvertLeadResult =
-  | { success: true; clientId: string; data: { clientId: string } }
+  | { success: true; clientId: string; data: { clientId: string; projectId?: string } }
   | { success: false; code: string; error: string; fields?: string[] };
 
 /**
@@ -213,9 +214,18 @@ export async function convertLeadToClient(
       .where(eq(leads.id, lead.id));
 
     // 7. Execute registered post-conversion steps (AC-7)
+    let createdProjectId: string | undefined;
     const conversionSteps = getLeadConversionSteps();
     for (const step of conversionSteps) {
-      await step.run(lead, targetClientId, tx);
+      const stepRes = await step.run(lead, targetClientId, tx);
+      if (
+        stepRes &&
+        typeof stepRes === 'object' &&
+        'projectId' in stepRes &&
+        typeof stepRes.projectId === 'string'
+      ) {
+        createdProjectId = stepRes.projectId;
+      }
     }
 
     // 8. Audit event: lead.converted (ADR-0015 §11)
@@ -247,7 +257,10 @@ export async function convertLeadToClient(
     return {
       success: true,
       clientId: targetClientId,
-      data: { clientId: targetClientId },
+      data: {
+        clientId: targetClientId,
+        ...(createdProjectId ? { projectId: createdProjectId } : {}),
+      },
     };
   });
 }

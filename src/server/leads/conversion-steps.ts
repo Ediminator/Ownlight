@@ -3,7 +3,7 @@ import type { DbClient } from '@/server/db/client';
 
 export interface LeadConversionStep {
   id: string;
-  run: (lead: Lead, clientId: string, tx: DbClient) => Promise<void>;
+  run: (lead: Lead, clientId: string, tx: DbClient) => Promise<unknown>;
 }
 
 const steps: LeadConversionStep[] = [];

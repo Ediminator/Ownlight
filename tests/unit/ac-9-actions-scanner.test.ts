@@ -37,6 +37,7 @@ describe('AC-8 & AC-9: Repository-wide AST server action scanner and unauthentic
     expect(normalizedFiles).toContain('server/auth/mfa-actions.ts');
     expect(normalizedFiles).toContain('server/clients/actions.ts');
     expect(normalizedFiles).toContain('server/leads/actions.ts');
+    expect(normalizedFiles).toContain('server/projects/actions.ts');
 
     // Verify each allowlisted entry carries a justification comment
     const commentViolations = checkAllowlistComments(publicActionsFile);

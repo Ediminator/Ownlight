@@ -183,6 +183,44 @@ describe('LeadInbox Component (Unit Tests)', () => {
     expect(html).toContain('leads.bulk.deleteAllSpam');
   });
 
+  it('renders global empty state when leads list is empty on all tab without query', () => {
+    const html = renderToStaticMarkup(
+      <LeadInbox
+        initialLeads={[]}
+        initialCounts={{ all: 0, new: 0, contacted: 0, converted: 0, archived: 0, spam: 0 }}
+        locale="en"
+        initialStatus="all"
+        initialEmailQuery=""
+      />,
+    );
+
+    expect(html).toContain('leads.table.emptyTitle');
+    expect(html).toContain('leads.table.emptyDescription');
+  });
+
+  it('renders leads with missing optional fields using em-dash fallbacks', () => {
+    const leadWithNulls = createDummyLead({
+      givenName: null,
+      familyName: null,
+      email: null,
+      phone: null,
+      eventTypeKey: null,
+    });
+
+    const html = renderToStaticMarkup(
+      <LeadInbox
+        initialLeads={[leadWithNulls]}
+        initialCounts={dummyCounts}
+        locale="en"
+        initialStatus="all"
+        initialPage={2}
+        hasMore={false}
+      />,
+    );
+
+    expect(html).toContain('—');
+  });
+
   it('renders German copy when locale is de', () => {
     const html = renderToStaticMarkup(
       <LeadInbox
@@ -200,6 +238,39 @@ describe('LeadInbox Component (Unit Tests)', () => {
 describe('LeadDetailView Component (Unit Tests)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('renders anonymous name and unverified badge when names are null and lead is unverified', () => {
+    const detail: LeadWithDetails = {
+      lead: createDummyLead({
+        givenName: null,
+        familyName: null,
+        verification: 'unverified',
+        status: 'spam',
+      }),
+      formName: null,
+      noticeVersion: null,
+      formEventTypes: null,
+    };
+
+    const html = renderToStaticMarkup(<LeadDetailView leadWithDetails={detail} locale="en" />);
+    expect(html).toContain('—');
+    expect(html).toContain('leads.verification.unverified');
+    expect(html).toContain('leads.status.spam');
+  });
+
+  it('renders archived status badge correctly', () => {
+    const detail: LeadWithDetails = {
+      lead: createDummyLead({
+        status: 'archived',
+      }),
+      formName: null,
+      noticeVersion: null,
+      formEventTypes: null,
+    };
+
+    const html = renderToStaticMarkup(<LeadDetailView leadWithDetails={detail} locale="en" />);
+    expect(html).toContain('leads.status.archived');
   });
 
   it('renders lead detail view with contact card, shoot card, message card, and compliance card', () => {

@@ -30,6 +30,7 @@ import { convertLeadToClientAction, getLeadDuplicatesAction } from '@/server/lea
 import { convertLeadToClient } from '@/server/leads/convert';
 import {
   registerLeadConversionStep,
+  getLeadConversionSteps,
   resetLeadConversionSteps,
 } from '@/server/leads/conversion-steps';
 import { user } from '@/server/db/schema/auth';
@@ -527,6 +528,167 @@ describe('TASK-0032: Lead to Client Conversion Integration Tests (AC-1 to AC-8)'
     expect(apiKeyRes.success).toBe(false);
     if (!apiKeyRes.success) {
       expect(apiKeyRes.code).toBe('UNAUTHORIZED');
+    }
+  });
+
+  it('handles edge cases: missing lead, missing/invalid existing client, empty message, validation errors', async () => {
+    // 1. Non-existent lead returns NOT_FOUND
+    const fakeLeadId = generateUuidV7();
+    const notFoundRes = await convertLeadToClient(
+      fakeLeadId,
+      { mode: 'new_client' },
+      ownerUser.id,
+      dbClient,
+    );
+    expect(notFoundRes.success).toBe(false);
+    if (!notFoundRes.success) {
+      expect(notFoundRes.code).toBe('NOT_FOUND');
+    }
+
+    // 2. existing_client mode without existingClientId returns VALIDATION_FAILED
+    const lead1 = await seedTestLead();
+    const noClientRes = await convertLeadToClient(
+      lead1.id,
+      { mode: 'existing_client' },
+      ownerUser.id,
+      dbClient,
+    );
+    expect(noClientRes.success).toBe(false);
+    if (!noClientRes.success) {
+      expect(noClientRes.code).toBe('VALIDATION_FAILED');
+    }
+
+    // 3. existing_client mode with non-existent existingClientId returns CLIENT_NOT_FOUND
+    const fakeClientId = generateUuidV7();
+    const badClientRes = await convertLeadToClient(
+      lead1.id,
+      { mode: 'existing_client', existingClientId: fakeClientId },
+      ownerUser.id,
+      dbClient,
+    );
+    expect(badClientRes.success).toBe(false);
+    if (!badClientRes.success) {
+      expect(badClientRes.code).toBe('CLIENT_NOT_FOUND');
+    }
+
+    // 4. Lead with empty / null message does not create a note record
+    const leadNoMsg = await seedTestLead({ message: '   ' });
+    const noMsgRes = await convertLeadToClient(
+      leadNoMsg.id,
+      { mode: 'new_client' },
+      ownerUser.id,
+      dbClient,
+    );
+    expect(noMsgRes.success).toBe(true);
+    if (noMsgRes.success) {
+      const notes = await dbClient
+        .select()
+        .from(clientNotes)
+        .where(eq(clientNotes.clientId, noMsgRes.clientId));
+      expect(notes).toHaveLength(0);
+    }
+
+    // 5. convertLeadToClientAction validation error on invalid payload
+    const invalidActionRes = await convertLeadToClientAction({ leadId: 'not-a-uuid' }, dbClient);
+    expect(invalidActionRes.success).toBe(false);
+    if (!invalidActionRes.success) {
+      expect(invalidActionRes.code).toBe('VALIDATION_FAILED');
+    }
+
+    // 6. getLeadDuplicatesAction with non-existent lead returns empty list
+    const dupRes = await getLeadDuplicatesAction(fakeLeadId, dbClient);
+    expect(dupRes.success).toBe(true);
+    if (dupRes.success) {
+      expect(dupRes.duplicates).toHaveLength(0);
+    }
+
+    // 7. getLeadDuplicatesAction unauthenticated returns UNAUTHORIZED
+    mockCookiesStore.clear();
+    const dupUnauthRes = await getLeadDuplicatesAction(fakeLeadId, dbClient);
+    expect(dupUnauthRes.success).toBe(false);
+    if (!dupUnauthRes.success) {
+      expect(dupUnauthRes.code).toBe('UNAUTHORIZED');
+    }
+
+    // 8. getLeadDuplicatesAction with invalid payload returns VALIDATION_FAILED
+    mockCookiesStore.set(SESSION_COOKIE_NAME, sessionToken);
+    const dupInvalidRes = await getLeadDuplicatesAction({ leadId: 'invalid-id' }, dbClient);
+    expect(dupInvalidRes.success).toBe(false);
+    if (!dupInvalidRes.success) {
+      expect(dupInvalidRes.code).toBe('VALIDATION_FAILED');
+    }
+
+    // 9. Converted lead with null emailNormalized returns empty duplicates list
+    const convertedRes = await convertLeadToClient(
+      lead1.id,
+      { mode: 'new_client' },
+      ownerUser.id,
+      dbClient,
+    );
+    expect(convertedRes.success).toBe(true);
+    const noEmailDupRes = await getLeadDuplicatesAction(lead1.id, dbClient);
+    expect(noEmailDupRes.success).toBe(true);
+    if (noEmailDupRes.success) {
+      expect(noEmailDupRes.duplicates).toHaveLength(0);
+    }
+
+    // 10. getLeadDuplicatesAction with Bearer token is rejected with UNAUTHORIZED
+    mockHeadersStore.set('authorization', 'Bearer token_not_allowed');
+    const bearerDupRes = await getLeadDuplicatesAction(lead1.id, dbClient);
+    expect(bearerDupRes.success).toBe(false);
+    if (!bearerDupRes.success) {
+      expect(bearerDupRes.code).toBe('UNAUTHORIZED');
+    }
+    mockHeadersStore.clear();
+
+    // 11. registerLeadConversionStep replaces step with identical ID
+    resetLeadConversionSteps();
+    let stepVersion = 1;
+    registerLeadConversionStep({
+      id: 'step-a',
+      run: async () => {
+        await Promise.resolve();
+        stepVersion = 1;
+      },
+    });
+    registerLeadConversionStep({
+      id: 'step-a',
+      run: async () => {
+        await Promise.resolve();
+        stepVersion = 2;
+      },
+    });
+    const allSteps = getLeadConversionSteps();
+    expect(allSteps).toHaveLength(1);
+    const firstStep = allSteps[0];
+    expect(firstStep).toBeDefined();
+    if (firstStep) {
+      await firstStep.run(lead1, fakeClientId, dbClient);
+    }
+    expect(stepVersion).toBe(2);
+
+    // 12. Lead with locale 'de', null familyName, null phone
+    const leadDe = await seedTestLead({
+      locale: 'de',
+      givenName: 'Hans',
+      familyName: null,
+      phone: null,
+    });
+    const deRes = await convertLeadToClient(
+      leadDe.id,
+      { mode: 'new_client' },
+      ownerUser.id,
+      dbClient,
+    );
+    expect(deRes.success).toBe(true);
+    if (deRes.success) {
+      const [clientRow] = await dbClient
+        .select()
+        .from(clients)
+        .where(eq(clients.id, deRes.clientId))
+        .limit(1);
+      expect(clientRow?.preferredLocale).toBe('de');
+      expect(clientRow?.displayName).toBe('Hans');
     }
   });
 });

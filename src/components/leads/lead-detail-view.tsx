@@ -274,7 +274,7 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
             <Link
               href={`/clients/${lead.clientId}`}
               data-testid="converted-client-link"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-800 hover:bg-emerald-900 text-white dark:bg-emerald-700 dark:hover:bg-emerald-600 text-xs font-semibold shadow-sm transition-colors shrink-0"
             >
               <span>{t('convert.viewClient')}</span>
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />

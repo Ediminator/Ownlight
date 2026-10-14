@@ -7,9 +7,8 @@ export const E2E_LEAD_CONVERTED_ID = '018f0000-0000-7000-8000-000000000062';
 export const E2E_LEAD_ARCHIVED_ID = '018f0000-0000-7000-8000-000000000063';
 export const E2E_LEAD_SPAM_ID = '018f0000-0000-7000-8000-000000000064';
 export const E2E_LEAD_XSS_ID = '018f0000-0000-7000-8000-000000000065';
-export const E2E_LEAD_DUPLICATE_ID = '018f0000-0000-7000-8000-000000000066';
-export const E2E_DUPLICATE_CLIENT_ID = '018f0000-0000-7000-8000-000000000098';
-export const E2E_DUPLICATE_CLIENT_EMAIL = 'sarah.connor@example.com';
+export const E2E_LEAD_CONVERT_TARGET_ID = '018f0000-0000-7000-8000-000000000066';
+export const E2E_LEAD_DUPLICATE_ID = '018f0000-0000-7000-8000-000000000067';
 
 export async function seedAllE2eLeads(pglite: PGlite): Promise<void> {
   const now = new Date().toISOString();
@@ -25,24 +24,6 @@ export async function seedAllE2eLeads(pglite: PGlite): Promise<void> {
       [convertedClientId, now],
     );
   }
-
-  // Seed deterministic existing client with contact for duplicate detection E2E tests
-  await pglite.query(
-    `INSERT INTO clients (
-      id, kind, display_name, preferred_locale, last_activity_at, created_at, updated_at
-    ) VALUES ($1, 'person', 'Sarah Connor', 'en', $2, $2, $2)
-    ON CONFLICT (id) DO NOTHING`,
-    [E2E_DUPLICATE_CLIENT_ID, now],
-  );
-  await pglite.query(
-    `INSERT INTO client_contacts (
-      id, client_id, given_name, family_name, email, email_normalized, is_primary, created_at, updated_at
-    ) VALUES (
-      '018f0000-0000-7000-8000-000000000097', $1, 'Sarah', 'Connor', $2, $2, true, $3, $3
-    )
-    ON CONFLICT (id) DO NOTHING`,
-    [E2E_DUPLICATE_CLIENT_ID, E2E_DUPLICATE_CLIENT_EMAIL, now],
-  );
 
   const leadsData = [
     {
@@ -172,6 +153,27 @@ export async function seedAllE2eLeads(pglite: PGlite): Promise<void> {
       autoReplyStatus: 'sent',
     },
     {
+      id: E2E_LEAD_CONVERT_TARGET_ID,
+      formId: E2E_INQUIRY_PUBLISHED_ID,
+      noticeVersionId: E2E_INQUIRY_PUBLISHED_NOTICE_ID,
+      locale: 'en',
+      status: 'new',
+      verification: 'verified',
+      deliveryMode: 'hosted',
+      clientId: null,
+      convertedAt: null,
+      givenName: 'Clara',
+      familyName: 'Oswald',
+      email: 'clara.oswald@example.com',
+      emailNormalized: 'clara.oswald@example.com',
+      phone: '+49 30 11223344',
+      eventTypeKey: 'wedding',
+      eventDate: '2026-11-15',
+      eventLocation: 'Berlin',
+      message: 'Looking for wedding package details.',
+      autoReplyStatus: 'sent',
+    },
+    {
       id: E2E_LEAD_DUPLICATE_ID,
       formId: E2E_INQUIRY_PUBLISHED_ID,
       noticeVersionId: E2E_INQUIRY_PUBLISHED_NOTICE_ID,
@@ -181,15 +183,15 @@ export async function seedAllE2eLeads(pglite: PGlite): Promise<void> {
       deliveryMode: 'hosted',
       clientId: null,
       convertedAt: null,
-      givenName: 'Sarah',
-      familyName: 'Connor',
-      email: E2E_DUPLICATE_CLIENT_EMAIL,
-      emailNormalized: E2E_DUPLICATE_CLIENT_EMAIL,
-      phone: '+49 30 99999999',
+      givenName: 'Maci',
+      familyName: 'WeimannDuplicate',
+      email: 'maci.weimann.1.0@example.org',
+      emailNormalized: 'maci.weimann.1.0@example.org',
+      phone: '+49 30 99887766',
       eventTypeKey: 'wedding',
       eventDate: '2026-12-01',
       eventLocation: 'Berlin',
-      message: 'Hello, need wedding photography package details.',
+      message: 'Hello, need package details.',
       autoReplyStatus: 'sent',
     },
   ];

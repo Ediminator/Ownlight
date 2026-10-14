@@ -4,9 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { E2E_OWNER_EMAIL, E2E_OWNER_PASSWORD } from '../helpers/e2e-global-setup';
 import {
-  E2E_LEAD_NEW_ID,
   E2E_LEAD_CONTACTED_ID,
   E2E_LEAD_CONVERTED_ID,
+  E2E_LEAD_CONVERT_TARGET_ID,
   E2E_LEAD_DUPLICATE_ID,
 } from '../helpers/e2e-leads-helper';
 
@@ -54,7 +54,7 @@ test.describe('TASK-0032: Lead to Client Conversion UI & A11y (AC-1, AC-2, AC-6,
   test('AC-1: unconverted lead converts to new client and redirects to client profile', async ({
     page,
   }) => {
-    await page.goto(`/en/leads/${E2E_LEAD_NEW_ID}`);
+    await page.goto(`/en/leads/${E2E_LEAD_CONVERT_TARGET_ID}`);
 
     const convertBtn = page.locator('[data-testid="convert-lead-btn"]').first();
     await expect(convertBtn).toBeVisible();
@@ -65,8 +65,8 @@ test.describe('TASK-0032: Lead to Client Conversion UI & A11y (AC-1, AC-2, AC-6,
     await expect(dialog).toBeVisible();
 
     // Check preview card contains lead details
-    await expect(dialog).toContainText('Alice Wonderland');
-    await expect(dialog).toContainText('alice.wonderland@example.com');
+    await expect(dialog).toContainText('Clara Oswald');
+    await expect(dialog).toContainText('clara.oswald@example.com');
 
     // Confirm conversion
     const confirmBtn = page.locator('[data-testid="confirm-convert-btn"]');
@@ -74,10 +74,10 @@ test.describe('TASK-0032: Lead to Client Conversion UI & A11y (AC-1, AC-2, AC-6,
 
     // Redirects to client profile
     await expect(page).toHaveURL(/\/en\/clients\/[0-9a-f-]{36}/, { timeout: 10000 });
-    await expect(page.locator('h1')).toContainText('Alice Wonderland');
+    await expect(page.locator('h1')).toContainText('Clara Oswald');
 
     // Navigate back to lead to verify converted banner
-    await page.goto(`/en/leads/${E2E_LEAD_NEW_ID}`);
+    await page.goto(`/en/leads/${E2E_LEAD_CONVERT_TARGET_ID}`);
     const banner = page.locator('[data-testid="lead-converted-banner"]');
     await expect(banner).toBeVisible();
     await expect(banner).toContainText('Converted to client');
@@ -104,8 +104,8 @@ test.describe('TASK-0032: Lead to Client Conversion UI & A11y (AC-1, AC-2, AC-6,
     // Duplicate alert is displayed
     const duplicateAlert = page.locator('[data-testid="duplicate-alert"]');
     await expect(duplicateAlert).toBeVisible();
-    await expect(duplicateAlert).toContainText('Sarah Connor');
-    await expect(duplicateAlert).toContainText('sarah.connor@example.com');
+    await expect(duplicateAlert).toContainText('Brice Steuber');
+    await expect(duplicateAlert).toContainText('maci.weimann.1.0@example.org');
 
     // Capture screenshot of duplicate alert
     await page.screenshot({
@@ -125,7 +125,7 @@ test.describe('TASK-0032: Lead to Client Conversion UI & A11y (AC-1, AC-2, AC-6,
 
     // Redirects to the existing client's profile
     await expect(page).toHaveURL(/\/en\/clients\/[0-9a-f-]{36}/, { timeout: 10000 });
-    await expect(page.locator('h1')).toContainText('Sarah Connor');
+    await expect(page.locator('h1')).toContainText('Brice Steuber');
   });
 
   test('AC-6: already converted lead displays converted banner and hides convert action', async ({

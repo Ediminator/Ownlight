@@ -96,7 +96,11 @@ vi.mock('@/server/auth/mfa-actions', () => ({
     mockReauthenticateAction(...args) as unknown,
 }));
 
-import { LeadDetailView } from '@/components/leads/lead-detail-view';
+import {
+  LeadDetailView,
+  restoreFocusToTrigger,
+  formatLeadConvertedDate,
+} from '@/components/leads/lead-detail-view';
 
 function createDummyLead(overrides: Partial<Lead> = {}): Lead {
   return {
@@ -286,5 +290,36 @@ describe('TASK-0032: Lead Conversion Dialog & Banner Unit Tests', () => {
     expect(convertEn.cancel).toBe('Cancel');
     expect(convertEn.convertedBanner).toContain('Converted to client on');
     expect(convertEn.viewClient).toBe('View client profile');
+  });
+
+  it('I1-U01: restoreFocusToTrigger prevents default and focuses last trigger element', () => {
+    const focusSpy = vi.fn();
+    const mockBtn = { focus: focusSpy } as unknown as HTMLElement;
+    const preventSpy = vi.fn();
+
+    // 1. Focuses last trigger and prevents default
+    const result = restoreFocusToTrigger(mockBtn, null, { preventDefault: preventSpy });
+    expect(result).toBe(true);
+    expect(preventSpy).toHaveBeenCalledTimes(1);
+    expect(focusSpy).toHaveBeenCalledTimes(1);
+
+    // 2. Focuses fallback trigger when lastTrigger is null
+    const fallbackFocusSpy = vi.fn();
+    const mockFallback = { focus: fallbackFocusSpy } as unknown as HTMLElement;
+    const result2 = restoreFocusToTrigger(null, mockFallback);
+    expect(result2).toBe(true);
+    expect(fallbackFocusSpy).toHaveBeenCalledTimes(1);
+
+    // 3. Returns false when both triggers are null
+    expect(restoreFocusToTrigger(null, null)).toBe(false);
+  });
+
+  it('AC-6: formatLeadConvertedDate formats dates localized or falls back to dash', () => {
+    expect(formatLeadConvertedDate(null, 'en')).toBe('—');
+    expect(formatLeadConvertedDate(undefined, 'de')).toBe('—');
+    const formattedEn = formatLeadConvertedDate(new Date('2026-10-12T14:30:00Z'), 'en');
+    expect(formattedEn).toContain('2026');
+    const formattedDe = formatLeadConvertedDate('2026-10-12T14:30:00Z', 'de');
+    expect(formattedDe).toContain('2026');
   });
 });

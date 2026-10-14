@@ -52,6 +52,18 @@ function safeRevalidate(path = '/projects'): void {
   }
 }
 
+function formatValidationIssues(error: {
+  issues: { message: string; path: (string | number)[] }[];
+}): {
+  error: string;
+  fields: string[];
+} {
+  return {
+    error: error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
+    fields: error.issues.map((i) => i.path.join('.')),
+  };
+}
+
 // --- Project Server Actions ---
 
 export async function createProjectAction(
@@ -74,11 +86,12 @@ export async function createProjectAction(
 
   const parsed = createProjectSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -110,11 +123,12 @@ export async function updateProjectAction(
 
   const parsed = updateProjectSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -145,11 +159,12 @@ export async function deleteProjectAction(
 
   const parsed = deleteProjectSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -190,11 +205,12 @@ export async function transitionProjectStageAction(
 
   const parsed = transitionStageSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -228,11 +244,12 @@ export async function createShootAction(
 
   const parsed = createShootSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -263,11 +280,12 @@ export async function updateShootAction(
 
   const parsed = updateShootSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -298,11 +316,12 @@ export async function deleteShootAction(
 
   const parsed = deleteShootSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -335,11 +354,12 @@ export async function createShootLocationAction(
 
   const parsed = createShootLocationSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -370,11 +390,12 @@ export async function updateShootLocationAction(
 
   const parsed = updateShootLocationSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -405,11 +426,12 @@ export async function deleteShootLocationAction(
 
   const parsed = deleteShootLocationSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -442,11 +464,12 @@ export async function createShootTimelineItemAction(
 
   const parsed = createShootTimelineItemSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -477,11 +500,12 @@ export async function updateShootTimelineItemAction(
 
   const parsed = updateShootTimelineItemSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -512,11 +536,12 @@ export async function deleteShootTimelineItemAction(
 
   const parsed = deleteShootTimelineItemSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -549,11 +574,12 @@ export async function createProjectParticipantAction(
 
   const parsed = createProjectParticipantSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -584,11 +610,12 @@ export async function deleteProjectParticipantAction(
 
   const parsed = deleteProjectParticipantSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -621,11 +648,12 @@ export async function createProjectTaskAction(
 
   const parsed = createProjectTaskSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -656,11 +684,12 @@ export async function toggleProjectTaskAction(
 
   const parsed = toggleProjectTaskSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 
@@ -691,11 +720,12 @@ export async function deleteProjectTaskAction(
 
   const parsed = deleteProjectTaskSchema.safeParse(rawInput);
   if (!parsed.success) {
+    const formatted = formatValidationIssues(parsed.error);
     return {
       success: false,
       code: 'VALIDATION_FAILED',
-      error: parsed.error.issues.map((i) => i.message).join(', ') || 'VALIDATION_FAILED',
-      fields: parsed.error.issues.map((i) => i.path.join('.')),
+      error: formatted.error,
+      fields: formatted.fields,
     };
   }
 

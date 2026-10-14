@@ -54,11 +54,13 @@ import { generateUuidV7 } from '@/lib/id';
 import { createIsolatedTestDatabase, type TestDatabaseInstance } from '../helpers/db-test-helper';
 import * as projectService from '@/server/projects/service';
 import * as projectActions from '@/server/projects/actions';
+import * as repo from '@/server/projects/repo';
+import { getInitialPipelineStage } from '@/server/projects/stages';
 import { createProjectOnLeadConversion } from '@/server/projects/conversion-step';
 import { user, type User } from '@/server/db/schema/auth';
 import { clients } from '@/server/db/schema/clients';
 import { inquiryForms, inquiryFormNoticeVersions } from '@/server/db/schema/inquiry-forms';
-import { leads } from '@/server/db/schema/leads';
+import { leads, type Lead } from '@/server/db/schema/leads';
 import { projects } from '@/server/db/schema/projects';
 import { eq } from 'drizzle-orm';
 import { createSession, SESSION_COOKIE_NAME } from '@/server/auth/session';
@@ -784,6 +786,435 @@ describe('Projects Domain Unit & Branch Tests', () => {
       // 17. Delete project action
       const delProjRes = await projectActions.deleteProjectAction({ projectId }, dbClient);
       expect(delProjRes.success).toBe(true);
+    });
+
+    it('policy.ts: verifies role and scope enforcement for read and write', async () => {
+      // 1. authorizeProjectRead with non-owner
+      const memberContext: AuthContext = {
+        authType: 'session',
+        user: createMockUser('member'),
+        session: {
+          id: generateUuidV7(),
+          userId: generateUuidV7(),
+          token: 'token',
+          expiresAt: new Date(Date.now() + 3600000),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ipAddress: '127.0.0.1',
+          userAgent: 'test',
+          lastReauthenticatedAt: new Date(),
+        },
+        scopes: ['*'],
+      };
+      await expect(authorizeProjectRead(memberContext)).rejects.toThrow(ForbiddenError);
+
+      // 2. authorizeProjectRead with API key missing projects:read
+      const apiKeyNoRead: AuthContext = {
+        authType: 'apiKey',
+        user: createMockUser('owner'),
+        apiKey: createMockApiKey(['clients:read']),
+        scopes: ['clients:read'],
+      };
+      await expect(authorizeProjectRead(apiKeyNoRead)).rejects.toThrow(ForbiddenError);
+
+      // 3. authorizeProjectWrite with non-owner
+      await expect(
+        authorizeProjectWrite('project.create', null, memberContext, dbClient),
+      ).rejects.toThrow(ForbiddenError);
+
+      // 4. authorizeProjectWrite with API key missing projects:write
+      await expect(
+        authorizeProjectWrite('project.create', null, apiKeyNoRead, dbClient),
+      ).rejects.toThrow(ForbiddenError);
+
+      // 5. authorizeProjectWrite with non-owner apiKey records denied audit
+      const clientApiKey: AuthContext = {
+        authType: 'apiKey',
+        user: createMockUser('client'),
+        apiKey: createMockApiKey(['*']),
+        scopes: ['*'],
+      };
+      await expect(
+        authorizeProjectWrite('project.create', null, clientApiKey, dbClient),
+      ).rejects.toThrow(ForbiddenError);
+    });
+
+    it('actions.ts: all 18 actions reject non-owner session with FORBIDDEN', async () => {
+      // Create user with role 'member'
+      const nonOwner = {
+        id: generateUuidV7(),
+        name: 'Member User',
+        email: 'member@example.org',
+        role: 'member',
+      };
+      await dbClient.insert(user).values({
+        id: nonOwner.id,
+        name: nonOwner.name,
+        email: nonOwner.email,
+        emailVerified: true,
+        image: null,
+        role: nonOwner.role,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      const memberSession = await createSession(nonOwner.id, dbClient, {
+        ipAddress: '127.0.0.1',
+        userAgent: 'test-agent',
+      });
+      mockCookiesStore.set(SESSION_COOKIE_NAME, memberSession.token);
+      mockHeadersStore.clear();
+
+      const allActions = [
+        () => projectActions.createProjectAction({}, dbClient),
+        () => projectActions.updateProjectAction({}, dbClient),
+        () => projectActions.deleteProjectAction({}, dbClient),
+        () => projectActions.transitionProjectStageAction({}, dbClient),
+        () => projectActions.createShootAction({}, dbClient),
+        () => projectActions.updateShootAction({}, dbClient),
+        () => projectActions.deleteShootAction({}, dbClient),
+        () => projectActions.createShootLocationAction({}, dbClient),
+        () => projectActions.updateShootLocationAction({}, dbClient),
+        () => projectActions.deleteShootLocationAction({}, dbClient),
+        () => projectActions.createShootTimelineItemAction({}, dbClient),
+        () => projectActions.updateShootTimelineItemAction({}, dbClient),
+        () => projectActions.deleteShootTimelineItemAction({}, dbClient),
+        () => projectActions.createProjectParticipantAction({}, dbClient),
+        () => projectActions.deleteProjectParticipantAction({}, dbClient),
+        () => projectActions.createProjectTaskAction({}, dbClient),
+        () => projectActions.toggleProjectTaskAction({}, dbClient),
+        () => projectActions.deleteProjectTaskAction({}, dbClient),
+      ];
+
+      for (const act of allActions) {
+        const res = await act();
+        expect(res.success).toBe(false);
+        if (!res.success) {
+          expect(res.code).toBe('FORBIDDEN');
+        }
+      }
+    });
+
+    it('actions.ts: all 18 actions reject Bearer tokens with UNAUTHORIZED', async () => {
+      mockHeadersStore.set('authorization', 'Bearer token_abc123');
+      const allActions = [
+        () => projectActions.createProjectAction({}, dbClient),
+        () => projectActions.updateProjectAction({}, dbClient),
+        () => projectActions.deleteProjectAction({}, dbClient),
+        () => projectActions.transitionProjectStageAction({}, dbClient),
+        () => projectActions.createShootAction({}, dbClient),
+        () => projectActions.updateShootAction({}, dbClient),
+        () => projectActions.deleteShootAction({}, dbClient),
+        () => projectActions.createShootLocationAction({}, dbClient),
+        () => projectActions.updateShootLocationAction({}, dbClient),
+        () => projectActions.deleteShootLocationAction({}, dbClient),
+        () => projectActions.createShootTimelineItemAction({}, dbClient),
+        () => projectActions.updateShootTimelineItemAction({}, dbClient),
+        () => projectActions.deleteShootTimelineItemAction({}, dbClient),
+        () => projectActions.createProjectParticipantAction({}, dbClient),
+        () => projectActions.deleteProjectParticipantAction({}, dbClient),
+        () => projectActions.createProjectTaskAction({}, dbClient),
+        () => projectActions.toggleProjectTaskAction({}, dbClient),
+        () => projectActions.deleteProjectTaskAction({}, dbClient),
+      ];
+
+      for (const act of allActions) {
+        const res = await act();
+        expect(res.success).toBe(false);
+        if (!res.success) {
+          expect(res.code).toBe('UNAUTHORIZED');
+        }
+      }
+      mockHeadersStore.clear();
+    });
+
+    it('actions.ts: all 18 actions reject invalid inputs with VALIDATION_FAILED when authenticated', async () => {
+      const sessionRecord = await createSession(ownerUser.id, dbClient);
+      mockCookiesStore.set(SESSION_COOKIE_NAME, sessionRecord.token);
+      mockHeadersStore.clear();
+
+      const allActions = [
+        () => projectActions.createProjectAction({}, dbClient),
+        () => projectActions.updateProjectAction({}, dbClient),
+        () => projectActions.deleteProjectAction({}, dbClient),
+        () => projectActions.transitionProjectStageAction({}, dbClient),
+        () => projectActions.createShootAction({}, dbClient),
+        () => projectActions.updateShootAction({}, dbClient),
+        () => projectActions.deleteShootAction({}, dbClient),
+        () => projectActions.createShootLocationAction({}, dbClient),
+        () => projectActions.updateShootLocationAction({}, dbClient),
+        () => projectActions.deleteShootLocationAction({}, dbClient),
+        () => projectActions.createShootTimelineItemAction({}, dbClient),
+        () => projectActions.updateShootTimelineItemAction({}, dbClient),
+        () => projectActions.deleteShootTimelineItemAction({}, dbClient),
+        () => projectActions.createProjectParticipantAction({}, dbClient),
+        () => projectActions.deleteProjectParticipantAction({}, dbClient),
+        () => projectActions.createProjectTaskAction({}, dbClient),
+        () => projectActions.toggleProjectTaskAction({}, dbClient),
+        () => projectActions.deleteProjectTaskAction({}, dbClient),
+      ];
+
+      for (const act of allActions) {
+        const res = await act();
+        expect(res.success).toBe(false);
+        if (!res.success) {
+          expect(res.code).toBe('VALIDATION_FAILED');
+        }
+      }
+    });
+
+    it('service.ts: covers task stage not found and task delete not found', async () => {
+      const dummyId = generateUuidV7();
+      const clientId = generateUuidV7();
+      await dbClient.insert(clients).values({
+        id: clientId,
+        kind: 'person',
+        displayName: 'Task Edge Client',
+        preferredLocale: 'en',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      const initialStage = await getInitialPipelineStage(dbClient);
+      if (!initialStage) return;
+
+      const proj = await repo.insertProject(
+        {
+          id: generateUuidV7(),
+          clientId,
+          stageId: initialStage.id,
+          title: 'Task Edge Project',
+          projectTypeKey: 'portrait',
+        },
+        dbClient,
+      );
+
+      // 1. createProjectTask with non-existent stageId
+      const resStage = await projectService.createProjectTask(
+        {
+          projectId: proj.id,
+          stageId: dummyId,
+          title: 'Task with bad stage',
+        },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(resStage.success).toBe(false);
+      if (!resStage.success) {
+        expect(resStage.code).toBe('NOT_FOUND');
+      }
+
+      // 2. deleteProjectTask with non-existent taskId
+      const resDel = await projectService.deleteProjectTask(
+        { taskId: dummyId },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(resDel.success).toBe(false);
+      if (!resDel.success) {
+        expect(resDel.code).toBe('NOT_FOUND');
+      }
+    });
+
+    it('conversion-step.ts: covers fallback title branches and character truncation', async () => {
+      const formId = generateUuidV7();
+      await dbClient.insert(inquiryForms).values({
+        id: formId,
+        slug: `form-${formId.slice(0, 8)}`,
+        name: 'Inquiry Form',
+        status: 'published',
+        defaultLocale: 'en',
+        fields: [],
+        eventTypes: [{ key: 'wedding', label_en: 'Wedding', label_de: 'Hochzeit' }],
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      });
+
+      const noticeVersionId = generateUuidV7();
+      await dbClient.insert(inquiryFormNoticeVersions).values({
+        id: noticeVersionId,
+        formId,
+        version: 1,
+        privacyPolicyUrl: 'https://example.org/privacy',
+        acknowledgementTextEn: 'I acknowledge',
+        acknowledgementTextDe: 'Ich stimme zu',
+        createdByActorId: ownerUser.id,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      });
+
+      const clientId = generateUuidV7();
+      await dbClient.insert(clients).values({
+        id: clientId,
+        kind: 'person',
+        displayName: 'Truncation Client',
+        preferredLocale: 'en',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      async function seedLeadRow(overrides: Partial<typeof leads.$inferInsert> = {}) {
+        const [row] = await dbClient
+          .insert(leads)
+          .values({
+            id: generateUuidV7(),
+            clientId,
+            formId,
+            noticeVersionId,
+            noticeAcknowledgedAt: new Date(),
+            status: 'converted',
+            convertedAt: new Date(),
+            verification: 'verified',
+            deliveryMode: 'hosted',
+            locale: 'en',
+            givenName: 'Test',
+            familyName: 'Lead',
+            email: 'test@example.org',
+            eventTypeKey: 'wedding',
+            message: 'Hello',
+            receivedAt: new Date(),
+            lastActivityAt: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            ...overrides,
+          })
+          .returning();
+        if (!row) throw new Error('Lead insert failed');
+        return row;
+      }
+
+      // 1. Long title truncation (> 200 chars)
+      const lead1 = await seedLeadRow({
+        givenName: 'A'.repeat(100),
+        familyName: 'B'.repeat(100),
+        eventTypeKey: 'wedding',
+        eventDate: null,
+        eventLocation: null,
+      });
+
+      const res1 = await createProjectOnLeadConversion(lead1, clientId, dbClient);
+      expect(res1.projectId).toBeDefined();
+
+      // 2. Missing eventTypeKey falls back to "${leadFullName} - Project"
+      const lead2 = await seedLeadRow({
+        givenName: 'Fallback',
+        familyName: 'Lead',
+        eventTypeKey: '',
+        eventDate: null,
+        eventLocation: null,
+      });
+      const res2 = await createProjectOnLeadConversion(lead2, clientId, dbClient);
+      expect(res2.projectId).toBeDefined();
+
+      // 3. Converted lead with no name falls back to "${clientDisplayName} - Project"
+      const lead3 = await seedLeadRow({
+        givenName: null,
+        familyName: null,
+        email: null,
+        eventTypeKey: '',
+        eventDate: null,
+        eventLocation: null,
+      });
+      const res3 = await createProjectOnLeadConversion(lead3, clientId, dbClient);
+      expect(res3.projectId).toBeDefined();
+    });
+
+    it('repo.ts: covers finding and listing routines', async () => {
+      const clientId = generateUuidV7();
+      await dbClient.insert(clients).values({
+        id: clientId,
+        kind: 'person',
+        displayName: 'Repo Client',
+        preferredLocale: 'en',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const initialStage = await getInitialPipelineStage(dbClient);
+      expect(initialStage).toBeDefined();
+      if (!initialStage) return;
+
+      const proj = await repo.insertProject(
+        {
+          id: generateUuidV7(),
+          clientId,
+          stageId: initialStage.id,
+          title: 'Repo Project',
+          projectTypeKey: 'portrait',
+        },
+        dbClient,
+      );
+
+      const shoot = await repo.insertShoot(
+        {
+          id: generateUuidV7(),
+          projectId: proj.id,
+          title: 'Repo Shoot',
+          startsAt: new Date('2027-01-01T10:00:00Z'),
+          timezone: 'Europe/Berlin',
+        },
+        dbClient,
+      );
+
+      const loc = await repo.insertShootLocation(
+        {
+          id: generateUuidV7(),
+          shootId: shoot.id,
+          name: 'Repo Location',
+        },
+        dbClient,
+      );
+
+      const item = await repo.insertShootTimelineItem(
+        {
+          id: generateUuidV7(),
+          shootId: shoot.id,
+          title: 'Repo Item',
+          startsAt: new Date('2027-01-01T10:00:00Z'),
+          order: 1,
+        },
+        dbClient,
+      );
+
+      const part = await repo.insertProjectParticipant(
+        {
+          id: generateUuidV7(),
+          projectId: proj.id,
+          name: 'Repo Participant',
+          role: 'Client',
+        },
+        dbClient,
+      );
+
+      const task = await repo.insertProjectTask(
+        {
+          id: generateUuidV7(),
+          projectId: proj.id,
+          stageId: initialStage.id,
+          title: 'Repo Task',
+          isCompleted: false,
+          order: 1,
+        },
+        dbClient,
+      );
+
+      expect(await repo.findProjectById(proj.id, dbClient)).toBeDefined();
+      expect(await repo.findShootById(shoot.id, dbClient)).toBeDefined();
+      expect(await repo.findShootsByProjectId(proj.id, dbClient)).toHaveLength(1);
+      expect(await repo.findShootLocationById(loc.id, dbClient)).toBeDefined();
+      expect(await repo.findLocationsByShootId(shoot.id, dbClient)).toHaveLength(1);
+      expect(await repo.findShootTimelineItemById(item.id, dbClient)).toBeDefined();
+      expect(await repo.findTimelineItemsByShootId(shoot.id, dbClient)).toHaveLength(1);
+      expect(await repo.findProjectParticipantById(part.id, dbClient)).toBeDefined();
+      expect(await repo.findParticipantsByProjectId(proj.id, dbClient)).toHaveLength(1);
+      expect(await repo.findProjectTaskById(task.id, dbClient)).toBeDefined();
+      expect(await repo.findTasksByProjectId(proj.id, dbClient)).toHaveLength(1);
+      expect(
+        await repo.findIncompleteTasksByStage(proj.id, initialStage.id, dbClient),
+      ).toHaveLength(1);
+
+      // Recalculate primary shoot with no shoots (after delete)
+      await repo.deleteShootRecord(shoot.id, dbClient);
+      await repo.recalculatePrimaryShoot(proj.id, dbClient);
+      const projAfter = await repo.findProjectById(proj.id, dbClient);
+      expect(projAfter?.primaryShootStartsAt).toBeNull();
     });
   });
 });

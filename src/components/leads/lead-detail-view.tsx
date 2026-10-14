@@ -73,6 +73,13 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
   const [convertError, setConvertError] = React.useState<string | null>(null);
   const [isConverting, setIsConverting] = React.useState(false);
 
+  // Focus restoration trigger refs (WCAG 2.4.3 / I1-U01)
+  const convertHeaderTriggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const convertFooterTriggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const lastConvertTriggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const deleteTriggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const exportDsarTriggerRef = React.useRef<HTMLButtonElement | null>(null);
+
   const fullName = [lead.givenName, lead.familyName].filter(Boolean).join(' ') || '—';
   const receivedFormatted = new Date(lead.receivedAt).toLocaleString(locale, {
     dateStyle: 'medium',
@@ -348,9 +355,11 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
         {lead.status !== 'converted' && (
           <div className="flex flex-wrap items-center gap-2">
             <button
+              ref={convertHeaderTriggerRef}
               type="button"
               data-testid="convert-lead-btn"
-              onClick={() => {
+              onClick={(e) => {
+                lastConvertTriggerRef.current = e.currentTarget;
                 void handleOpenConvertModal();
               }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
@@ -402,6 +411,7 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
             )}
 
             <button
+              ref={deleteTriggerRef}
               type="button"
               data-testid="delete-lead-btn"
               onClick={() => {
@@ -611,6 +621,7 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
         <div className="flex flex-wrap items-center gap-3">
           {/* DSAR Export */}
           <button
+            ref={exportDsarTriggerRef}
             type="button"
             data-testid="export-dsar-btn"
             onClick={() => {
@@ -625,9 +636,11 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
           {/* Convert to client button */}
           {lead.status !== 'converted' && (
             <button
+              ref={convertFooterTriggerRef}
               type="button"
               data-testid="convert-to-client-btn"
-              onClick={() => {
+              onClick={(e) => {
+                lastConvertTriggerRef.current = e.currentTarget;
                 void handleOpenConvertModal();
               }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium transition-colors"
@@ -641,7 +654,15 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
 
       {/* Step-Up Re-Authentication Modal (AC-8) */}
       <Dialog open={reauthModalOpen} onOpenChange={setReauthModalOpen}>
-        <DialogContent data-testid="reauth-modal">
+        <DialogContent
+          data-testid="reauth-modal"
+          onCloseAutoFocus={(e) => {
+            if (exportDsarTriggerRef.current) {
+              e.preventDefault();
+              exportDsarTriggerRef.current.focus();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{t('reauth.title')}</DialogTitle>
             <DialogDescription className="text-sm text-zinc-700 dark:text-zinc-300">
@@ -711,7 +732,15 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
 
       {/* Delete Lead Dialog */}
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-        <DialogContent data-testid="delete-lead-modal">
+        <DialogContent
+          data-testid="delete-lead-modal"
+          onCloseAutoFocus={(e) => {
+            if (deleteTriggerRef.current) {
+              e.preventDefault();
+              deleteTriggerRef.current.focus();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{t('dialogs.deleteSingleTitle')}</DialogTitle>
             <DialogDescription className="text-sm text-zinc-700 dark:text-zinc-300">
@@ -759,6 +788,13 @@ export function LeadDetailView({ leadWithDetails, locale }: LeadDetailViewProps)
         <DialogContent
           data-testid="convert-lead-dialog"
           className="max-w-xl max-h-[90vh] overflow-y-auto"
+          onCloseAutoFocus={(e) => {
+            const target = lastConvertTriggerRef.current ?? convertHeaderTriggerRef.current;
+            if (target) {
+              e.preventDefault();
+              target.focus();
+            }
+          }}
         >
           <DialogHeader>
             <DialogTitle>{t('convert.title')}</DialogTitle>

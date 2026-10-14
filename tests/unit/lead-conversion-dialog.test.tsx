@@ -207,7 +207,7 @@ describe('TASK-0032: Lead Conversion Dialog & Banner Unit Tests', () => {
     const html = renderToStaticMarkup(<LeadDetailView leadWithDetails={detail} locale="de" />);
 
     expect(html).toContain('data-testid="lead-converted-banner"');
-    expect(html).toContain('In Kunde umgewandelt am');
+    expect(html).toContain('In Kund:in umgewandelt am');
     expect(html).toContain(`href="/clients/${clientId}"`);
     expect(html).toContain('Kundenprofil anzeigen');
   });
@@ -248,23 +248,23 @@ describe('TASK-0032: Lead Conversion Dialog & Banner Unit Tests', () => {
     expect(detail.duplicates?.[0]?.clientId).toBe('018f0000-0000-7000-8000-000000000077');
   });
 
-  it('AC-10: German messages dictionary contains all required leads.convert.* keys', () => {
+  it('AC-10 / I1-U02: German messages dictionary contains all required leads.convert.* keys matching glossary.md', () => {
     const convertDe = deMessages.leads.convert;
-    expect(convertDe.title).toBe('In Kunde umwandeln');
+    expect(convertDe.title).toBe('In Kund:in umwandeln');
     expect(convertDe.description).toContain('Kundeneintrag um');
-    expect(convertDe.newClient).toBe('Neuen Kunden anlegen');
-    expect(convertDe.existingClient).toBe('Mit bestehendem Kunden verknüpfen');
-    expect(convertDe.selectClient).toBe('Bestehenden Kunden auswählen');
-    expect(convertDe.duplicateAlertTitle).toBe('Bestehender Kunde mit gleicher E-Mail');
+    expect(convertDe.newClient).toBe('Neue:n Kund:in anlegen');
+    expect(convertDe.existingClient).toBe('Mit bestehender:m Kund:in verknüpfen');
+    expect(convertDe.selectClient).toBe('Bestehende:n Kund:in auswählen');
+    expect(convertDe.duplicateAlertTitle).toBe('Bestehende:r Kund:in mit gleicher E-Mail');
     expect(convertDe.previewTitle).toBe('Vorschau der Umwandlung');
     expect(convertDe.clientName).toBe('Kundenname');
-    expect(convertDe.primaryContact).toBe('Primärer Kontakt');
+    expect(convertDe.primaryContact).toBe('Hauptkontakt');
     expect(convertDe.inquiryNote).toBe('Zu erstellende Notiz');
     expect(convertDe.retainedDetails).toBe('Behaltene Auftragsdetails');
-    expect(convertDe.confirm).toBe('In Kunde umwandeln');
+    expect(convertDe.confirm).toBe('In Kund:in umwandeln');
     expect(convertDe.confirming).toBe('Wird umgewandelt...');
     expect(convertDe.cancel).toBe('Abbrechen');
-    expect(convertDe.convertedBanner).toContain('In Kunde umgewandelt am');
+    expect(convertDe.convertedBanner).toContain('In Kund:in umgewandelt am');
     expect(convertDe.viewClient).toBe('Kundenprofil anzeigen');
   });
 

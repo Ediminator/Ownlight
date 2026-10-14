@@ -157,7 +157,7 @@ test.describe('TASK-0032: Lead to Client Conversion UI & A11y (AC-1, AC-2, AC-6,
     });
   });
 
-  test('AC-10: German locale /de/leads/{id} renders conversion dialog and banner in German', async ({
+  test('AC-10 / I1-U02: German locale /de/leads/{id} renders conversion dialog and banner in German matching glossary', async ({
     page,
   }) => {
     await page.goto(`/de/leads/${E2E_LEAD_CONTACTED_ID}`);
@@ -173,19 +173,58 @@ test.describe('TASK-0032: Lead to Client Conversion UI & A11y (AC-1, AC-2, AC-6,
     // Modal dialog is in German
     const dialog = page.locator('[data-testid="convert-lead-dialog"]');
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator('h2')).toContainText('In Kunde umwandeln');
+    await expect(dialog.locator('h2')).toContainText('In Kund:in umwandeln');
     await expect(dialog).toContainText(
       'Wandeln Sie diese Interessenten-Anfrage in einen Kundeneintrag um',
     );
-    await expect(dialog).toContainText('Neuen Kunden anlegen');
-    await expect(dialog).toContainText('Mit bestehendem Kunden verknüpfen');
+    await expect(dialog).toContainText('Neue:n Kund:in anlegen');
+    await expect(dialog).toContainText('Mit bestehender:m Kund:in verknüpfen');
     await expect(dialog).toContainText('Vorschau der Umwandlung');
     await expect(dialog).toContainText('Kundenname');
-    await expect(dialog).toContainText('Primärer Kontakt');
+    await expect(dialog).toContainText('Hauptkontakt');
 
-    // Close dialog
+    // Close dialog and verify focus is restored to trigger button (I1-U01, WCAG 2.4.3)
     await page.locator('[data-testid="cancel-convert-btn"]').click();
     await expect(dialog).not.toBeVisible();
+    await expect(convertBtn).toBeFocused();
+  });
+
+  test('I1-U01: conversion modal restores focus to trigger button upon dismissal (via Cancel or Escape)', async ({
+    page,
+  }) => {
+    await page.goto(`/en/leads/${E2E_LEAD_CONTACTED_ID}`);
+
+    const headerConvertBtn = page.locator('[data-testid="convert-lead-btn"]').first();
+    const footerConvertBtn = page.locator('[data-testid="convert-to-client-btn"]').first();
+    const dialog = page.locator('[data-testid="convert-lead-dialog"]');
+
+    // 1. Header trigger button -> dismiss via Cancel button
+    await headerConvertBtn.click();
+    await expect(dialog).toBeVisible();
+    await page.locator('[data-testid="cancel-convert-btn"]').click();
+    await expect(dialog).not.toBeVisible();
+    await expect(headerConvertBtn).toBeFocused();
+
+    // 2. Header trigger button -> dismiss via Escape key
+    await headerConvertBtn.click();
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(headerConvertBtn).toBeFocused();
+
+    // 3. Footer trigger button -> dismiss via Cancel button
+    await footerConvertBtn.click();
+    await expect(dialog).toBeVisible();
+    await page.locator('[data-testid="cancel-convert-btn"]').click();
+    await expect(dialog).not.toBeVisible();
+    await expect(footerConvertBtn).toBeFocused();
+
+    // 4. Footer trigger button -> dismiss via Escape key
+    await footerConvertBtn.click();
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(footerConvertBtn).toBeFocused();
   });
 
   test('AC-11: zero axe WCAG 2.2 AA violations on conversion dialog across 320px, 768px, and 1280px in light and dark modes', async ({

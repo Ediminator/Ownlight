@@ -91,6 +91,17 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
   ['lead.auto_reply.suppressed', ['reason']],
   ['lead.auto_reply.failed', ['reason']],
   ['lead.converted', ['client_id', 'mode']],
+  ['project.created', ['project_id', 'client_id', 'project_type', 'stage_id', 'lead_id']],
+  ['project.updated', ['project_id', 'changed_fields']],
+  [
+    'project.stage_changed',
+    ['project_id', 'from_stage_id', 'to_stage_id', 'from_stage', 'to_stage'],
+  ],
+  ['project.deleted', ['project_id', 'client_id']],
+  ['shoot.created', ['shoot_id', 'project_id', 'starts_at']],
+  ['shoot.updated', ['shoot_id', 'project_id', 'changed_fields']],
+  ['shoot.deleted', ['shoot_id', 'project_id']],
+  ['stage_config.updated', ['stage_count', 'changed_stages']],
 ]);
 
 /**

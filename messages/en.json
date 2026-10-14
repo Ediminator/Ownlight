@@ -549,6 +549,9 @@
         "consent_withdrawn": "Consent withdrawn: {purpose}",
         "inquiry_received": "Inquiry received",
         "lead_converted": "Lead converted to client",
+        "project_created": "Project created",
+        "project_stage_changed": "Project stage changed from {from_stage} to {to_stage}",
+        "shoot_scheduled": "Shoot scheduled",
         "deleted_item": "Deleted item"
       },
       "note": {

@@ -56,6 +56,21 @@ const INITIAL_EVENT_TYPES: TimelineEventTypeDefinition[] = [
     dataKeys: ['mode'],
     messageKey: 'clients.timeline.events.lead_converted',
   },
+  {
+    type: 'project.created',
+    dataKeys: ['project_id', 'project_type'],
+    messageKey: 'clients.timeline.events.project_created',
+  },
+  {
+    type: 'project.stage_changed',
+    dataKeys: ['project_id', 'from_stage', 'to_stage'],
+    messageKey: 'clients.timeline.events.project_stage_changed',
+  },
+  {
+    type: 'shoot.scheduled',
+    dataKeys: ['project_id', 'shoot_id', 'starts_at'],
+    messageKey: 'clients.timeline.events.shoot_scheduled',
+  },
 ];
 
 const registry = new Map<string, TimelineEventTypeDefinition>();

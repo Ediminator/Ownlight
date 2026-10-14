@@ -60,7 +60,7 @@ import { createProjectOnLeadConversion } from '@/server/projects/conversion-step
 import { user, type User } from '@/server/db/schema/auth';
 import { clients } from '@/server/db/schema/clients';
 import { inquiryForms, inquiryFormNoticeVersions } from '@/server/db/schema/inquiry-forms';
-import { leads, type Lead } from '@/server/db/schema/leads';
+import { leads } from '@/server/db/schema/leads';
 import { projects } from '@/server/db/schema/projects';
 import { eq } from 'drizzle-orm';
 import { createSession, SESSION_COOKIE_NAME } from '@/server/auth/session';

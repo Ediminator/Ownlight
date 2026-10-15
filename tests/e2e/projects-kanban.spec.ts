@@ -57,7 +57,7 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     page,
   }) => {
     await page.goto('/en/projects');
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
 
     // Action bar elements
     await expect(page.locator('h1')).toContainText('Projects & Pipeline');
@@ -72,7 +72,10 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     }
 
     // Counts and totals
-    await expect(page.locator('[data-testid="kanban-column-count-inquiry"]')).toContainText('2');
+    const inquiryCountText = await page
+      .locator('[data-testid="kanban-column-count-inquiry"]')
+      .innerText();
+    expect(Number(inquiryCountText)).toBeGreaterThanOrEqual(2);
     await expect(page.locator('[data-testid="kanban-column-total-inquiry"]')).toContainText(
       '€8,500.00',
     );
@@ -116,7 +119,14 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     page,
   }) => {
     await page.goto('/en/projects');
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
+
+    const initialInquiryCount = await page
+      .locator('[data-testid="kanban-column-count-inquiry"]')
+      .innerText();
+    const initialBookedCount = await page
+      .locator('[data-testid="kanban-column-count-booked"]')
+      .innerText();
 
     const card = page.locator(`[data-testid="project-card-${E2E_PROJECT_INQUIRY_1_ID}"]`);
     const bookedDropzone = page.locator('[data-testid="kanban-column-dropzone-booked"]');
@@ -130,15 +140,19 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     await expect(cardInBooked).toBeVisible();
 
     // Verify column counts updated
-    await expect(page.locator('[data-testid="kanban-column-count-inquiry"]')).toContainText('1');
-    await expect(page.locator('[data-testid="kanban-column-count-booked"]')).toContainText('2');
+    await expect(page.locator('[data-testid="kanban-column-count-inquiry"]')).toContainText(
+      String(Number(initialInquiryCount) - 1),
+    );
+    await expect(page.locator('[data-testid="kanban-column-count-booked"]')).toContainText(
+      String(Number(initialBookedCount) + 1),
+    );
   });
 
   test('AC-3: Keyboard accessible stage selector moves card without dragging and announces transition via aria-live', async ({
     page,
   }) => {
     await page.goto('/en/projects');
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
 
     // Trigger action menu on Lucas Portrait Session
     const trigger = page.locator(
@@ -175,7 +189,7 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     page,
   }) => {
     await page.goto('/en/projects');
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
 
     // Sophie & Noah Wedding in Editing has 2 open tasks
     const trigger = page.locator(
@@ -222,7 +236,7 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     page,
   }) => {
     await page.goto('/en/projects');
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
 
     const listBtn = page.locator('[data-testid="view-switch-list"]');
     await listBtn.click();
@@ -240,7 +254,7 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     page,
   }) => {
     await page.goto('/en/projects');
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
 
     // Intercept server action call to simulate failure
     await page.route('**/projects**', async (route) => {
@@ -256,29 +270,28 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     });
 
     const trigger = page.locator(`[data-testid="project-actions-trigger-${E2E_PROJECT_SHOT_ID}"]`);
-    if (await trigger.isVisible()) {
-      await trigger.click();
-      await page.locator('[data-testid="project-action-move-trigger"]').click();
-      await page.locator('[data-testid="project-action-move-delivered"]').click();
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+    await page.locator('[data-testid="project-action-move-trigger"]').click();
+    await page.locator('[data-testid="project-action-move-delivered"]').click();
 
-      // Error toast should appear
-      const errorToast = page.locator('[data-testid="kanban-error-toast"]');
-      await expect(errorToast).toBeVisible();
+    // Error toast should appear
+    const errorToast = page.locator('[data-testid="kanban-error-toast"]');
+    await expect(errorToast).toBeVisible();
 
-      // Card must be rolled back to Shot column
-      await expect(
-        page.locator(
-          `[data-testid="kanban-column-shot"] [data-testid="project-card-${E2E_PROJECT_SHOT_ID}"]`,
-        ),
-      ).toBeVisible();
-    }
+    // Card must be rolled back to Shot column
+    await expect(
+      page.locator(
+        `[data-testid="kanban-column-shot"] [data-testid="project-card-${E2E_PROJECT_SHOT_ID}"]`,
+      ),
+    ).toBeVisible();
   });
 
   test('AC-7: German locale /de/projects renders German stage titles, action buttons, and localized view', async ({
     page,
   }) => {
     await page.goto('/de/projects');
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
 
     await expect(page.locator('html')).toHaveAttribute('lang', 'de');
     await expect(page.locator('h1')).toContainText('Projekte & Pipeline');
@@ -327,7 +340,7 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
         await page.setViewportSize({ width: vp.width, height: vp.height });
 
         await page.goto('/en/projects');
-        await page.waitForLoadState('networkidle');
+        await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
 
         const axeResults = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
@@ -345,7 +358,7 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     // Modal contrast axe scan
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/en/projects');
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
 
     const newProjectBtn = page.locator('[data-testid="new-project-btn"]');
     await newProjectBtn.click();

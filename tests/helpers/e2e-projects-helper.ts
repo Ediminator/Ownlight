@@ -24,31 +24,35 @@ export const E2E_CLIENT_6_ID = '01920000-0000-7000-8000-000000000086';
 export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
   const now = new Date().toISOString();
 
-  // 1. Seed Clients
-  const clientsData = [
-    { id: E2E_CLIENT_1_ID, name: 'Emma Watson', locale: 'en' },
-    { id: E2E_CLIENT_2_ID, name: 'Lucas Scott', locale: 'en' },
-    { id: E2E_CLIENT_3_ID, name: 'Acme Studio Corp', locale: 'en' },
-    { id: E2E_CLIENT_4_ID, name: 'Sarah & David', locale: 'en' },
-    { id: E2E_CLIENT_5_ID, name: 'Sophie & Noah', locale: 'en' },
-    { id: E2E_CLIENT_6_ID, name: 'Fashion Lookbook Inc', locale: 'en' },
-  ];
-
-  for (const c of clientsData) {
-    await pglite.query(
-      `INSERT INTO clients (
-        id, kind, display_name, preferred_locale, last_activity_at, created_at, updated_at
-      ) VALUES ($1, 'person', $2, $3, $4, $4, $4)
-      ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name`,
-      [c.id, c.name, c.locale, now],
+  // 1. Fetch 6 existing clients from seedDemo so we do NOT insert extra client rows and break clients.spec.ts pagination (50 clients = 2 pages)
+  const existingClients = await pglite.query<{ id: string; display_name: string }>(
+    `SELECT id, display_name FROM clients ORDER BY created_at ASC LIMIT 6`,
+  );
+  if (existingClients.rows.length < 6) {
+    throw new Error(
+      `Expected at least 6 clients in database, found ${String(existingClients.rows.length)}`,
     );
   }
+
+  const client0 = existingClients.rows[0];
+  const client1 = existingClients.rows[1];
+  const client2 = existingClients.rows[2];
+  const client3 = existingClients.rows[3];
+  const client4 = existingClients.rows[4];
+  const client5 = existingClients.rows[5];
+
+  if (!client0 || !client1 || !client2 || !client3 || !client4 || !client5) {
+    throw new Error('Failed to resolve all 6 clients');
+  }
+
+  // Update display_name on first client so AC-1 test expecting 'Emma Watson' passes
+  await pglite.query(`UPDATE clients SET display_name = 'Emma Watson' WHERE id = $1`, [client0.id]);
 
   // 2. Seed Projects across stages
   const projectsData = [
     {
       id: E2E_PROJECT_INQUIRY_1_ID,
-      clientId: E2E_CLIENT_1_ID,
+      clientId: client0.id,
       stageId: E2E_STAGE_INQUIRY_ID,
       title: 'Emma & Liam Wedding',
       projectTypeKey: 'wedding',
@@ -58,7 +62,7 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
     },
     {
       id: E2E_PROJECT_INQUIRY_2_ID,
-      clientId: E2E_CLIENT_2_ID,
+      clientId: client1.id,
       stageId: E2E_STAGE_INQUIRY_ID,
       title: 'Lucas Portrait Session',
       projectTypeKey: 'portrait',
@@ -68,7 +72,7 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
     },
     {
       id: E2E_PROJECT_BOOKED_ID,
-      clientId: E2E_CLIENT_3_ID,
+      clientId: client2.id,
       stageId: E2E_STAGE_BOOKED_ID,
       title: 'Corporate Campaign',
       projectTypeKey: 'commercial',
@@ -78,7 +82,7 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
     },
     {
       id: E2E_PROJECT_SHOT_ID,
-      clientId: E2E_CLIENT_4_ID,
+      clientId: client3.id,
       stageId: E2E_STAGE_SHOT_ID,
       title: 'Sarah & David Engagement',
       projectTypeKey: 'engagement',
@@ -88,7 +92,7 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
     },
     {
       id: E2E_PROJECT_EDITING_ID,
-      clientId: E2E_CLIENT_5_ID,
+      clientId: client4.id,
       stageId: E2E_STAGE_EDITING_ID,
       title: 'Sophie & Noah Wedding',
       projectTypeKey: 'wedding',
@@ -98,7 +102,7 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
     },
     {
       id: E2E_PROJECT_DELIVERED_ID,
-      clientId: E2E_CLIENT_6_ID,
+      clientId: client5.id,
       stageId: E2E_STAGE_DELIVERED_ID,
       title: 'Fashion Lookbook',
       projectTypeKey: 'editorial',

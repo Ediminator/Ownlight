@@ -104,11 +104,11 @@ export function ProjectCard({
     >
       {/* Top Header: Title & Action Menu */}
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 space-y-1">
           <Link
             href={`/${locale}/projects/${project.id}`}
             data-testid={`project-card-title-${project.id}`}
-            className="block truncate font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm text-sm sm:text-base"
+            className="block truncate font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm text-sm sm:text-base min-h-[24px] leading-6"
             aria-label={t('card.projectLinkAria', { title: project.title })}
           >
             {project.title}
@@ -117,7 +117,7 @@ export function ProjectCard({
           <Link
             href={`/${locale}/clients/${project.clientId}`}
             data-testid={`project-card-client-${project.id}`}
-            className="block truncate text-xs text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm mt-0.5"
+            className="block truncate text-xs text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm min-h-[24px] leading-6"
             aria-label={t('card.clientLinkAria', { name: project.clientDisplayName })}
           >
             {project.clientDisplayName}
@@ -150,7 +150,7 @@ export function ProjectCard({
             {/* Move to stage submenu */}
             <DropdownMenuSub>
               <DropdownMenuSubTrigger
-                data-testid={`move-to-stage-trigger-${project.id}`}
+                data-testid="project-action-move-trigger"
                 className="min-h-[44px] sm:min-h-[36px] cursor-pointer"
               >
                 <ArrowRight className="h-4 w-4 mr-2 text-muted-foreground" aria-hidden="true" />
@@ -163,7 +163,7 @@ export function ProjectCard({
                 {targetStages.map((stage) => (
                   <DropdownMenuItem
                     key={stage.id}
-                    data-testid={`stage-item-${stage.key}-${project.id}`}
+                    data-testid={`project-action-move-${stage.key}`}
                     onClick={() => {
                       onMoveToStage(project, stage.id);
                     }}
@@ -196,7 +196,7 @@ export function ProjectCard({
             <span>{formattedShootDate}</span>
           </span>
         ) : (
-          <span className="text-muted-foreground/60 text-xs italic">{t('card.noShootDate')}</span>
+          <span className="text-muted-foreground text-xs italic">{t('card.noShootDate')}</span>
         )}
       </div>
 
@@ -210,7 +210,7 @@ export function ProjectCard({
               ? project.completedTaskCount === project.taskCount
                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400'
                 : 'bg-muted text-muted-foreground'
-              : 'bg-muted/50 text-muted-foreground/70',
+              : 'bg-muted text-muted-foreground',
           )}
         >
           <CheckSquare className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

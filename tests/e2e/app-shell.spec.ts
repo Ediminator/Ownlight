@@ -70,22 +70,22 @@ test.describe('App Shell, Theming, and Internationalization E2E', () => {
   test('AC-2: language switcher preserves current route and persists choice across reloads', async ({
     page,
   }) => {
-    // Navigate to /en/projects
-    await page.goto('/en/projects');
-    await expect(page.locator('h1')).toHaveText('Projects');
+    // Navigate to /en/calendar
+    await page.goto('/en/calendar');
+    await expect(page.locator('h1')).toHaveText('Calendar');
 
     // Open language switcher
     await page.click('[data-testid="locale-switcher-trigger"]');
     await page.click('[data-testid="locale-option-de"]');
 
-    // Route preserved to /de/projects
-    await expect(page).toHaveURL(/\/de\/projects$/);
-    await expect(page.locator('h1')).toHaveText('Projekte');
+    // Route preserved to /de/calendar
+    await expect(page).toHaveURL(/\/de\/calendar$/);
+    await expect(page.locator('h1')).toHaveText('Kalender');
 
     // Reload page to verify persistence
     await page.reload();
-    await expect(page).toHaveURL(/\/de\/projects$/);
-    await expect(page.locator('h1')).toHaveText('Projekte');
+    await expect(page).toHaveURL(/\/de\/calendar$/);
+    await expect(page.locator('h1')).toHaveText('Kalender');
 
     // Open another page without locale prefix to verify cookie persistence
     await page.goto('/calendar');

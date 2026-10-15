@@ -320,7 +320,7 @@ describe('Projects UI Components Unit Tests (renderToStaticMarkup)', () => {
         />,
       );
 
-      const stageItem = findNodeByTestId(capturedCardTree, 'stage-item-booked-proj-1');
+      const stageItem = findNodeByTestId(capturedCardTree, 'project-action-move-booked');
       expect(stageItem).toBeDefined();
       const onClick = stageItem?.onClick as (() => void) | undefined;
       onClick?.();

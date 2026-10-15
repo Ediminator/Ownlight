@@ -105,7 +105,7 @@ export default async function ProjectsPage({ params, searchParams }: ProjectsPag
           >
             <Link
               href={`/${locale}/projects?view=board`}
-              data-testid="view-toggle-board"
+              data-testid="view-switch-board"
               aria-label={t('viewToggle.boardAria')}
               aria-current={!isListView ? 'page' : undefined}
               className={cn(
@@ -121,7 +121,7 @@ export default async function ProjectsPage({ params, searchParams }: ProjectsPag
 
             <Link
               href={`/${locale}/projects?view=list`}
-              data-testid="view-toggle-list"
+              data-testid="view-switch-list"
               aria-label={t('viewToggle.listAria')}
               aria-current={isListView ? 'page' : undefined}
               className={cn(
@@ -144,7 +144,7 @@ export default async function ProjectsPage({ params, searchParams }: ProjectsPag
       {/* Main Content Area: Board or List View */}
       {isListView ? (
         <div
-          data-testid="projects-list-view"
+          data-testid="projects-list-placeholder"
           className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card p-12 text-center text-card-foreground shadow-2xs space-y-4"
         >
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -156,6 +156,7 @@ export default async function ProjectsPage({ params, searchParams }: ProjectsPag
           </div>
           <Link
             href={`/${locale}/projects?view=board`}
+            data-testid="projects-switch-to-board-btn"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-xs hover:bg-accent hover:text-accent-foreground min-h-[44px] sm:min-h-[36px]"
           >
             {t('list.backToBoard')}

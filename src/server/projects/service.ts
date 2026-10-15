@@ -4,13 +4,19 @@ import { db as defaultDb, type DbClient } from '@/server/db/client';
 import { clients } from '@/server/db/schema/clients';
 import {
   type Project,
+  type PipelineStage,
   type Shoot,
   type ShootLocation,
   type ShootTimelineItem,
   type ProjectParticipant,
   type ProjectTask,
 } from '@/server/db/schema/projects';
-import { getInitialPipelineStage, getPipelineStageById, getStageTaskTemplates } from './stages';
+import {
+  getInitialPipelineStage,
+  getPipelineStageById,
+  getPipelineStages,
+  getStageTaskTemplates,
+} from './stages';
 import * as repo from './repo';
 import {
   type CreateProjectInput,
@@ -1121,5 +1127,90 @@ export async function deleteProjectTask(
   return {
     success: true,
     data: { taskId: input.taskId },
+  };
+}
+
+// --- Kanban Board Operations (TASK-0036) ---
+
+export interface KanbanProject {
+  id: string;
+  title: string;
+  clientId: string;
+  clientDisplayName: string;
+  stageId: string;
+  stageKey: string;
+  projectTypeKey: string;
+  primaryShootStartsAt: string | null;
+  primaryShootTimezone: string | null;
+  currency: string;
+  priceMinor: number | null;
+  taskCount: number;
+  completedTaskCount: number;
+  incompleteTasks: {
+    id: string;
+    title: string;
+    stageId: string | null;
+  }[];
+}
+
+export interface KanbanBoardData {
+  stages: PipelineStage[];
+  projects: KanbanProject[];
+}
+
+export async function getKanbanBoardData(tx: DbClient = defaultDb): Promise<KanbanBoardData> {
+  const [stages, projectRows, allTasks] = await Promise.all([
+    getPipelineStages(tx),
+    repo.findKanbanProjects(tx),
+    repo.findAllProjectTasks(tx),
+  ]);
+
+  const stageMap = new Map<string, PipelineStage>(stages.map((s) => [s.id, s]));
+
+  const tasksByProject = new Map<string, typeof allTasks>();
+  for (const t of allTasks) {
+    let list = tasksByProject.get(t.projectId);
+    if (!list) {
+      list = [];
+      tasksByProject.set(t.projectId, list);
+    }
+    list.push(t);
+  }
+
+  const kanbanProjects: KanbanProject[] = projectRows.map((p) => {
+    const pTasks = tasksByProject.get(p.id) ?? [];
+    const taskCount = pTasks.length;
+    const completedTaskCount = pTasks.filter((t) => t.isCompleted).length;
+    const incompleteTasks = pTasks
+      .filter((t) => !t.isCompleted)
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        stageId: t.stageId,
+      }));
+
+    const stage = stageMap.get(p.stageId);
+
+    return {
+      id: p.id,
+      title: p.title,
+      clientId: p.clientId,
+      clientDisplayName: p.clientDisplayName,
+      stageId: p.stageId,
+      stageKey: stage?.key ?? 'inquiry',
+      projectTypeKey: p.projectTypeKey,
+      primaryShootStartsAt: p.primaryShootStartsAt ? p.primaryShootStartsAt.toISOString() : null,
+      primaryShootTimezone: p.primaryShootTimezone,
+      currency: p.currency,
+      priceMinor: p.priceMinor,
+      taskCount,
+      completedTaskCount,
+      incompleteTasks,
+    };
+  });
+
+  return {
+    stages,
+    projects: kanbanProjects,
   };
 }

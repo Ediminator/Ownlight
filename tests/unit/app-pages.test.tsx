@@ -5,10 +5,17 @@ vi.mock('server-only', () => ({}));
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => `translated-${key}`,
 }));
+vi.mock('next-intl/server', () => ({
+  getTranslations: vi
+    .fn()
+    .mockImplementation(() => Promise.resolve((key: string) => `translated-${key}`)),
+}));
 
 import LeadsPage from '@/app/[locale]/leads/page';
 import ClientsPage from '@/app/[locale]/clients/page';
-import ProjectsPage from '@/app/[locale]/projects/page';
+import ProjectsPage, {
+  generateMetadata as generateProjectsMetadata,
+} from '@/app/[locale]/projects/page';
 import CalendarPage from '@/app/[locale]/calendar/page';
 import SettingsPage from '@/app/[locale]/settings/page';
 import SignInPage from '@/app/[locale]/sign-in/page';
@@ -85,6 +92,13 @@ vi.mock('@/server/leads/service', () => ({
   }),
 }));
 
+vi.mock('@/server/projects/service', () => ({
+  getKanbanBoardData: vi.fn().mockResolvedValue({
+    stages: [],
+    projects: [],
+  }),
+}));
+
 describe('App placeholder and auth pages', () => {
   it('renders LeadsPage component', async () => {
     const el = await LeadsPage({
@@ -112,9 +126,110 @@ describe('App placeholder and auth pages', () => {
     expect(React.isValidElement(el)).toBe(true);
   });
 
-  it('renders ProjectsPage component', () => {
-    const el = ProjectsPage();
+  it('renders ProjectsPage component in default board view', async () => {
+    const el = await ProjectsPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({}),
+    });
     expect(React.isValidElement(el)).toBe(true);
+  });
+
+  it('renders ProjectsPage component in list view', async () => {
+    const el = await ProjectsPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({ view: 'list' }),
+    });
+    expect(React.isValidElement(el)).toBe(true);
+  });
+
+  it('renders ProjectsPage in German locale with list view and fallback translations', async () => {
+    const { getTranslations } = await import('next-intl/server');
+    vi.mocked(getTranslations).mockRejectedValueOnce(new Error('Translation error'));
+
+    const el = await ProjectsPage({
+      params: Promise.resolve({ locale: 'de' }),
+      searchParams: Promise.resolve({ view: 'list' }),
+    });
+    expect(React.isValidElement(el)).toBe(true);
+  });
+
+  it('renders ProjectsPage in English locale with fallback translations', async () => {
+    const { getTranslations } = await import('next-intl/server');
+    vi.mocked(getTranslations).mockRejectedValueOnce(new Error('Translation error'));
+
+    const el = await ProjectsPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({ view: 'board' }),
+    });
+    expect(React.isValidElement(el)).toBe(true);
+  });
+
+  it('renders ProjectsPage with loaded clients and handles getClientList failure', async () => {
+    const { getClientList } = await import('@/server/clients/service');
+    vi.mocked(getClientList).mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            id: 'client-1',
+            displayName: 'Client A',
+          } as unknown as import('@/server/clients/repo').ClientListItem,
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 100,
+      },
+    });
+
+    const elWithClients = await ProjectsPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({}),
+    });
+    expect(React.isValidElement(elWithClients)).toBe(true);
+
+    vi.mocked(getClientList).mockResolvedValueOnce({
+      success: false,
+      error: 'Failed to fetch clients',
+    } as unknown as Awaited<ReturnType<typeof getClientList>>);
+
+    const elFailed = await ProjectsPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({}),
+    });
+    expect(React.isValidElement(elFailed)).toBe(true);
+  });
+
+  it('redirects unauthenticated users to sign-in on ProjectsPage', async () => {
+    const { requireOwner } = await import('@/server/auth/guards');
+    const { redirect } = await import('next/navigation');
+    vi.mocked(requireOwner).mockRejectedValueOnce(new Error('Unauthorized'));
+
+    const el = await ProjectsPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({}),
+    });
+    expect(el).toBeNull();
+    expect(redirect).toHaveBeenCalledWith('/en/sign-in?callbackUrl=/en/projects');
+  });
+
+  it('generates metadata for ProjectsPage', async () => {
+    const metaEn = await generateProjectsMetadata({
+      params: Promise.resolve({ locale: 'en' }),
+    });
+    expect(metaEn.title).toBeDefined();
+
+    const { getTranslations } = await import('next-intl/server');
+    vi.mocked(getTranslations).mockRejectedValueOnce(new Error('Metadata translation fail'));
+    const metaDeFallback = await generateProjectsMetadata({
+      params: Promise.resolve({ locale: 'de' }),
+    });
+    expect(metaDeFallback.title).toBe('Projekte & Pipeline · Ownlight');
+
+    vi.mocked(getTranslations).mockRejectedValueOnce(new Error('Metadata translation fail en'));
+    const metaEnFallback = await generateProjectsMetadata({
+      params: Promise.resolve({ locale: 'en' }),
+    });
+    expect(metaEnFallback.title).toBe('Projects & Pipeline · Ownlight');
   });
 
   it('renders CalendarPage component', () => {

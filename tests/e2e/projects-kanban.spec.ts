@@ -379,6 +379,7 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     const newProjectBtn = page.locator('[data-testid="new-project-btn"]');
     await newProjectBtn.click();
     await page.waitForSelector('[role="dialog"]', { state: 'visible' });
+    await page.waitForTimeout(300);
 
     const dialogAxe = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
@@ -393,11 +394,9 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     await page.goto('/en/projects');
     await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
 
-    const firstInquiryCard = page
-      .locator('[data-testid="kanban-column-inquiry"]')
-      .locator('[data-testid^="project-card-"]')
-      .first();
-    const cardIdAttr = await firstInquiryCard.getAttribute('data-testid');
+    const cardLocator = page.locator('[data-testid^="project-card-"]').first();
+    await expect(cardLocator).toBeVisible();
+    const cardIdAttr = await cardLocator.getAttribute('data-testid');
     const projectId = cardIdAttr?.replace('project-card-', '');
     expect(projectId).toBeDefined();
     if (!projectId) throw new Error('Expected projectId to be defined');
@@ -429,11 +428,9 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     await page.goto('/en/projects');
     await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
 
-    const firstInquiryCard = page
-      .locator('[data-testid="kanban-column-inquiry"]')
-      .locator('[data-testid^="project-card-"]')
-      .first();
-    const cardIdAttr = await firstInquiryCard.getAttribute('data-testid');
+    const cardLocator = page.locator('[data-testid^="project-card-"]').first();
+    await expect(cardLocator).toBeVisible();
+    const cardIdAttr = await cardLocator.getAttribute('data-testid');
     const projectId = cardIdAttr?.replace('project-card-', '');
     expect(projectId).toBeDefined();
     if (!projectId) throw new Error('Expected projectId to be defined');

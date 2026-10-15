@@ -1,5 +1,6 @@
 import { eq, asc, and } from 'drizzle-orm';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
+import { clients } from '@/server/db/schema/clients';
 import {
   projects,
   shoots,
@@ -373,4 +374,63 @@ export async function deleteProjectTaskRecord(
     .where(eq(projectTasks.id, id))
     .returning({ id: projectTasks.id });
   return res.length > 0;
+}
+
+export interface KanbanProjectRow {
+  id: string;
+  title: string;
+  clientId: string;
+  clientDisplayName: string;
+  stageId: string;
+  projectTypeKey: string;
+  primaryShootStartsAt: Date | null;
+  primaryShootTimezone: string | null;
+  currency: string;
+  priceMinor: number | null;
+  createdAt: Date;
+}
+
+export async function findKanbanProjects(tx: DbClient = defaultDb): Promise<KanbanProjectRow[]> {
+  const rows = await tx
+    .select({
+      id: projects.id,
+      title: projects.title,
+      clientId: projects.clientId,
+      clientDisplayName: clients.displayName,
+      stageId: projects.stageId,
+      projectTypeKey: projects.projectTypeKey,
+      primaryShootStartsAt: projects.primaryShootStartsAt,
+      primaryShootTimezone: projects.primaryShootTimezone,
+      currency: projects.currency,
+      priceMinor: projects.priceMinor,
+      createdAt: projects.createdAt,
+    })
+    .from(projects)
+    .innerJoin(clients, eq(projects.clientId, clients.id))
+    .orderBy(asc(projects.createdAt));
+
+  return rows;
+}
+
+export async function findAllProjectTasks(tx: DbClient = defaultDb): Promise<
+  {
+    id: string;
+    projectId: string;
+    stageId: string | null;
+    title: string;
+    isCompleted: boolean;
+    order: number;
+  }[]
+> {
+  return await tx
+    .select({
+      id: projectTasks.id,
+      projectId: projectTasks.projectId,
+      stageId: projectTasks.stageId,
+      title: projectTasks.title,
+      isCompleted: projectTasks.isCompleted,
+      order: projectTasks.order,
+    })
+    .from(projectTasks)
+    .orderBy(asc(projectTasks.order));
 }

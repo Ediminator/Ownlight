@@ -1072,5 +1072,83 @@
       "next": "Weiter",
       "page": "Seite {page}"
     }
+  },
+  "projects": {
+    "title": "Projekte & Pipeline",
+    "description": "Verwalten Sie Aufträge und Workflows über alle Pipeline-Phasen.",
+    "viewToggle": {
+      "board": "Board",
+      "list": "Liste",
+      "boardAria": "Zur Kanban-Board-Ansicht wechseln",
+      "listAria": "Zur Listen-Ansicht wechseln"
+    },
+    "newProject": "Neues Projekt",
+    "stages": {
+      "inquiry": "Anfrage",
+      "booked": "Gebucht",
+      "shot": "Geshootet",
+      "editing": "Bildbearbeitung",
+      "delivered": "Geliefert",
+      "archived": "Archiviert"
+    },
+    "column": {
+      "empty": "Keine Projekte in dieser Phase",
+      "projectCount": "{count, plural, =0 {0 Projekte} =1 {1 Projekt} other {# Projekte}}",
+      "totalValue": "{value}",
+      "dropIndicator": "Projekt hier ablegen"
+    },
+    "card": {
+      "actionsFor": "Aktionen für {title}",
+      "moveToStage": "In Phase verschieben...",
+      "tasksCount": "{completed}/{total} Aufgaben",
+      "noTasks": "0 Aufgaben",
+      "noShootDate": "Kein Aufnahmedatum",
+      "clientLinkAria": "Kundenprofil für {name} aufrufen",
+      "projectLinkAria": "Details für {title} aufrufen"
+    },
+    "taskWarning": {
+      "title": "Offene Aufgaben vorhanden",
+      "warning": "{count, plural, =1 {1 offene Aufgabe in {stage}. Trotzdem zu {targetStage} wechseln?} other {# offene Aufgaben in {stage}. Trotzdem zu {targetStage} wechseln?}}",
+      "taskListHeading": "Offene Aufgaben:",
+      "confirm": "Trotzdem verschieben",
+      "moving": "Wird verschoben...",
+      "cancel": "Abbrechen"
+    },
+    "announcements": {
+      "stageChanged": "Projekt {title} in die Phase {stage} verschoben",
+      "stageChangeFailed": "Verschieben des Projekts {title} nach {stage} fehlgeschlagen"
+    },
+    "toast": {
+      "stageChangeError": "Verschieben fehlgeschlagen. Das Projekt wurde in die vorherige Spalte zurückgesetzt."
+    },
+    "list": {
+      "placeholderTitle": "Projektverzeichnis & Listenansicht",
+      "placeholderDesc": "Die tabellarische Listenansicht mit Suche und erweiterten Filtern wird im nächsten Schritt bereitgestellt (TASK-0037).",
+      "backToBoard": "Zurück zum Kanban-Board"
+    },
+    "types": {
+      "wedding": "Hochzeit",
+      "portrait": "Porträt",
+      "commercial": "Kommerziell",
+      "event": "Event",
+      "video": "Video",
+      "general": "Allgemein"
+    },
+    "create": {
+      "title": "Neues Projekt anlegen",
+      "description": "Starten Sie einen neuen Auftrag und platzieren Sie ihn in der Pipeline.",
+      "projectTitle": "Projekttitel",
+      "projectTitlePlaceholder": "z. B. Hochzeit Emma & Liam",
+      "client": "Kund:in",
+      "selectClient": "Kund:in auswählen...",
+      "projectType": "Projekttyp",
+      "price": "Vereinbarter Preis (EUR)",
+      "pricePlaceholder": "z. B. 2500",
+      "submit": "Projekt anlegen",
+      "submitting": "Wird angelegt...",
+      "cancel": "Abbrechen",
+      "errorTitleRequired": "Projekttitel ist erforderlich",
+      "errorClientRequired": "Bitte wählen Sie eine:n Kund:in aus"
+    }
   }
 }

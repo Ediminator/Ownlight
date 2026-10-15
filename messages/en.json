@@ -1072,5 +1072,83 @@
       "next": "Next",
       "page": "Page {page}"
     }
+  },
+  "projects": {
+    "title": "Projects & Pipeline",
+    "description": "Manage photography commissions and workflows across pipeline stages.",
+    "viewToggle": {
+      "board": "Board",
+      "list": "List",
+      "boardAria": "Switch to Kanban board view",
+      "listAria": "Switch to list view"
+    },
+    "newProject": "New Project",
+    "stages": {
+      "inquiry": "Inquiry",
+      "booked": "Booked",
+      "shot": "Shot",
+      "editing": "Editing",
+      "delivered": "Delivered",
+      "archived": "Archived"
+    },
+    "column": {
+      "empty": "No projects in this stage",
+      "projectCount": "{count, plural, =0 {0 projects} =1 {1 project} other {# projects}}",
+      "totalValue": "{value}",
+      "dropIndicator": "Drop project here"
+    },
+    "card": {
+      "actionsFor": "Actions for {title}",
+      "moveToStage": "Move to stage...",
+      "tasksCount": "{completed}/{total} tasks",
+      "noTasks": "0 tasks",
+      "noShootDate": "No shoot date",
+      "clientLinkAria": "View client profile for {name}",
+      "projectLinkAria": "View details for {title}"
+    },
+    "taskWarning": {
+      "title": "Incomplete Tasks Remaining",
+      "warning": "{count, plural, =1 {1 task remaining in {stage}. Advance to {targetStage} anyway?} other {# tasks remaining in {stage}. Advance to {targetStage} anyway?}}",
+      "taskListHeading": "Incomplete tasks:",
+      "confirm": "Move anyway",
+      "moving": "Moving...",
+      "cancel": "Cancel"
+    },
+    "announcements": {
+      "stageChanged": "Project {title} moved to {stage} stage",
+      "stageChangeFailed": "Failed to move project {title} to {stage}"
+    },
+    "toast": {
+      "stageChangeError": "Failed to move project. Card has been restored to its previous column."
+    },
+    "list": {
+      "placeholderTitle": "Project Directory & List View",
+      "placeholderDesc": "The tabular list view with search and advanced filters will be available in the next release (TASK-0037).",
+      "backToBoard": "Back to Kanban Board"
+    },
+    "types": {
+      "wedding": "Wedding",
+      "portrait": "Portrait",
+      "commercial": "Commercial",
+      "event": "Event",
+      "video": "Video",
+      "general": "General"
+    },
+    "create": {
+      "title": "Create New Project",
+      "description": "Start a new photography commission and place it in the pipeline.",
+      "projectTitle": "Project Title",
+      "projectTitlePlaceholder": "e.g. Emma & Liam Wedding",
+      "client": "Client",
+      "selectClient": "Select a client...",
+      "projectType": "Project Type",
+      "price": "Agreed Price (EUR)",
+      "pricePlaceholder": "e.g. 2500",
+      "submit": "Create Project",
+      "submitting": "Creating...",
+      "cancel": "Cancel",
+      "errorTitleRequired": "Project title is required",
+      "errorClientRequired": "Please select a client"
+    }
   }
 }

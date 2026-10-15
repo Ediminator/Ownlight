@@ -310,6 +310,7 @@ test.describe('TASK-0031: Lead Inbox and Management UI E2E Tests', () => {
       await firstCheckbox.check();
       await page.click('[data-testid="bulk-delete-btn"]');
       await page.waitForSelector('[data-testid="delete-selected-modal"]', { state: 'visible' });
+      await page.waitForTimeout(300);
 
       const modalAxe = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])

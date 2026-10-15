@@ -13,7 +13,23 @@ import {
 const VALID_SETUP_TOKEN =
   process.env.SETUP_TOKEN ?? 'c4d7e8f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9';
 
-const RUN_DIR_PARAM = process.env.RUN_DIR ?? 'iter-01';
+function getLatestRunDir(): string {
+  if (process.env.RUN_DIR) return process.env.RUN_DIR;
+  const runsRoot = path.resolve(import.meta.dirname, '../../../../control/ownlight/runs/TASK-0036');
+  if (fs.existsSync(runsRoot)) {
+    const entries = fs
+      .readdirSync(runsRoot)
+      .filter((d) => d.startsWith('iter-'))
+      .sort();
+    const last = entries[entries.length - 1];
+    if (last) {
+      return last;
+    }
+  }
+  return 'iter-01';
+}
+
+const RUN_DIR_PARAM = getLatestRunDir();
 const UX_RUN_DIR = path.resolve(
   import.meta.dirname,
   `../../../../control/ownlight/runs/TASK-0036/${RUN_DIR_PARAM}/ux`,
@@ -372,5 +388,70 @@ test.describe('TASK-0036: Pipeline Kanban Board UI E2E Tests', () => {
     await page.screenshot({
       path: path.join(UX_RUN_DIR, 'new-project-dialog-1280px-light.png'),
     });
+
+    // Card action dropdown menu axe scan (I1-U01 regression: modal={false} prevents aria-hidden-focus)
+    await page.goto('/en/projects');
+    await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
+
+    const firstInquiryCard = page
+      .locator('[data-testid="kanban-column-inquiry"]')
+      .locator('[data-testid^="project-card-"]')
+      .first();
+    const cardIdAttr = await firstInquiryCard.getAttribute('data-testid');
+    const projectId = cardIdAttr?.replace('project-card-', '');
+    expect(projectId).toBeDefined();
+    if (!projectId) throw new Error('Expected projectId to be defined');
+
+    const menuTrigger = page.locator(`[data-testid="project-actions-trigger-${projectId}"]`);
+    await menuTrigger.click();
+    await page.waitForSelector(`[data-testid="project-actions-menu-${projectId}"]`, {
+      state: 'visible',
+    });
+
+    // Board container must NOT have aria-hidden
+    const boardContainer = page.locator('.overflow-x-auto');
+    await expect(boardContainer).not.toHaveAttribute('aria-hidden', 'true');
+
+    const cardMenuAxe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
+      .analyze();
+    expect(cardMenuAxe.violations).toEqual([]);
+
+    await page.screenshot({
+      path: path.join(UX_RUN_DIR, 'project-actions-menu-1280px-light.png'),
+    });
+  });
+
+  test('I1-U01: Card action dropdown menu sets modal={false} so kanban board is not marked aria-hidden and triggers zero axe violations', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/en/projects');
+    await expect(page.locator('[data-testid="kanban-column-inquiry"]')).toBeVisible();
+
+    const firstInquiryCard = page
+      .locator('[data-testid="kanban-column-inquiry"]')
+      .locator('[data-testid^="project-card-"]')
+      .first();
+    const cardIdAttr = await firstInquiryCard.getAttribute('data-testid');
+    const projectId = cardIdAttr?.replace('project-card-', '');
+    expect(projectId).toBeDefined();
+    if (!projectId) throw new Error('Expected projectId to be defined');
+
+    const menuTrigger = page.locator(`[data-testid="project-actions-trigger-${projectId}"]`);
+    await menuTrigger.click();
+
+    const menuContent = page.locator(`[data-testid="project-actions-menu-${projectId}"]`);
+    await expect(menuContent).toBeVisible();
+
+    // Verify kanban board container does NOT receive aria-hidden="true"
+    const boardContainer = page.locator('.overflow-x-auto');
+    await expect(boardContainer).not.toHaveAttribute('aria-hidden', 'true');
+
+    // Full WCAG 2.2 AA axe scan with card dropdown open
+    const axeResults = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
+      .analyze();
+    expect(axeResults.violations).toEqual([]);
   });
 });

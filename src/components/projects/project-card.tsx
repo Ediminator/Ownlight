@@ -125,7 +125,7 @@ export function ProjectCard({
         </div>
 
         {/* Action Menu (Accessible Keyboard Alternative - SC 2.5.7 & SC 2.1.1) */}
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"

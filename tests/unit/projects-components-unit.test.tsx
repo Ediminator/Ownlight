@@ -329,6 +329,39 @@ describe('Projects UI Components Unit Tests (renderToStaticMarkup)', () => {
         '01920000-0000-7000-8000-000000000002',
       );
     });
+
+    it('I1-U01 regression: renders DropdownMenu with modal={false} to prevent aria-hidden on board', () => {
+      renderToStaticMarkup(
+        <CaptureCard
+          project={dummyProject1}
+          stages={dummyStages}
+          locale="en"
+          onMoveToStage={vi.fn()}
+        />,
+      );
+
+      function findNodeByProp(node: unknown, prop: string): Record<string, unknown> | undefined {
+        if (!node || typeof node !== 'object') return undefined;
+        if (React.isValidElement(node)) {
+          const props = node.props as Record<string, unknown>;
+          if (prop in props) return props;
+          if (props.children) {
+            const res = findNodeByProp(props.children, prop);
+            if (res) return res;
+          }
+        } else if (Array.isArray(node)) {
+          for (const item of node) {
+            const res = findNodeByProp(item, prop);
+            if (res) return res;
+          }
+        }
+        return undefined;
+      }
+
+      const dropdownProps = findNodeByProp(capturedCardTree, 'modal');
+      expect(dropdownProps).toBeDefined();
+      expect(dropdownProps?.modal).toBe(false);
+    });
   });
 
   describe('KanbanColumn Component', () => {

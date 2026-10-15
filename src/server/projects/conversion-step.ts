@@ -27,7 +27,7 @@ export async function createProjectOnLeadConversion(
   lead: Lead,
   clientId: string,
   tx: DbClient,
-): Promise<{ projectId: string }> {
+): Promise<{ projectId: string; projectTitle: string }> {
   const now = new Date();
 
   // 1. Resolve event type label from inquiry form or key
@@ -253,7 +253,7 @@ export async function createProjectOnLeadConversion(
     'Project atomically created from lead conversion',
   );
 
-  return { projectId };
+  return { projectId, projectTitle };
 }
 
 /**

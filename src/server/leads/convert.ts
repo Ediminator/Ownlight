@@ -18,7 +18,11 @@ export interface ConvertLeadOptions {
 }
 
 export type ConvertLeadResult =
-  | { success: true; clientId: string; data: { clientId: string; projectId?: string } }
+  | {
+      success: true;
+      clientId: string;
+      data: { clientId: string; projectId?: string; projectTitle?: string };
+    }
   | { success: false; code: string; error: string; fields?: string[] };
 
 /**
@@ -215,6 +219,7 @@ export async function convertLeadToClient(
 
     // 7. Execute registered post-conversion steps (AC-7)
     let createdProjectId: string | undefined;
+    let createdProjectTitle: string | undefined;
     const conversionSteps = getLeadConversionSteps();
     for (const step of conversionSteps) {
       const stepRes = await step.run(lead, targetClientId, tx);
@@ -225,6 +230,9 @@ export async function convertLeadToClient(
         typeof stepRes.projectId === 'string'
       ) {
         createdProjectId = stepRes.projectId;
+        if ('projectTitle' in stepRes && typeof stepRes.projectTitle === 'string') {
+          createdProjectTitle = stepRes.projectTitle;
+        }
       }
     }
 
@@ -260,6 +268,7 @@ export async function convertLeadToClient(
       data: {
         clientId: targetClientId,
         ...(createdProjectId ? { projectId: createdProjectId } : {}),
+        ...(createdProjectTitle ? { projectTitle: createdProjectTitle } : {}),
       },
     };
   });

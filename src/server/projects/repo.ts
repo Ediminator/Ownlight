@@ -387,6 +387,7 @@ export interface KanbanProjectRow {
   primaryShootTimezone: string | null;
   currency: string;
   priceMinor: number | null;
+  lastActivityAt: Date;
   createdAt: Date;
 }
 
@@ -403,6 +404,7 @@ export async function findKanbanProjects(tx: DbClient = defaultDb): Promise<Kanb
       primaryShootTimezone: projects.primaryShootTimezone,
       currency: projects.currency,
       priceMinor: projects.priceMinor,
+      lastActivityAt: projects.lastActivityAt,
       createdAt: projects.createdAt,
     })
     .from(projects)
@@ -410,6 +412,19 @@ export async function findKanbanProjects(tx: DbClient = defaultDb): Promise<Kanb
     .orderBy(asc(projects.createdAt));
 
   return rows;
+}
+
+export async function findAllPrimaryShootLocations(
+  tx: DbClient = defaultDb,
+): Promise<{ projectId: string; locationName: string }[]> {
+  return await tx
+    .select({
+      projectId: shoots.projectId,
+      locationName: shootLocations.name,
+    })
+    .from(shoots)
+    .innerJoin(shootLocations, eq(shoots.id, shootLocations.shootId))
+    .orderBy(asc(shoots.startsAt), asc(shootLocations.order));
 }
 
 export async function findAllProjectTasks(tx: DbClient = defaultDb): Promise<

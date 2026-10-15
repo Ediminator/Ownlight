@@ -323,7 +323,13 @@ export async function convertLeadToClientAction(
   maybeInputOrClient?: unknown,
   maybeClient?: DbClient,
 ): Promise<
-  | { success: true; clientId: string; data: { clientId: string } }
+  | {
+      success: true;
+      clientId: string;
+      projectId?: string;
+      projectTitle?: string;
+      data: { clientId: string; projectId?: string; projectTitle?: string };
+    }
   | { success: false; code: string; error: string; fields?: string[] }
 > {
   let client: DbClient = defaultDb;
@@ -391,6 +397,14 @@ export async function convertLeadToClientAction(
   if (result.success) {
     safeRevalidate('/leads');
     safeRevalidate('/clients');
+    safeRevalidate('/projects');
+    return {
+      success: true,
+      clientId: result.clientId,
+      projectId: result.data.projectId,
+      projectTitle: result.data.projectTitle,
+      data: result.data,
+    };
   }
 
   return result;

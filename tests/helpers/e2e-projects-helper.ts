@@ -1,4 +1,5 @@
 import { type PGlite } from '@electric-sql/pglite';
+import { E2E_LEAD_CONVERTED_ID } from './e2e-leads-helper';
 
 export const E2E_STAGE_INQUIRY_ID = '01920000-0000-7000-8000-000000000001';
 export const E2E_STAGE_BOOKED_ID = '01920000-0000-7000-8000-000000000002';
@@ -54,6 +55,7 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
       id: E2E_PROJECT_INQUIRY_1_ID,
       clientId: client0.id,
       stageId: E2E_STAGE_INQUIRY_ID,
+      leadId: E2E_LEAD_CONVERTED_ID,
       title: 'Emma & Liam Wedding',
       projectTypeKey: 'wedding',
       primaryShootStartsAt: '2027-06-19T10:00:00.000Z',
@@ -64,6 +66,7 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
       id: E2E_PROJECT_INQUIRY_2_ID,
       clientId: client1.id,
       stageId: E2E_STAGE_INQUIRY_ID,
+      leadId: null,
       title: 'Lucas Portrait Session',
       projectTypeKey: 'portrait',
       primaryShootStartsAt: '2027-07-10T14:00:00.000Z',
@@ -74,6 +77,7 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
       id: E2E_PROJECT_BOOKED_ID,
       clientId: client2.id,
       stageId: E2E_STAGE_BOOKED_ID,
+      leadId: null,
       title: 'Corporate Campaign',
       projectTypeKey: 'commercial',
       primaryShootStartsAt: '2027-08-01T09:00:00.000Z',
@@ -84,6 +88,7 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
       id: E2E_PROJECT_SHOT_ID,
       clientId: client3.id,
       stageId: E2E_STAGE_SHOT_ID,
+      leadId: null,
       title: 'Sarah & David Engagement',
       projectTypeKey: 'engagement',
       primaryShootStartsAt: '2027-05-15T16:00:00.000Z',
@@ -94,6 +99,7 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
       id: E2E_PROJECT_EDITING_ID,
       clientId: client4.id,
       stageId: E2E_STAGE_EDITING_ID,
+      leadId: null,
       title: 'Sophie & Noah Wedding',
       projectTypeKey: 'wedding',
       primaryShootStartsAt: '2027-04-20T11:00:00.000Z',
@@ -104,6 +110,7 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
       id: E2E_PROJECT_DELIVERED_ID,
       clientId: client5.id,
       stageId: E2E_STAGE_DELIVERED_ID,
+      leadId: null,
       title: 'Fashion Lookbook',
       projectTypeKey: 'editorial',
       primaryShootStartsAt: '2027-03-10T13:00:00.000Z',
@@ -115,17 +122,19 @@ export async function seedAllE2eProjects(pglite: PGlite): Promise<void> {
   for (const p of projectsData) {
     await pglite.query(
       `INSERT INTO projects (
-        id, client_id, stage_id, title, project_type_key, primary_shoot_starts_at,
+        id, client_id, stage_id, lead_id, title, project_type_key, primary_shoot_starts_at,
         currency, price_minor, last_activity_at, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $9)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10)
       ON CONFLICT (id) DO UPDATE SET
         stage_id = EXCLUDED.stage_id,
         title = EXCLUDED.title,
-        price_minor = EXCLUDED.price_minor`,
+        price_minor = EXCLUDED.price_minor,
+        lead_id = EXCLUDED.lead_id`,
       [
         p.id,
         p.clientId,
         p.stageId,
+        p.leadId,
         p.title,
         p.projectTypeKey,
         p.primaryShootStartsAt,

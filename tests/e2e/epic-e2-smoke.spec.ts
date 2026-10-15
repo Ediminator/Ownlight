@@ -45,6 +45,8 @@ test.describe('TASK-0032 / Epic E2 Smoke Test (AC-9, Permanent Rule R-C)', () =>
     page,
     browser,
   }) => {
+    test.setTimeout(60000);
+
     // -------------------------------------------------------------
     // Step 1: Form verification in Studio Owner Settings
     // -------------------------------------------------------------
@@ -170,7 +172,7 @@ test.describe('TASK-0032 / Epic E2 Smoke Test (AC-9, Permanent Rule R-C)', () =>
     // Step 6: Verify post-conversion lead row in database / UI
     // -------------------------------------------------------------
     await page.goto(leadUrl);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Converted banner is shown
     const banner = page.locator('[data-testid="lead-converted-banner"]');

@@ -144,13 +144,25 @@ export default async function ProjectsPage({ params, searchParams }: ProjectsPag
 
       {/* Main Content Area: Board or List View */}
       {isListView ? (
-        <ProjectsTable
-          projects={kanbanData.projects}
-          stages={kanbanData.stages}
-          locale={locale}
-          clients={clients}
-          searchParams={query}
-        />
+        <div data-testid="projects-list-placeholder" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Link
+              href={`/${locale}/projects?view=board`}
+              data-testid="projects-switch-to-board-btn"
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors py-1 min-h-[32px]"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{t('list.backToBoard')}</span>
+            </Link>
+          </div>
+          <ProjectsTable
+            projects={kanbanData.projects}
+            stages={kanbanData.stages}
+            locale={locale}
+            clients={clients}
+            searchParams={query}
+          />
+        </div>
       ) : (
         <KanbanBoard
           initialStages={kanbanData.stages}

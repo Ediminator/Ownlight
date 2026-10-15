@@ -217,6 +217,23 @@ test.describe('TASK-0037: Projects Directory Table & Creation UI E2E Tests', () 
 
     // Redirect to project detail view
     await expect(page).toHaveURL(/\/en\/projects\/[0-9a-f-]{36}/, { timeout: 10000 });
+
+    // Clean up created project to preserve test isolation across pipeline Kanban tests
+    const createdUrl = page.url();
+    const createdProjectId = createdUrl.split('/').pop()?.split('?')[0];
+    if (createdProjectId) {
+      await page.goto('/en/projects?view=list');
+      page.once('dialog', (dialog) => void dialog.accept());
+      const trigger = page.locator(`[data-testid="project-actions-trigger-${createdProjectId}"]`);
+      await expect(trigger).toBeVisible();
+      await trigger.click();
+      const deleteBtn = page.locator(`[data-testid="project-action-delete-${createdProjectId}"]`);
+      await expect(deleteBtn).toBeVisible();
+      await deleteBtn.click();
+      await expect(
+        page.locator(`[data-testid="project-table-row-${createdProjectId}"]`),
+      ).not.toBeVisible();
+    }
   });
 
   test('AC-5 (R-A): lead conversion flow provides direct link pointing to created project', async ({

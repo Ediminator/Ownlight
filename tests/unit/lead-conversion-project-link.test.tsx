@@ -26,11 +26,17 @@ vi.mock('@/i18n/navigation', () => ({
     children,
     href,
     ...props
-  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
-  ),
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => {
+    const localizedHref =
+      href.startsWith('/') && !href.startsWith(`/${currentLocale}`)
+        ? `/${currentLocale}${href}`
+        : href;
+    return (
+      <a href={localizedHref} {...props}>
+        {children}
+      </a>
+    );
+  },
   useRouter: () => ({
     push: mockPush,
     replace: mockReplace,

@@ -19,16 +19,7 @@ export const ERASURE_COVERAGE_ALLOWLIST: readonly ErasureCoverageExemption[] = [
   // - client_notes -> notes
   // - client_timeline_events -> timeline
   // - consent_records -> consents
+  // - projects, project_participants -> projects
   // When future epics introduce tables with client_id or contact_id columns
   // that have statutory retention or non-deletable data, register an exemption here with reasoning.
-  {
-    tableName: 'projects',
-    reason:
-      'Temporary exemption until TASK-0035 registers projectsErasureProvider and active project legal holds.',
-  },
-  {
-    tableName: 'project_participants',
-    reason:
-      'Temporary exemption until TASK-0035 registers projectsErasureProvider for project participant contact records.',
-  },
 ];

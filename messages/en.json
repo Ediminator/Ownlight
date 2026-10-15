@@ -810,6 +810,7 @@
       "categoryTimeline": "Timeline events",
       "categoryConsents": "Consent records",
       "categoryLegalHold": "Legal hold records",
+      "categoryProjects": "Projects & Shoots",
       "holdsTitle": "Erasure blocked by active retention hold",
       "holdsDescription": "This subject cannot be deleted because statutory or legal retention requirements forbid erasure:",
       "retainUntil": "Retain until: {date}",
@@ -841,6 +842,8 @@
       "dismissBanner": "Dismiss"
     },
     "holds": {
+      "active_project": "Active commission / project",
+      "upcoming_shoot": "Upcoming scheduled shoot",
       "manual": {
         "dispute": "Dispute resolution",
         "statutory": "Statutory requirement",

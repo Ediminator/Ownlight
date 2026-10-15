@@ -17,6 +17,7 @@ import type {
   DsarSubjectExport,
 } from './types';
 import { googleContactsExportProvider } from '@/server/integrations/google/export-provider';
+import { projectsExportProvider } from '@/server/projects/privacy/export-provider';
 
 const providerRegistry = new Map<string, ExportProvider>();
 
@@ -371,6 +372,7 @@ export const DEFAULT_PROVIDERS: ExportProvider[] = [
       }));
     },
   },
+  projectsExportProvider,
 ];
 
 function initDefaultProviders(): void {
@@ -385,7 +387,7 @@ initDefaultProviders();
  * Collects and aggregates personal data for one subject (contact or lead) across registered providers.
  */
 export async function collectExportData(
-  target: string | { contactId?: string; leadId?: string },
+  target: string | { contactId?: string; leadId?: string; clientId?: string },
   client: DbClient = defaultDb,
 ): Promise<{ exportData: ExportCollectedData; subject: ExportSubject } | null> {
   const targetObj = typeof target === 'string' ? { contactId: target } : target;
@@ -453,39 +455,64 @@ export async function collectExportData(
     };
   }
 
-  // Contact export path
-  const contactId = targetObj.contactId;
-  if (!contactId) {
+  // Contact or Client export path
+  let contactRow: typeof clientContacts.$inferSelect | undefined;
+  let clientRow: typeof clients.$inferSelect | undefined;
+
+  if (targetObj.contactId) {
+    const [c] = await client
+      .select()
+      .from(clientContacts)
+      .where(eq(clientContacts.id, targetObj.contactId))
+      .limit(1);
+    if (!c) return null;
+    contactRow = c;
+
+    const [cl] = await client
+      .select()
+      .from(clients)
+      .where(eq(clients.id, contactRow.clientId))
+      .limit(1);
+    if (!cl) return null;
+    clientRow = cl;
+  } else if (targetObj.clientId) {
+    const [cl] = await client
+      .select()
+      .from(clients)
+      .where(eq(clients.id, targetObj.clientId))
+      .limit(1);
+    if (!cl) return null;
+    clientRow = cl;
+
+    const [c] = await client
+      .select()
+      .from(clientContacts)
+      .where(eq(clientContacts.clientId, clientRow.id))
+      .orderBy(asc(clientContacts.createdAt))
+      .limit(1);
+    contactRow = c;
+  } else {
     return null;
   }
 
-  // 1. Fetch contact
-  const [contactRow] = await client
-    .select()
-    .from(clientContacts)
-    .where(eq(clientContacts.id, contactId))
-    .limit(1);
-
-  if (!contactRow) {
-    return null;
-  }
-
-  // 2. Fetch client
-  const [clientRow] = await client
-    .select()
-    .from(clients)
-    .where(eq(clients.id, contactRow.clientId))
-    .limit(1);
-
-  if (!clientRow) {
-    return null;
-  }
+  const isClientTarget = Boolean(targetObj.clientId && !targetObj.contactId);
 
   const exportSubject: ExportSubject = {
-    kind: 'contact',
-    contactId: contactRow.id,
+    kind: isClientTarget ? 'client' : 'contact',
+    contactId: contactRow?.id ?? clientRow.id,
     clientId: clientRow.id,
-    contact: contactRow,
+    contact: contactRow ?? {
+      id: clientRow.id,
+      clientId: clientRow.id,
+      givenName: clientRow.displayName,
+      familyName: null,
+      email: null,
+      emailNormalized: null,
+      phone: null,
+      isPrimary: true,
+      createdAt: clientRow.createdAt,
+      updatedAt: clientRow.updatedAt,
+    },
     client: clientRow,
   };
 
@@ -508,19 +535,19 @@ export async function collectExportData(
   }
 
   const fullName =
-    [contactRow.givenName, contactRow.familyName].filter(Boolean).join(' ') ||
+    [contactRow?.givenName, contactRow?.familyName].filter(Boolean).join(' ') ||
     clientRow.displayName;
 
   const subjectExport: DsarSubjectExport = {
-    id: contactRow.id,
+    id: contactRow?.id ?? clientRow.id,
     display_name: fullName,
-    first_name: contactRow.givenName ?? null,
-    last_name: contactRow.familyName ?? null,
-    email: contactRow.email ?? null,
-    phone: contactRow.phone ?? null,
-    role: contactRow.isPrimary ? 'primary' : 'secondary',
-    created_at: contactRow.createdAt.toISOString(),
-    updated_at: contactRow.updatedAt.toISOString(),
+    first_name: contactRow?.givenName ?? null,
+    last_name: contactRow?.familyName ?? null,
+    email: contactRow?.email ?? null,
+    phone: contactRow?.phone ?? null,
+    role: contactRow?.isPrimary ? 'primary' : 'secondary',
+    created_at: (contactRow?.createdAt ?? clientRow.createdAt).toISOString(),
+    updated_at: (contactRow?.updatedAt ?? clientRow.updatedAt).toISOString(),
   };
 
   const exportData: ExportCollectedData = {

@@ -8,6 +8,7 @@ import { clientLegalHolds, isHoldActive } from '@/server/db/schema/client-legal-
 import { leads } from '@/server/db/schema/leads';
 import type { ErasureProvider, ErasureHoldProvider } from './types';
 import { googleContactsErasureProvider } from '@/server/integrations/google/erasure-provider';
+import { projectsErasureProvider, projectsHoldProvider } from '@/server/projects/privacy';
 
 const erasureProviders = new Map<string, ErasureProvider>();
 const holdProviders = new Map<string, ErasureHoldProvider>();
@@ -278,6 +279,7 @@ export const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
     },
   },
   googleContactsErasureProvider,
+  projectsErasureProvider,
   {
     id: 'contacts',
     category: 'contacts',
@@ -504,6 +506,7 @@ export const DEFAULT_HOLD_PROVIDERS: ErasureHoldProvider[] = [
       ];
     },
   },
+  projectsHoldProvider,
 ];
 
 function initDefaultProviders(): void {

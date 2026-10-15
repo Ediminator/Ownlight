@@ -16,14 +16,4 @@ export const EXPORT_COVERAGE_ALLOWLIST: readonly ExportCoverageExemption[] = [
     reason:
       'Internal ephemeral queue for asynchronous Google Contacts API operations, containing no independent personal data not already reflected in client_contacts and google_contacts_links.',
   },
-  {
-    tableName: 'projects',
-    reason:
-      'Temporary exemption until TASK-0035 registers projectsExportProvider for comprehensive GDPR Art. 15/20 data subject access exports.',
-  },
-  {
-    tableName: 'project_participants',
-    reason:
-      'Temporary exemption until TASK-0035 registers projectsExportProvider for project participant contact references and details.',
-  },
 ];

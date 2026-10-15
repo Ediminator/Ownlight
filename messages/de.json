@@ -810,6 +810,7 @@
       "categoryTimeline": "Timeline-Ereignisse",
       "categoryConsents": "Einwilligungsnachweise",
       "categoryLegalHold": "Löschsperre-Einträge",
+      "categoryProjects": "Projekte & Shootings",
       "holdsTitle": "Löschung durch aktive Aufbewahrungsfrist blockiert",
       "holdsDescription": "Diese Daten dürfen nicht gelöscht werden, da gesetzliche oder rechtliche Aufbewahrungspflichten bestehen:",
       "retainUntil": "Aufbewahrung bis: {date}",
@@ -841,6 +842,8 @@
       "dismissBanner": "Meldung ausblenden"
     },
     "holds": {
+      "active_project": "Laufendes Projekt / Auftrag",
+      "upcoming_shoot": "Bevorstehendes geplantes Shooting",
       "manual": {
         "dispute": "Rechtsstreitigkeit",
         "statutory": "Gesetzliche Anforderung",

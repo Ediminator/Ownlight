@@ -7,7 +7,8 @@ import { requireOwner } from '@/server/auth/guards';
 import { getKanbanBoardData } from '@/server/projects/service';
 import { getClientList } from '@/server/clients/service';
 import { KanbanBoard } from '@/components/projects/kanban-board';
-import { NewProjectDialog } from '@/components/projects/new-project-dialog';
+import { CreateProjectDialog } from '@/components/projects/create-project-dialog';
+import { ProjectsTable } from '@/components/projects/projects-table';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export const revalidate = 0;
 
 interface ProjectsPageProps {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; stage?: string; type?: string; date?: string }>;
 }
 
 export async function generateMetadata({
@@ -137,30 +138,30 @@ export default async function ProjectsPage({ params, searchParams }: ProjectsPag
           </div>
 
           {/* New Project Action Button & Dialog */}
-          <NewProjectDialog clients={clients} />
+          <CreateProjectDialog clients={clients} stages={kanbanData.stages} locale={locale} />
         </div>
       </header>
 
       {/* Main Content Area: Board or List View */}
       {isListView ? (
-        <div
-          data-testid="projects-list-placeholder"
-          className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card p-12 text-center text-card-foreground shadow-2xs space-y-4"
-        >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <List className="h-6 w-6" aria-hidden="true" />
+        <div data-testid="projects-list-placeholder" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Link
+              href={`/${locale}/projects?view=board`}
+              data-testid="projects-switch-to-board-btn"
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors py-1 min-h-[32px]"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{t('list.backToBoard')}</span>
+            </Link>
           </div>
-          <div className="space-y-1 max-w-md">
-            <h2 className="text-lg font-semibold text-foreground">{t('list.placeholderTitle')}</h2>
-            <p className="text-sm text-muted-foreground">{t('list.placeholderDesc')}</p>
-          </div>
-          <Link
-            href={`/${locale}/projects?view=board`}
-            data-testid="projects-switch-to-board-btn"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-xs hover:bg-accent hover:text-accent-foreground min-h-[44px] sm:min-h-[36px]"
-          >
-            {t('list.backToBoard')}
-          </Link>
+          <ProjectsTable
+            projects={kanbanData.projects}
+            stages={kanbanData.stages}
+            locale={locale}
+            clients={clients}
+            searchParams={query}
+          />
         </div>
       ) : (
         <KanbanBoard

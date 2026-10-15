@@ -9,6 +9,7 @@ import {
 } from '@/server/db/schema/inquiry-forms';
 import type { ListLeadsQuery, LeadCounts } from './schema';
 import { findDuplicateEmails, type DuplicateEmailMatch } from '@/server/clients/repo';
+import { projects } from '@/server/db/schema/projects';
 
 /**
  * Inserts a new lead record into the database.
@@ -194,6 +195,7 @@ export interface LeadWithDetails {
   noticeVersion?: InquiryFormNoticeVersion | null;
   formEventTypes?: InquiryFormEventType[] | null;
   duplicates?: DuplicateEmailMatch[] | null;
+  project?: { id: string; title: string } | null;
 }
 
 /**
@@ -223,12 +225,23 @@ export async function getLeadWithDetails(
     duplicates = await findDuplicateEmails(lead.emailNormalized, null, client);
   }
 
+  let project: { id: string; title: string } | null = null;
+  const [proj] = await client
+    .select({ id: projects.id, title: projects.title })
+    .from(projects)
+    .where(eq(projects.leadId, lead.id))
+    .limit(1);
+  if (proj) {
+    project = proj;
+  }
+
   return {
     lead,
     formName: form?.name ?? null,
     noticeVersion: noticeVersion ?? null,
     formEventTypes: form?.eventTypes ?? null,
     duplicates,
+    project,
   };
 }
 

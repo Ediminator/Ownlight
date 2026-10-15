@@ -300,6 +300,8 @@ export function LeadDetailView({
     }
   };
 
+  const linkedProjectId = leadWithDetails.project?.id;
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Back Link */}
@@ -331,16 +333,28 @@ export function LeadDetailView({
               })}
             </span>
           </div>
-          {lead.clientId && (
-            <Link
-              href={`/clients/${lead.clientId}`}
-              data-testid="converted-client-link"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-800 hover:bg-emerald-900 text-white dark:bg-emerald-700 dark:hover:bg-emerald-600 text-xs font-semibold shadow-sm transition-colors shrink-0"
-            >
-              <span>{t('convert.viewClient')}</span>
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-            </Link>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {linkedProjectId ? (
+              <Link
+                href={`/projects/${linkedProjectId}`}
+                data-testid="converted-project-link"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-800 hover:bg-emerald-900 text-white dark:bg-emerald-700 dark:hover:bg-emerald-600 text-xs font-semibold shadow-sm transition-colors shrink-0 min-h-[44px] sm:min-h-[32px]"
+              >
+                <span>{t('convert.viewProject')}</span>
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            ) : null}
+            {lead.clientId && (
+              <Link
+                href={`/clients/${lead.clientId}`}
+                data-testid="converted-client-link"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white hover:bg-zinc-100 text-emerald-900 border border-emerald-300 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-emerald-100 dark:border-emerald-700 text-xs font-semibold shadow-sm transition-colors shrink-0 min-h-[44px] sm:min-h-[32px]"
+              >
+                <span>{t('convert.viewClient')}</span>
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            )}
+          </div>
         </div>
       )}
 

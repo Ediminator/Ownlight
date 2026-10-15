@@ -1025,6 +1025,11 @@
       "successToast": "Anfrage erfolgreich in Kund:in umgewandelt",
       "convertedBanner": "In Kund:in umgewandelt am {date}",
       "viewClient": "Kundenprofil anzeigen",
+      "viewProject": "Projekt ansehen",
+      "createdProjectTitle": "Erstelltes Projekt",
+      "successTitle": "Lead erfolgreich konvertiert",
+      "successDescription": "Kundenprofil und verknüpftes Projekt wurden erfolgreich erstellt.",
+      "close": "Schließen",
       "noClientFound": "Kund:in nicht gefunden",
       "errorRequiredClient": "Bitte wählen Sie eine:n bestehende:n Kund:in aus.",
       "errorGeneric": "Umwandlung fehlgeschlagen. Bitte versuchen Sie es erneut."
@@ -1123,8 +1128,50 @@
     },
     "list": {
       "placeholderTitle": "Projektverzeichnis & Listenansicht",
-      "placeholderDesc": "Die tabellarische Listenansicht mit Suche und erweiterten Filtern wird im nächsten Schritt bereitgestellt (TASK-0037).",
+      "placeholderDesc": "Die tabellarische Listenansicht mit Suche und erweiterten Filtern.",
       "backToBoard": "Zurück zum Kanban-Board"
+    },
+    "search": {
+      "label": "Projekte durchsuchen",
+      "placeholder": "Nach Name, Kunde oder Ort suchen...",
+      "clear": "Suche zurücksetzen"
+    },
+    "filters": {
+      "stage": "Phase",
+      "type": "Typ",
+      "date": "Shooting-Termin",
+      "allStages": "Alle Phasen",
+      "allTypes": "Alle Typen",
+      "allDates": "Alle Termine",
+      "upcoming": "Bevorstehende Shootings",
+      "past": "Vergangene Shootings",
+      "unscheduled": "Ohne Termin",
+      "clear": "Filter zurücksetzen",
+      "filterResults": "{count} Projekte angezeigt"
+    },
+    "table": {
+      "title": "Projektname",
+      "client": "Kunde",
+      "type": "Typ",
+      "stage": "Phase",
+      "shootDate": "Shooting-Termin",
+      "tasks": "Aufgaben",
+      "value": "Wert",
+      "lastActivity": "Letzte Aktivität",
+      "actions": "Aktionen",
+      "noShootDate": "Ohne Termin",
+      "noValue": "—",
+      "sortAscending": "{column} aufsteigend sortieren",
+      "sortDescending": "{column} absteigend sortieren",
+      "actionsFor": "Aktionen für {title}",
+      "viewProject": "Projekt ansehen",
+      "moveStage": "Phase ändern",
+      "deleteProject": "Projekt löschen",
+      "deleteConfirm": "Sind Sie sicher, dass Sie {title} löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "deleting": "Wird gelöscht...",
+      "emptyTitle": "Keine Projekte gefunden",
+      "emptyDescription": "Keine Projekte entsprechen den aktuellen Filter- oder Suchkriterien.",
+      "emptyCreate": "Neues Projekt anlegen"
     },
     "types": {
       "wedding": "Hochzeit",
@@ -1132,23 +1179,34 @@
       "commercial": "Kommerziell",
       "event": "Event",
       "video": "Video",
-      "general": "Allgemein"
+      "general": "Allgemein",
+      "engagement": "Verlobung",
+      "editorial": "Editorial"
     },
     "create": {
       "title": "Neues Projekt anlegen",
       "description": "Starten Sie einen neuen Auftrag und platzieren Sie ihn in der Pipeline.",
-      "projectTitle": "Projekttitel",
-      "projectTitlePlaceholder": "z. B. Hochzeit Emma & Liam",
-      "client": "Kund:in",
-      "selectClient": "Kund:in auswählen...",
+      "projectTitle": "Projektname",
+      "projectTitlePlaceholder": "z. B. Emma & Liam Hochzeit",
+      "client": "Kunde",
+      "selectClient": "Kunde auswählen...",
+      "createNewClient": "Neuen Kunden anlegen",
       "projectType": "Projekttyp",
+      "stage": "Startphase",
       "price": "Vereinbarter Preis (EUR)",
       "pricePlaceholder": "z. B. 2500",
+      "shootDate": "Shooting-Termin",
+      "shootLocation": "Shooting-Ort",
+      "shootLocationPlaceholder": "z. B. Botanischer Garten, Adresse",
+      "notes": "Notizen",
+      "notesPlaceholder": "Interne Projektnotizen...",
       "submit": "Projekt anlegen",
       "submitting": "Wird angelegt...",
       "cancel": "Abbrechen",
-      "errorTitleRequired": "Projekttitel ist erforderlich",
-      "errorClientRequired": "Bitte wählen Sie eine:n Kund:in aus"
+      "errorTitleRequired": "Projektname ist erforderlich",
+      "errorClientRequired": "Bitte wählen Sie einen Kunden aus",
+      "successToast": "Projekt erfolgreich erstellt",
+      "errorGeneric": "Projekt konnte nicht erstellt werden"
     }
   }
 }

@@ -1142,6 +1142,7 @@ export interface KanbanProject {
   projectTypeKey: string;
   primaryShootStartsAt: string | null;
   primaryShootTimezone: string | null;
+  primaryShootLocationName: string | null;
   currency: string;
   priceMinor: number | null;
   taskCount: number;
@@ -1151,6 +1152,7 @@ export interface KanbanProject {
     title: string;
     stageId: string | null;
   }[];
+  lastActivityAt: string;
 }
 
 export interface KanbanBoardData {
@@ -1159,13 +1161,21 @@ export interface KanbanBoardData {
 }
 
 export async function getKanbanBoardData(tx: DbClient = defaultDb): Promise<KanbanBoardData> {
-  const [stages, projectRows, allTasks] = await Promise.all([
+  const [stages, projectRows, allTasks, locationRows] = await Promise.all([
     getPipelineStages(tx),
     repo.findKanbanProjects(tx),
     repo.findAllProjectTasks(tx),
+    repo.findAllPrimaryShootLocations(tx),
   ]);
 
   const stageMap = new Map<string, PipelineStage>(stages.map((s) => [s.id, s]));
+
+  const locationMap = new Map<string, string>();
+  for (const loc of locationRows) {
+    if (!locationMap.has(loc.projectId)) {
+      locationMap.set(loc.projectId, loc.locationName);
+    }
+  }
 
   const tasksByProject = new Map<string, typeof allTasks>();
   for (const t of allTasks) {
@@ -1201,11 +1211,13 @@ export async function getKanbanBoardData(tx: DbClient = defaultDb): Promise<Kanb
       projectTypeKey: p.projectTypeKey,
       primaryShootStartsAt: p.primaryShootStartsAt ? p.primaryShootStartsAt.toISOString() : null,
       primaryShootTimezone: p.primaryShootTimezone,
+      primaryShootLocationName: locationMap.get(p.id) ?? null,
       currency: p.currency,
       priceMinor: p.priceMinor,
       taskCount,
       completedTaskCount,
       incompleteTasks,
+      lastActivityAt: p.lastActivityAt.toISOString(),
     };
   });
 

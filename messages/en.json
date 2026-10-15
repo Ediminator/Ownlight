@@ -1025,6 +1025,11 @@
       "successToast": "Lead successfully converted to client",
       "convertedBanner": "Converted to client on {date}",
       "viewClient": "View client profile",
+      "viewProject": "View project",
+      "createdProjectTitle": "Created Project",
+      "successTitle": "Lead successfully converted",
+      "successDescription": "Client profile and linked project have been created.",
+      "close": "Close",
       "noClientFound": "Client not found",
       "errorRequiredClient": "Please select an existing client to link.",
       "errorGeneric": "Conversion failed. Please try again."
@@ -1123,8 +1128,50 @@
     },
     "list": {
       "placeholderTitle": "Project Directory & List View",
-      "placeholderDesc": "The tabular list view with search and advanced filters will be available in the next release (TASK-0037).",
+      "placeholderDesc": "The tabular list view with search and advanced filters.",
       "backToBoard": "Back to Kanban Board"
+    },
+    "search": {
+      "label": "Search projects",
+      "placeholder": "Search by title, client, or location...",
+      "clear": "Clear search"
+    },
+    "filters": {
+      "stage": "Stage",
+      "type": "Type",
+      "date": "Shoot Date",
+      "allStages": "All stages",
+      "allTypes": "All types",
+      "allDates": "All dates",
+      "upcoming": "Upcoming shoots",
+      "past": "Past shoots",
+      "unscheduled": "Unscheduled",
+      "clear": "Clear filters",
+      "filterResults": "Showing {count} projects"
+    },
+    "table": {
+      "title": "Project Title",
+      "client": "Client",
+      "type": "Type",
+      "stage": "Stage",
+      "shootDate": "Shoot Date & Time",
+      "tasks": "Tasks",
+      "value": "Value",
+      "lastActivity": "Last Activity",
+      "actions": "Actions",
+      "noShootDate": "Unscheduled",
+      "noValue": "—",
+      "sortAscending": "Sort {column} ascending",
+      "sortDescending": "Sort {column} descending",
+      "actionsFor": "Actions for {title}",
+      "viewProject": "View project",
+      "moveStage": "Move stage",
+      "deleteProject": "Delete project",
+      "deleteConfirm": "Are you sure you want to delete {title}? This action cannot be undone.",
+      "deleting": "Deleting...",
+      "emptyTitle": "No projects found",
+      "emptyDescription": "No projects match the selected filters or search terms.",
+      "emptyCreate": "Create Project"
     },
     "types": {
       "wedding": "Wedding",
@@ -1132,7 +1179,9 @@
       "commercial": "Commercial",
       "event": "Event",
       "video": "Video",
-      "general": "General"
+      "general": "General",
+      "engagement": "Engagement",
+      "editorial": "Editorial"
     },
     "create": {
       "title": "Create New Project",
@@ -1141,14 +1190,23 @@
       "projectTitlePlaceholder": "e.g. Emma & Liam Wedding",
       "client": "Client",
       "selectClient": "Select a client...",
+      "createNewClient": "Create new client",
       "projectType": "Project Type",
+      "stage": "Initial Stage",
       "price": "Agreed Price (EUR)",
       "pricePlaceholder": "e.g. 2500",
+      "shootDate": "Primary Shoot Date & Time",
+      "shootLocation": "Primary Shoot Location",
+      "shootLocationPlaceholder": "e.g. Botanical Gardens, Venue address",
+      "notes": "Internal Notes",
+      "notesPlaceholder": "Internal photographer notes...",
       "submit": "Create Project",
       "submitting": "Creating...",
       "cancel": "Cancel",
       "errorTitleRequired": "Project title is required",
-      "errorClientRequired": "Please select a client"
+      "errorClientRequired": "Please select a client",
+      "successToast": "Project created successfully",
+      "errorGeneric": "Failed to create project"
     }
   }
 }

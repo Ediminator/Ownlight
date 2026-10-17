@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { generateUuidV7 } from '@/lib/id';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
 import { clients } from '@/server/db/schema/clients';
+import { getClientById } from '@/server/clients/repo';
 import {
   type Project,
   type PipelineStage,
@@ -1225,4 +1226,194 @@ export async function getKanbanBoardData(tx: DbClient = defaultDb): Promise<Kanb
     stages,
     projects: kanbanProjects,
   };
+}
+
+export interface ProjectDetailShootLocation extends ShootLocation {
+  shootTitle?: string;
+}
+
+export interface ProjectDetailTimelineItem extends ShootTimelineItem {
+  shootTitle?: string;
+  locationName?: string | null;
+}
+
+export interface ProjectDetailParticipant extends ProjectParticipant {
+  contactDisplayName?: string | null;
+}
+
+export interface ProjectDetailData {
+  project: Project;
+  client: {
+    id: string;
+    displayName: string;
+    email: string | null;
+    phone: string | null;
+  };
+  stages: PipelineStage[];
+  currentStage: PipelineStage | null;
+  shoots: Shoot[];
+  locations: ProjectDetailShootLocation[];
+  timelineItems: ProjectDetailTimelineItem[];
+  participants: ProjectDetailParticipant[];
+  tasks: ProjectTask[];
+  clientContacts: {
+    id: string;
+    displayName: string;
+    email: string | null;
+    phone: string | null;
+    isPrimary: boolean;
+  }[];
+}
+
+export async function getProjectDetail(
+  projectId: string,
+  tx: DbClient = defaultDb,
+): Promise<ProjectDetailData | null> {
+  const project = await repo.findProjectById(projectId, tx);
+  if (!project) return null;
+
+  const [stages, clientData, shoots, participants, tasks] = await Promise.all([
+    getPipelineStages(tx),
+    getClientById(project.clientId, tx),
+    repo.findShootsByProjectId(projectId, tx),
+    repo.findParticipantsByProjectId(projectId, tx),
+    repo.findTasksByProjectId(projectId, tx),
+  ]);
+
+  if (!clientData) return null;
+
+  const currentStage = stages.find((s) => s.id === project.stageId) ?? null;
+
+  const locationsArrays = await Promise.all(
+    shoots.map(async (s) => {
+      const locs = await repo.findLocationsByShootId(s.id, tx);
+      return locs.map((l) => ({
+        ...l,
+        shootTitle: s.title,
+      }));
+    }),
+  );
+  const allLocations: ProjectDetailShootLocation[] = locationsArrays.flat();
+  const locationMap = new Map<string, string>(allLocations.map((l) => [l.id, l.name]));
+
+  const timelineArrays = await Promise.all(
+    shoots.map(async (s) => {
+      const items = await repo.findTimelineItemsByShootId(s.id, tx);
+      return items.map((ti) => ({
+        ...ti,
+        shootTitle: s.title,
+        locationName: ti.locationId ? (locationMap.get(ti.locationId) ?? null) : null,
+      }));
+    }),
+  );
+  const allTimelineItems: ProjectDetailTimelineItem[] = timelineArrays.flat().sort((a, b) => {
+    const timeDiff = new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
+    if (timeDiff !== 0) return timeDiff;
+    return a.order - b.order;
+  });
+
+  const contactMap = new Map<string, string>();
+  for (const c of clientData.contacts) {
+    const fullName =
+      [c.givenName, c.familyName].filter(Boolean).join(' ') || clientData.client.displayName;
+    contactMap.set(c.id, fullName);
+  }
+
+  const enhancedParticipants: ProjectDetailParticipant[] = participants.map((p) => ({
+    ...p,
+    contactDisplayName: p.contactId ? (contactMap.get(p.contactId) ?? p.name) : p.name,
+  }));
+
+  const clientContacts = clientData.contacts.map((c) => ({
+    id: c.id,
+    displayName:
+      [c.givenName, c.familyName].filter(Boolean).join(' ') || clientData.client.displayName,
+    email: c.email,
+    phone: c.phone,
+    isPrimary: c.isPrimary,
+  }));
+
+  const primaryContact = clientData.contacts.find((c) => c.isPrimary) ?? clientData.contacts[0];
+
+  return {
+    project,
+    client: {
+      id: clientData.client.id,
+      displayName: clientData.client.displayName,
+      email: primaryContact?.email ?? null,
+      phone: primaryContact?.phone ?? null,
+    },
+    stages,
+    currentStage,
+    shoots,
+    locations: allLocations,
+    timelineItems: allTimelineItems,
+    participants: enhancedParticipants,
+    tasks,
+    clientContacts,
+  };
+}
+
+export interface ClientProjectSummary {
+  id: string;
+  title: string;
+  projectTypeKey: string;
+  stageId: string;
+  stageKey: string;
+  stageName: string;
+  stageColor: string;
+  primaryShootStartsAt: string | null;
+  primaryShootTimezone: string | null;
+  currency: string;
+  priceMinor: number | null;
+  taskCount: number;
+  completedTaskCount: number;
+  createdAt: string;
+}
+
+export async function getProjectsForClient(
+  clientId: string,
+  tx: DbClient = defaultDb,
+): Promise<ClientProjectSummary[]> {
+  const [stages, clientProjects, allTasks] = await Promise.all([
+    getPipelineStages(tx),
+    repo.findProjectsByClientId(clientId, tx),
+    repo.findAllProjectTasks(tx),
+  ]);
+
+  const stageMap = new Map<string, PipelineStage>(stages.map((s) => [s.id, s]));
+
+  const tasksByProject = new Map<string, typeof allTasks>();
+  for (const t of allTasks) {
+    let list = tasksByProject.get(t.projectId);
+    if (!list) {
+      list = [];
+      tasksByProject.set(t.projectId, list);
+    }
+    list.push(t);
+  }
+
+  return clientProjects.map((p) => {
+    const stage = stageMap.get(p.stageId);
+    const pTasks = tasksByProject.get(p.id) ?? [];
+    const taskCount = pTasks.length;
+    const completedTaskCount = pTasks.filter((t) => t.isCompleted).length;
+
+    return {
+      id: p.id,
+      title: p.title,
+      projectTypeKey: p.projectTypeKey,
+      stageId: p.stageId,
+      stageKey: stage?.key ?? 'inquiry',
+      stageName: stage?.name ?? 'Inquiry',
+      stageColor: stage?.color ?? 'neutral',
+      primaryShootStartsAt: p.primaryShootStartsAt ? p.primaryShootStartsAt.toISOString() : null,
+      primaryShootTimezone: p.primaryShootTimezone,
+      currency: p.currency,
+      priceMinor: p.priceMinor,
+      taskCount,
+      completedTaskCount,
+      createdAt: p.createdAt.toISOString(),
+    };
+  });
 }

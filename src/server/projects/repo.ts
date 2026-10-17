@@ -58,6 +58,17 @@ export async function deleteProjectRecord(id: string, tx: DbClient = defaultDb):
   return res.length > 0;
 }
 
+export async function findProjectsByClientId(
+  clientId: string,
+  tx: DbClient = defaultDb,
+): Promise<Project[]> {
+  return await tx
+    .select()
+    .from(projects)
+    .where(eq(projects.clientId, clientId))
+    .orderBy(asc(projects.createdAt));
+}
+
 /**
  * Recalculates and updates the denormalized primary shoot starts_at and timezone
  * on the parent project row by finding the earliest scheduled shoot.

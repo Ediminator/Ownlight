@@ -97,6 +97,7 @@ vi.mock('@/server/projects/service', () => ({
     stages: [],
     projects: [],
   }),
+  getProjectsForClient: vi.fn().mockResolvedValue([]),
 }));
 
 describe('App placeholder and auth pages', () => {

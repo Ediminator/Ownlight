@@ -4,6 +4,7 @@ import 'server-only';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
+import type { Shoot, ProjectTask } from '@/server/db/schema/projects';
 import {
   requireOwnerWebSession,
   extractBearerToken,
@@ -227,7 +228,7 @@ export async function transitionProjectStageAction(
 export async function createShootAction(
   rawInput: unknown,
   client: DbClient = defaultDb,
-): Promise<service.ServiceResult<{ shootId: string; shoot: unknown }>> {
+): Promise<service.ServiceResult<{ shootId: string; shoot: Shoot }>> {
   if (await checkBearerRejection()) {
     return { success: false, code: 'UNAUTHORIZED', error: 'UNAUTHORIZED' };
   }
@@ -263,7 +264,7 @@ export async function createShootAction(
 export async function updateShootAction(
   rawInput: unknown,
   client: DbClient = defaultDb,
-): Promise<service.ServiceResult<{ shoot: unknown }>> {
+): Promise<service.ServiceResult<{ shoot: Shoot }>> {
   if (await checkBearerRejection()) {
     return { success: false, code: 'UNAUTHORIZED', error: 'UNAUTHORIZED' };
   }
@@ -631,7 +632,7 @@ export async function deleteProjectParticipantAction(
 export async function createProjectTaskAction(
   rawInput: unknown,
   client: DbClient = defaultDb,
-): Promise<service.ServiceResult<{ taskId: string; task: unknown }>> {
+): Promise<service.ServiceResult<{ taskId: string; task: ProjectTask }>> {
   if (await checkBearerRejection()) {
     return { success: false, code: 'UNAUTHORIZED', error: 'UNAUTHORIZED' };
   }
@@ -667,7 +668,7 @@ export async function createProjectTaskAction(
 export async function toggleProjectTaskAction(
   rawInput: unknown,
   client: DbClient = defaultDb,
-): Promise<service.ServiceResult<{ task: unknown }>> {
+): Promise<service.ServiceResult<{ task: ProjectTask }>> {
   if (await checkBearerRejection()) {
     return { success: false, code: 'UNAUTHORIZED', error: 'UNAUTHORIZED' };
   }

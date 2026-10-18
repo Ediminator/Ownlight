@@ -16,6 +16,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Mail,
+  FolderKanban,
+  ArrowRightCircle,
 } from 'lucide-react';
 import type { ResolvedTimelineItem } from '@/server/timeline/repo';
 import { formatDateTime } from '@/lib/formatters';
@@ -349,6 +351,12 @@ export function ClientTimeline({
                       {event.type === 'lead.converted' && (
                         <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                       )}
+                      {event.type === 'project.created' && (
+                        <FolderKanban className="h-4 w-4 text-primary" />
+                      )}
+                      {event.type === 'project.stage_changed' && (
+                        <ArrowRightCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      )}
                       {isNote && <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
                     </span>
 
@@ -356,6 +364,21 @@ export function ClientTimeline({
                       <div className="flex flex-wrap items-center gap-1.5 font-medium text-foreground">
                         {event.type === 'client.created' && (
                           <span>{t('events.client_created')}</span>
+                        )}
+                        {event.type === 'project.created' && (
+                          <span>{t('events.project_created')}</span>
+                        )}
+                        {event.type === 'project.stage_changed' && (
+                          <span>
+                            {t('events.project_stage_changed', {
+                              from_stage:
+                                typeof event.data.from_stage === 'string'
+                                  ? event.data.from_stage
+                                  : '',
+                              to_stage:
+                                typeof event.data.to_stage === 'string' ? event.data.to_stage : '',
+                            })}
+                          </span>
                         )}
                         {event.type === 'inquiry.received' && (
                           <span>{t('events.inquiry_received')}</span>

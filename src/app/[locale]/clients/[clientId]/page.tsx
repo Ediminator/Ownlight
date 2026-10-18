@@ -9,6 +9,7 @@ import { listConsentsForClient } from '@/server/consents/repo';
 import { getStudioSettings } from '@/server/settings/repo';
 import { getLegalHold } from '@/server/clients/legal-hold-repo';
 import { getClientRetentionMonths } from '@/server/retention/policy';
+import { getProjectsForClient } from '@/server/projects/service';
 import { ClientProfile } from '@/components/clients/client-profile';
 
 export const dynamic = 'force-dynamic';
@@ -54,13 +55,15 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
     return null;
   }
 
-  const [clientRes, timelineRes, consentsData, settings, legalHold] = await Promise.all([
-    getClient(clientId),
-    listTimeline(clientId).catch(() => null),
-    listConsentsForClient(clientId).catch(() => null),
-    getStudioSettings().catch(() => null),
-    getLegalHold(clientId).catch(() => null),
-  ]);
+  const [clientRes, timelineRes, consentsData, settings, legalHold, projectsData] =
+    await Promise.all([
+      getClient(clientId),
+      listTimeline(clientId).catch(() => null),
+      listConsentsForClient(clientId).catch(() => null),
+      getStudioSettings().catch(() => null),
+      getLegalHold(clientId).catch(() => null),
+      getProjectsForClient(clientId).catch(() => []),
+    ]);
 
   if (!clientRes.success) {
     notFound();
@@ -79,6 +82,7 @@ export default async function ClientProfilePage({ params }: ClientProfilePagePro
         initialConsents={consentsData ?? undefined}
         initialLegalHold={legalHold}
         retentionMonths={getClientRetentionMonths()}
+        initialProjects={projectsData}
       />
     </div>
   );

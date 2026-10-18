@@ -19,8 +19,11 @@ import {
   Download,
   UserX,
   Cloud,
+  FolderKanban,
+  CheckSquare,
 } from 'lucide-react';
 import type { ClientWithRelations, ClientTagItem } from '@/server/clients/repo';
+import type { ClientProjectSummary } from '@/server/projects/service';
 import type { ClientGoogleSyncStatus } from '@/server/integrations/google/outbox';
 import type { ErasureSubject } from '@/server/privacy/erasure/types';
 import type {
@@ -31,7 +34,7 @@ import type {
   ClientLocale,
   AddressType,
 } from '@/server/db/schema/clients';
-import { formatDateTime } from '@/lib/formatters';
+import { formatDateTime, formatCurrency, formatDate } from '@/lib/formatters';
 import { getLocalizedCountryName } from '@/lib/countries';
 import {
   removeContactAction,
@@ -61,6 +64,7 @@ export interface ClientProfileProps {
   initialConsents?: ClientConsentsResult;
   initialLegalHold?: ClientLegalHoldData | null;
   retentionMonths?: number;
+  initialProjects?: ClientProjectSummary[];
 }
 
 export function ClientProfile({
@@ -71,6 +75,7 @@ export function ClientProfile({
   initialConsents,
   initialLegalHold,
   retentionMonths,
+  initialProjects = [],
 }: ClientProfileProps) {
   const t = useTranslations('clients.profile');
   const tForm = useTranslations('clients.form');
@@ -86,6 +91,7 @@ export function ClientProfile({
   const [contacts, setContacts] = React.useState<ClientContact[]>(clientData.contacts);
   const [addresses, setAddresses] = React.useState<ClientAddress[]>(clientData.addresses);
   const [tags, setTags] = React.useState<ClientTagItem[]>(clientData.tags);
+  const projects = initialProjects;
 
   // Status message for screen reader announcements and banner (AC-1, AC-13)
   const [statusMessage, setStatusMessage] = React.useState<string | null>(() =>
@@ -703,6 +709,101 @@ export function ClientProfile({
           announceAndFocus(msg);
         }}
       />
+
+      {/* Projects Section (TASK-0038 / AC-6) */}
+      <section
+        aria-labelledby="client-projects-heading"
+        className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4"
+        data-testid="client-projects-section"
+      >
+        <div className="flex items-center justify-between border-b pb-3">
+          <div className="flex items-center gap-2">
+            <FolderKanban className="h-5 w-5 text-primary" aria-hidden="true" />
+            <h2 id="client-projects-heading" className="text-lg font-semibold text-foreground">
+              {t('projectsTitle')}
+            </h2>
+          </div>
+          {projects.length > 0 && (
+            <span
+              className="text-xs font-medium text-muted-foreground"
+              data-testid="client-projects-count"
+            >
+              {projects.length}
+            </span>
+          )}
+        </div>
+
+        {projects.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-2" data-testid="client-projects-empty">
+            {t('noProjects')}
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="client-projects-list">
+            {projects.map((p) => {
+              const formattedDate = p.primaryShootStartsAt
+                ? formatDate(p.primaryShootStartsAt, locale, {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })
+                : null;
+              const formattedPrice =
+                p.priceMinor !== null ? formatCurrency(p.priceMinor, p.currency, locale) : null;
+
+              return (
+                <div
+                  key={p.id}
+                  className="rounded-lg border border-border bg-card p-4 text-card-foreground shadow-2xs hover:shadow-sm transition-all space-y-2 flex flex-col justify-between"
+                  data-testid={`client-project-card-${p.id}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      href={`/${locale}/projects/${p.id}`}
+                      className="font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded text-sm sm:text-base leading-snug line-clamp-2"
+                      data-testid={`client-project-link-${p.id}`}
+                    >
+                      {p.title}
+                    </Link>
+
+                    <span
+                      data-testid={`client-project-stage-${p.id}`}
+                      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize shrink-0 bg-primary/10 text-primary border border-primary/20"
+                    >
+                      {p.stageName}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground pt-1">
+                    <span
+                      data-testid={`client-project-date-${p.id}`}
+                      className="inline-flex items-center gap-1"
+                    >
+                      <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span>{formattedDate ?? t('noShootDate')}</span>
+                    </span>
+
+                    {p.taskCount > 0 && (
+                      <span className="inline-flex items-center gap-1">
+                        <CheckSquare className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        <span>
+                          {t('tasksCount', {
+                            completed: p.completedTaskCount,
+                            total: p.taskCount,
+                          })}
+                        </span>
+                      </span>
+                    )}
+
+                    {formattedPrice && (
+                      <span className="font-medium text-foreground ml-auto">{formattedPrice}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       {/* Timeline & Notes Section (TASK-0013) */}
       <ClientTimeline

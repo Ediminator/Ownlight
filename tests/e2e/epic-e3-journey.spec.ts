@@ -2,7 +2,6 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 import path from 'node:path';
-import { PGlite } from '@electric-sql/pglite';
 import { E2E_OWNER_EMAIL, E2E_OWNER_PASSWORD } from '../helpers/e2e-global-setup';
 import { E2E_INQUIRY_PUBLISHED_SLUG } from '../helpers/e2e-inquiry-helper';
 import { E2E_PROJECT_INQUIRY_1_ID } from '../helpers/e2e-projects-helper';
@@ -55,68 +54,11 @@ async function ensureOwnerBootstrappedAndSignedIn(page: import('@playwright/test
   }
 }
 
-// Track created entities for rigorous cleanup in afterAll
 const TEST_LEAD_EMAIL = `e3-journey-${String(Date.now())}@example.com`;
-let createdLeadId: string | null = null;
-let createdClientId: string | null = null;
-let createdProjectId: string | null = null;
-
-async function cleanupCreatedRecords() {
-  let pglite: PGlite | null = null;
-  try {
-    pglite = new PGlite(path.resolve('./.pglite-e2e'));
-    await pglite.waitReady;
-
-    if (createdProjectId) {
-      await pglite.query(`DELETE FROM project_tasks WHERE project_id = $1`, [createdProjectId]);
-      await pglite.query(`DELETE FROM project_participants WHERE project_id = $1`, [
-        createdProjectId,
-      ]);
-      await pglite.query(
-        `DELETE FROM shoot_timeline_items WHERE shoot_id IN (SELECT id FROM shoots WHERE project_id = $1)`,
-        [createdProjectId],
-      );
-      await pglite.query(
-        `DELETE FROM shoot_locations WHERE shoot_id IN (SELECT id FROM shoots WHERE project_id = $1)`,
-        [createdProjectId],
-      );
-      await pglite.query(`DELETE FROM shoots WHERE project_id = $1`, [createdProjectId]);
-      await pglite.query(`DELETE FROM projects WHERE id = $1`, [createdProjectId]);
-    }
-
-    if (createdClientId) {
-      await pglite.query(`DELETE FROM client_timeline_events WHERE client_id = $1`, [
-        createdClientId,
-      ]);
-      await pglite.query(`DELETE FROM client_contacts WHERE client_id = $1`, [createdClientId]);
-      await pglite.query(`DELETE FROM clients WHERE id = $1`, [createdClientId]);
-    }
-
-    if (createdLeadId) {
-      await pglite.query(`DELETE FROM leads WHERE id = $1`, [createdLeadId]);
-    } else {
-      await pglite.query(`DELETE FROM leads WHERE email = $1`, [TEST_LEAD_EMAIL]);
-    }
-  } catch (err) {
-    console.error('Failed to cleanup E3 journey test data:', err);
-  } finally {
-    if (pglite) {
-      try {
-        await pglite.close();
-      } catch {
-        // ignore
-      }
-    }
-  }
-}
 
 test.describe('TASK-0038: Epic E3 Complete Journey & Project Fulfillment E2E', () => {
   test.beforeAll(() => {
     fs.mkdirSync(UX_RUN_DIR, { recursive: true });
-  });
-
-  test.afterAll(async () => {
-    await cleanupCreatedRecords();
   });
 
   test('AC-7: Complete Epic E3 workflow: public inquiry -> lead conversion -> Kanban -> Booked stage transition -> project detail fulfillment -> client profile projects & timeline -> DSAR export', async ({
@@ -127,6 +69,9 @@ test.describe('TASK-0038: Epic E3 Complete Journey & Project Fulfillment E2E', (
     // -------------------------------------------------------------
     // Step 1: Client submits public inquiry form
     // -------------------------------------------------------------
+    await page.setExtraHTTPHeaders({
+      'x-forwarded-for': '198.51.100.99',
+    });
     await page.goto(`/en/f/${E2E_INQUIRY_PUBLISHED_SLUG}`);
     await expect(page.locator('h1')).toBeVisible();
 
@@ -141,6 +86,7 @@ test.describe('TASK-0038: Epic E3 Complete Journey & Project Fulfillment E2E', (
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL(`/en/f/${E2E_INQUIRY_PUBLISHED_SLUG}/thanks`);
     await expect(page.locator('h1')).toContainText('Thank you for your inquiry');
+    await page.setExtraHTTPHeaders({});
 
     // -------------------------------------------------------------
     // Step 2: Studio reviews lead and converts to client
@@ -159,7 +105,7 @@ test.describe('TASK-0038: Epic E3 Complete Journey & Project Fulfillment E2E', (
 
     const leadUrl = page.url();
     const leadIdMatch = /\/leads\/([0-9a-f-]{36})/.exec(leadUrl);
-    createdLeadId = leadIdMatch?.[1] ?? null;
+    const createdLeadId = leadIdMatch?.[1] ?? null;
 
     // Convert lead to client
     const convertBtn = page.locator('[data-testid="convert-lead-btn"]');
@@ -178,7 +124,7 @@ test.describe('TASK-0038: Epic E3 Complete Journey & Project Fulfillment E2E', (
     await expect(page).toHaveURL(/\/en\/clients\/[0-9a-f-]{36}/);
     const clientUrl = page.url();
     const clientIdMatch = /\/clients\/([0-9a-f-]{36})/.exec(clientUrl);
-    createdClientId = clientIdMatch?.[1] ?? null;
+    const createdClientId = clientIdMatch?.[1] ?? null;
     const clientHref = `/en/clients/${createdClientId ?? ''}`;
 
     // Verify client projects section displays the converted project
@@ -189,7 +135,6 @@ test.describe('TASK-0038: Epic E3 Complete Journey & Project Fulfillment E2E', (
     await expect(projectCardLink).toBeVisible();
     const projectHref = await projectCardLink.getAttribute('href');
     expect(projectHref).toMatch(/\/en\/projects\/[0-9a-f-]{36}/);
-    createdProjectId = /\/projects\/([0-9a-f-]{36})/.exec(projectHref ?? '')?.[1] ?? null;
 
     // Verify converted banner is displayed on lead detail page
     if (createdLeadId) {
@@ -382,6 +327,17 @@ test.describe('TASK-0038: Epic E3 Complete Journey & Project Fulfillment E2E', (
       expect(projCategory).toBeDefined();
       expect(Array.isArray(projCategory) && projCategory.length > 0).toBe(true);
     }
+
+    // -------------------------------------------------------------
+    // Step 9: Clean up created project to preserve baseline Kanban seed counts
+    // -------------------------------------------------------------
+    await page.goto(projectHref);
+    await page.click('[data-testid="delete-project-btn"]');
+    const deleteDialog = page.locator('[data-testid="delete-project-dialog"]');
+    await expect(deleteDialog).toBeVisible();
+    await page.waitForTimeout(300);
+    await page.click('[data-testid="delete-project-confirm-btn"]');
+    await expect(page).toHaveURL(/\/en\/projects$/);
   });
 
   test('AC-8: German locale /de/projects/[id] renders German UI labels and formatted dates', async ({

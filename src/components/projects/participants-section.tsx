@@ -576,6 +576,7 @@ export function ParticipantsSection({
                   setIsAddOpen(false);
                 }}
                 disabled={isAdding}
+                data-testid="add-participant-cancel-btn"
                 className="min-h-[44px] sm:min-h-[36px]"
               >
                 {tDetail('cancel')}
@@ -631,6 +632,7 @@ export function ParticipantsSection({
                 setDeletingParticipant(null);
               }}
               disabled={isDeleting}
+              data-testid="delete-participant-cancel-btn"
               className="min-h-[44px] sm:min-h-[36px]"
             >
               {tDetail('cancel')}

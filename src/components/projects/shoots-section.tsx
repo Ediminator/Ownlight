@@ -496,6 +496,7 @@ export function ShootsSection({
                   setIsAddOpen(false);
                 }}
                 disabled={isAdding}
+                data-testid="add-shoot-cancel-btn"
                 className="min-h-[44px] sm:min-h-[36px]"
               >
                 {tDetail('cancel')}
@@ -658,6 +659,7 @@ export function ShootsSection({
                   setEditingShoot(null);
                 }}
                 disabled={isEditing}
+                data-testid="edit-shoot-cancel-btn"
                 className="min-h-[44px] sm:min-h-[36px]"
               >
                 {tDetail('cancel')}
@@ -713,6 +715,7 @@ export function ShootsSection({
                 setDeletingShoot(null);
               }}
               disabled={isDeleting}
+              data-testid="delete-shoot-cancel-btn"
               className="min-h-[44px] sm:min-h-[36px]"
             >
               {tDetail('cancel')}

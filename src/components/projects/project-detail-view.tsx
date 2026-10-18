@@ -273,7 +273,7 @@ export function ProjectDetailView({ initialData, locale }: ProjectDetailViewProp
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto" data-testid="project-detail-view">
       {/* Back Link */}
       <nav aria-label="Breadcrumb" data-testid="project-breadcrumb">
         <Link
@@ -726,6 +726,7 @@ export function ProjectDetailView({ initialData, locale }: ProjectDetailViewProp
                   setIsEditOpen(false);
                 }}
                 disabled={isSavingProject}
+                data-testid="edit-project-cancel-btn"
                 className="min-h-[44px] sm:min-h-[36px]"
               >
                 {tDetail('cancel')}

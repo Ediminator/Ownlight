@@ -523,6 +523,7 @@ export function LocationsSection({
                   setIsAddOpen(false);
                 }}
                 disabled={isAdding}
+                data-testid="add-location-cancel-btn"
                 className="min-h-[44px] sm:min-h-[36px]"
               >
                 {tDetail('cancel')}
@@ -684,6 +685,7 @@ export function LocationsSection({
                   setEditingLocation(null);
                 }}
                 disabled={isEditing}
+                data-testid="edit-location-cancel-btn"
                 className="min-h-[44px] sm:min-h-[36px]"
               >
                 {tDetail('cancel')}
@@ -739,6 +741,7 @@ export function LocationsSection({
                 setDeletingLocation(null);
               }}
               disabled={isDeleting}
+              data-testid="delete-location-cancel-btn"
               className="min-h-[44px] sm:min-h-[36px]"
             >
               {tDetail('cancel')}

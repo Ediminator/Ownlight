@@ -380,6 +380,7 @@ export function StageTasksSection({
                   setIsAddOpen(false);
                 }}
                 disabled={isAdding}
+                data-testid="add-task-cancel-btn"
                 className="min-h-[44px] sm:min-h-[36px]"
               >
                 {tDetail('cancel')}
@@ -435,6 +436,7 @@ export function StageTasksSection({
                 setDeletingTask(null);
               }}
               disabled={isDeleting}
+              data-testid="delete-task-cancel-btn"
               className="min-h-[44px] sm:min-h-[36px]"
             >
               {tDetail('cancel')}

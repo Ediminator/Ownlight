@@ -565,6 +565,7 @@ export function TimelineScheduleSection({
                   setIsAddOpen(false);
                 }}
                 disabled={isAdding}
+                data-testid="add-timeline-cancel-btn"
                 className="min-h-[44px] sm:min-h-[36px]"
               >
                 {tDetail('cancel')}
@@ -733,6 +734,7 @@ export function TimelineScheduleSection({
                   setEditingItem(null);
                 }}
                 disabled={isEditing}
+                data-testid="edit-timeline-cancel-btn"
                 className="min-h-[44px] sm:min-h-[36px]"
               >
                 {tDetail('cancel')}
@@ -788,6 +790,7 @@ export function TimelineScheduleSection({
                 setDeletingItem(null);
               }}
               disabled={isDeleting}
+              data-testid="delete-timeline-cancel-btn"
               className="min-h-[44px] sm:min-h-[36px]"
             >
               {tDetail('cancel')}

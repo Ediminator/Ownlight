@@ -24,7 +24,7 @@ services:
       start_period: 5s
 
   mailpit:
-    image: axllent/mailpit:v1.31.4
+    image: axllent/mailpit:v1.31.6
     restart: unless-stopped
     environment:
       MP_DATA_DIR: /data

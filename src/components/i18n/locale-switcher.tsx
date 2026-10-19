@@ -31,7 +31,7 @@ export function LocaleSwitcher() {
         <Button
           variant="outline"
           size="sm"
-          aria-label={t('switcher')}
+          aria-label={`${t('switcher')}, ${currentLocale.toUpperCase()}`}
           data-testid="locale-switcher-trigger"
           className="gap-2"
         >

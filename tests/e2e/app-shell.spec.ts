@@ -93,6 +93,57 @@ test.describe('App Shell, Theming, and Internationalization E2E', () => {
     await expect(page.locator('h1')).toHaveText('Kalender');
   });
 
+  test('AC-1 & AC-2: locale switcher accessible name contains visible uppercase locale text per WCAG 2.5.3', async ({
+    page,
+  }) => {
+    await page.goto('/en');
+    const enTrigger = page.locator('[data-testid="locale-switcher-trigger"]').first();
+    await expect(enTrigger).toHaveAttribute('aria-label', 'Switch language, EN');
+
+    await page.goto('/de');
+    const deTrigger = page.locator('[data-testid="locale-switcher-trigger"]').first();
+    await expect(deTrigger).toHaveAttribute('aria-label', 'Sprache wechseln, DE');
+  });
+
+  test('AC-3: app shell axe audit at 320px, 768px, and 1280px viewports in English and German light and dark', async ({
+    page,
+  }) => {
+    const testViewports = [
+      { width: 320, height: 568 },
+      { width: 768, height: 1024 },
+      { width: 1280, height: 800 },
+    ];
+    const testLocales = ['en', 'de'];
+    const testThemes: ('light' | 'dark')[] = ['light', 'dark'];
+
+    for (const locale of testLocales) {
+      for (const theme of testThemes) {
+        for (const vp of testViewports) {
+          await page.setViewportSize(vp);
+          await page.emulateMedia({ colorScheme: theme });
+          await page.goto(`/${locale}/projects`);
+
+          await page.evaluate((t) => {
+            document.documentElement.classList.remove('light', 'dark');
+            document.documentElement.classList.add(t);
+          }, theme);
+
+          const results = await new AxeBuilder({ page })
+            .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+            .analyze();
+
+          const seriousOrCritical = results.violations.filter(
+            (v) => v.impact === 'serious' || v.impact === 'critical',
+          );
+          expect(
+            seriousOrCritical,
+            `Axe violations at ${String(vp.width)}px (${locale}, ${theme})`,
+          ).toEqual([]);
+        }
+      }
+    }
+  });
+
   test('AC-4: keyboard navigation has skip-link as first element, visible focus, and mobile drawer traps focus', async ({
     page,
   }) => {

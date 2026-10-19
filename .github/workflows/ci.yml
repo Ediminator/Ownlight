@@ -21,7 +21,7 @@ jobs:
       contents: read # Required to checkout code
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:16.8-alpine3.21
+        image: postgres:16.8-alpine3.21
         env:
           POSTGRES_DB: ownlight_test
           POSTGRES_USER: ownlight_app

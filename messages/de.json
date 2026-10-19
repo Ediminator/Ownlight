@@ -579,7 +579,7 @@
     "consent": {
       "title": "Einwilligung",
       "recordChange": "Einwilligung erfassen",
-      "recordChangeFor": "Einwilligung für {name} erfassen",
+      "recordChangeFor": "Einwilligung erfassen für {name}",
       "noConsent": "Keine Einwilligung erfasst",
       "marketing": "Werbung",
       "imageUsage": "Bildnutzung",

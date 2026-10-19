@@ -13,7 +13,8 @@ describe('AC-6: Dependency automation configuration (Dependabot)', () => {
     // Ecosystems
     expect(content).toMatch(/package-ecosystem:\s*["']?npm["']?/);
     expect(content).toMatch(/package-ecosystem:\s*["']?github-actions["']?/);
-    expect(content).toMatch(/package-ecosystem:\s*["']?(docker|docker-compose)["']?/);
+    expect(content).toMatch(/package-ecosystem:\s*["']?docker-compose["']?/);
+    expect(content).not.toMatch(/package-ecosystem:\s*["']docker["']/);
   });
 
   it('AC-6: runs on a weekly schedule with grouped updates', () => {

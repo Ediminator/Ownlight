@@ -102,6 +102,24 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
   ['shoot.updated', ['shoot_id', 'project_id', 'changed_fields']],
   ['shoot.deleted', ['shoot_id', 'project_id']],
   ['stage_config.updated', ['stage_count', 'changed_stages']],
+  ['booking_type.created', ['booking_type_id', 'slug', 'duration_minutes']],
+  ['booking_type.updated', ['booking_type_id', 'changed_fields']],
+  ['booking_type.deleted', ['booking_type_id']],
+  [
+    'appointment.created',
+    ['appointment_id', 'booking_type_id', 'starts_at', 'location_type', 'client_id', 'lead_id'],
+  ],
+  ['appointment.updated', ['appointment_id', 'changed_fields']],
+  ['appointment.cancelled', ['appointment_id', 'reason']],
+  ['blocked_time.created', ['blocked_time_id', 'starts_at', 'ends_at', 'all_day']],
+  ['blocked_time.updated', ['blocked_time_id', 'changed_fields']],
+  ['blocked_time.deleted', ['blocked_time_id']],
+  ['availability.updated', ['schedule_count', 'override_count']],
+  ['calendar_feed.created', ['feed_id', 'summary_level']],
+  ['calendar_feed.revoked', ['feed_id']],
+  ['integration.caldav.connected', ['account_id', 'server_url', 'calendar_name']],
+  ['integration.caldav.disconnected', ['account_id']],
+  ['calendar_sync.executed', ['provider', 'synced_count', 'failed_count', 'duration_ms']],
 ]);
 
 /**

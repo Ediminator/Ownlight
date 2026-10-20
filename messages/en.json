@@ -557,6 +557,8 @@
         "project_created": "Project created",
         "project_stage_changed": "Project stage changed from {from_stage} to {to_stage}",
         "shoot_scheduled": "Shoot scheduled",
+        "appointment_scheduled": "Appointment scheduled",
+        "appointment_cancelled": "Appointment cancelled",
         "deleted_item": "Deleted item"
       },
       "note": {

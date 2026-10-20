@@ -557,6 +557,8 @@
         "project_created": "Projekt angelegt",
         "project_stage_changed": "Projektphase geändert von {from_stage} zu {to_stage}",
         "shoot_scheduled": "Shooting geplant",
+        "appointment_scheduled": "Termin vereinbart",
+        "appointment_cancelled": "Termin abgesagt",
         "deleted_item": "Gelöschter Eintrag"
       },
       "note": {

@@ -71,6 +71,16 @@ const INITIAL_EVENT_TYPES: TimelineEventTypeDefinition[] = [
     dataKeys: ['project_id', 'shoot_id', 'starts_at'],
     messageKey: 'clients.timeline.events.shoot_scheduled',
   },
+  {
+    type: 'appointment.scheduled',
+    dataKeys: ['appointment_id', 'starts_at', 'location_type'],
+    messageKey: 'clients.timeline.events.appointment_scheduled',
+  },
+  {
+    type: 'appointment.cancelled',
+    dataKeys: ['appointment_id', 'reason'],
+    messageKey: 'clients.timeline.events.appointment_cancelled',
+  },
 ];
 
 const registry = new Map<string, TimelineEventTypeDefinition>();

@@ -22,4 +22,14 @@ export const ERASURE_COVERAGE_ALLOWLIST: readonly ErasureCoverageExemption[] = [
   // - projects, project_participants -> projects
   // When future epics introduce tables with client_id or contact_id columns
   // that have statutory retention or non-deletable data, register an exemption here with reasoning.
+  {
+    tableName: 'appointments',
+    reason:
+      'Temporary exemption: Appointments GDPR Art. 17 erasure provider is implemented in TASK-0041.',
+  },
+  {
+    tableName: 'caldav_accounts',
+    reason:
+      'Temporary exemption: CalDAV credentials and sync provider erasure is handled in TASK-0047.',
+  },
 ];

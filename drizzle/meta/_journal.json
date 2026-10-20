@@ -113,6 +113,13 @@
       "when": 1792002822738,
       "tag": "0015_lethal_skin",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792529929817,
+      "tag": "0016_rapid_echo",
+      "breakpoints": true
     }
   ]
 }

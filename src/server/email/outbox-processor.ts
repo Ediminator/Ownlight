@@ -144,7 +144,7 @@ export async function processEmailOutboxBatch(
           studioName = 'Photo Studio';
         }
 
-        const recipientEmail = item.recipient || appointment.attendeeEmail;
+        const recipientEmail = item.recipient ?? appointment.attendeeEmail;
         if (!recipientEmail) {
           await deleteEmailOutboxItem(item.id, dbClient);
           suppressedCount += 1;

@@ -5,10 +5,12 @@ vi.mock('server-only', () => ({}));
 import {
   renderAppointmentConfirmationEmail,
   renderAppointmentCancellationEmail,
+  enqueueAppointmentEmail,
   getAppointmentEmailHeaders,
   APPOINTMENT_EMAIL_HEADERS,
   type AppointmentEmailPayload,
 } from '@/server/email/templates/appointment';
+import type { DbClient } from '@/server/db/client';
 
 describe('TASK-0041: Appointment Email Templates (AC-5, AC-6, AC-7)', () => {
   const baseAppointment: AppointmentEmailPayload = {
@@ -280,5 +282,43 @@ describe('TASK-0041: Appointment Email Templates (AC-5, AC-6, AC-7)', () => {
     });
     expect(cancel.text).toContain('Hallo Client,');
     expect(cancel.text).toContain('Grund der Absage: Keine Angabe');
+  });
+
+  it('AC-5, AC-6: handles phone location type and ISO date strings', () => {
+    const phoneAppt: AppointmentEmailPayload = {
+      ...baseAppointment,
+      startsAt: '2026-06-15T14:30:00Z',
+      endsAt: '2026-06-15T15:00:00Z',
+      locationType: 'phone',
+      locationDetails: null,
+      meetUrl: null,
+      attendeeNotes: null,
+    };
+
+    const rendered = renderAppointmentConfirmationEmail({
+      appointment: phoneAppt,
+      studioName: 'Phone Studio',
+      locale: 'en',
+    });
+    expect(rendered.text).toContain('Location: Phone Call');
+    expect(rendered.text).toContain('Duration: 30 minutes');
+  });
+
+  it('AC-5, AC-6: enqueueAppointmentEmail throws error when outbox insert produces no returned row', async () => {
+    const fakeTx = {
+      insert: vi.fn().mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([]),
+        }),
+      }),
+    } as unknown as DbClient;
+
+    await expect(
+      enqueueAppointmentEmail({
+        appointmentId: '01920000-0000-7000-8000-000000000001',
+        kind: 'appointment_confirmation',
+        tx: fakeTx,
+      }),
+    ).rejects.toThrow('Failed to enqueue appointment email outbox record');
   });
 });

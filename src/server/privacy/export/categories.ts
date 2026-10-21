@@ -456,6 +456,39 @@ export const INITIAL_CATEGORIES: readonly CategoryDefinition[] = [
       de: 'Vom Kunden bereitgestellt oder im Rahmen der Projektdurchführung erfasst.',
     },
   },
+  {
+    id: 'appointments',
+    titleKey: 'privacy.export.categories.appointments.title',
+    purposeKey: 'privacy.export.categories.appointments.purpose',
+    lawfulBasisKey: 'privacy.export.categories.appointments.lawful_basis',
+    retentionKey: 'privacy.export.categories.appointments.retention',
+    recipientsKey: 'privacy.export.categories.appointments.recipients',
+    sourceKey: 'privacy.export.categories.appointments.source',
+    title: {
+      en: 'Appointments & Consultations',
+      de: 'Termine & Beratungsgespräche',
+    },
+    purpose: {
+      en: 'Scheduling and conducting client consultations, pre-shoot meetings, and booking sessions.',
+      de: 'Planung und Durchführung von Kundenberatungen, Vorgesprächen und Buchungsterminen.',
+    },
+    lawfulBasis: {
+      en: 'Art. 6(1)(b) GDPR (Performance of a contract / pre-contractual measures).',
+      de: 'Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung / vorvertragliche Maßnahmen).',
+    },
+    retention: {
+      en: 'Retained for schedule continuity; personal details anonymized upon subject erasure or retention expiry.',
+      de: 'Gespeichert zur Wahrung der Terminübersicht; personenbezogene Angaben werden bei Betroffenenlöschung anonymisiert.',
+    },
+    recipients: {
+      en: 'Calendar sync providers if enabled by studio owner (Google Calendar, CalDAV); otherwise stored locally.',
+      de: 'Kalendersynchronisations-Dienste, sofern vom Studioinhaber aktiviert (Google Calendar, CalDAV); andernfalls ausschließlich lokal.',
+    },
+    source: {
+      en: 'Provided by the attendee during booking or consultation scheduling.',
+      de: 'Von der teilnehmenden Person bei der Terminvereinbarung angegeben.',
+    },
+  },
 ];
 
 const categoryRegistry = new Map<string, CategoryDefinition>();

@@ -1,4 +1,5 @@
 export * from './templates';
+export * from './templates/appointment';
 export * from './outbox';
 export * from './outbox-processor';
 export {

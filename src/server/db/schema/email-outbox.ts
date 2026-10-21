@@ -12,14 +12,20 @@ import { sql } from 'drizzle-orm';
 import { generateUuidV7 } from '@/lib/id';
 import { leads } from './leads';
 
-export const EMAIL_OUTBOX_KINDS = ['lead_auto_reply'] as const;
+import { appointments } from './calendar';
+
+export const EMAIL_OUTBOX_KINDS = [
+  'lead_auto_reply',
+  'appointment_confirmation',
+  'appointment_cancellation',
+] as const;
 export type EmailOutboxKind = (typeof EMAIL_OUTBOX_KINDS)[number];
 
 export const EMAIL_OUTBOX_STATUSES = ['PENDING', 'PROCESSING', 'FAILED'] as const;
 export type EmailOutboxStatus = (typeof EMAIL_OUTBOX_STATUSES)[number];
 
 /**
- * Transactional Email Outbox table (TASK-0030 / ADR-0015 §7).
+ * Transactional Email Outbox table (TASK-0030 / TASK-0041 / ADR-0015 §7).
  * Ephemeral queue for transactional email dispatch with zero copied PII.
  */
 export const emailOutbox = pgTable(
@@ -29,9 +35,11 @@ export const emailOutbox = pgTable(
       .primaryKey()
       .$defaultFn(() => generateUuidV7()),
     kind: varchar('kind', { length: 32 }).notNull().$type<EmailOutboxKind>(),
-    leadId: uuid('lead_id')
-      .notNull()
-      .references((): AnyPgColumn => leads.id, { onDelete: 'cascade' }),
+    leadId: uuid('lead_id').references((): AnyPgColumn => leads.id, { onDelete: 'cascade' }),
+    appointmentId: uuid('appointment_id').references((): AnyPgColumn => appointments.id, {
+      onDelete: 'cascade',
+    }),
+    recipient: varchar('recipient', { length: 255 }),
     status: varchar('status', { length: 20 })
       .notNull()
       .default('PENDING')
@@ -45,9 +53,13 @@ export const emailOutbox = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },
   (table) => [
-    check('email_outbox_kind_check', sql`kind IN ('lead_auto_reply')`),
+    check(
+      'email_outbox_kind_check',
+      sql`kind IN ('lead_auto_reply', 'appointment_confirmation', 'appointment_cancellation')`,
+    ),
     check('email_outbox_status_check', sql`status IN ('PENDING', 'PROCESSING', 'FAILED')`),
     index('email_outbox_status_next_attempt_idx').on(table.status, table.nextAttemptAt),
+    index('email_outbox_appointment_id_idx').on(table.appointmentId),
   ],
 );
 

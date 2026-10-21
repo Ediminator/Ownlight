@@ -120,6 +120,13 @@
       "when": 1792529929817,
       "tag": "0016_rapid_echo",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792622708250,
+      "tag": "0017_sour_stone_men",
+      "breakpoints": true
     }
   ]
 }

@@ -1339,5 +1339,38 @@
         "submitting": "Wird hinzugefügt..."
       }
     }
+  },
+  "emails": {
+    "appointment": {
+      "confirmation": {
+        "subject": "Terminbestätigung: {title} bei {studioName}",
+        "greeting": "Hallo {attendeeName},",
+        "intro": "Ihr Termin wurde erfolgreich bestätigt.",
+        "appointmentTitle": "Termin: {title}",
+        "dateTime": "Datum & Uhrzeit: {dateTime} ({timezone})",
+        "duration": "Dauer: {duration} Minuten",
+        "locationType": "Art des Termins: {locationType}",
+        "locationDetails": "Ortsdetails: {locationDetails}",
+        "meetUrl": "Google Meet Link: {meetUrl}",
+        "notes": "Notizen: {notes}",
+        "contactInfo": "Bei Fragen oder Änderungswünschen wenden Sie sich bitte an {studioName}.",
+        "footer": "Dies ist eine automatisierte Benachrichtigung."
+      },
+      "cancellation": {
+        "subject": "Termin abgesagt: {title} bei {studioName}",
+        "greeting": "Hallo {attendeeName},",
+        "intro": "Ihr Termin wurde abgesagt.",
+        "appointmentTitle": "Termin: {title}",
+        "dateTime": "Ursprünglicher Termin: {dateTime} ({timezone})",
+        "reason": "Grund der Absage: {reason}",
+        "contactInfo": "Wenn Sie einen neuen Termin vereinbaren möchten oder Fragen haben, wenden Sie sich bitte an {studioName}.",
+        "footer": "Dies ist eine automatisierte Benachrichtigung."
+      },
+      "locations": {
+        "google_meet": "Google Meet (Videogespräch)",
+        "in_person": "Vor Ort",
+        "phone": "Telefonat"
+      }
+    }
   }
 }

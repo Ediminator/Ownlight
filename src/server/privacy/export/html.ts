@@ -40,6 +40,18 @@ const GERMAN_COLUMN_HEADERS: Record<string, string> = {
   tasks: 'Aufgaben',
   participants: 'Teilnehmer',
   role: 'Rolle',
+  starts_at: 'Beginn',
+  ends_at: 'Ende',
+  duration_minutes: 'Dauer (Min.)',
+  location_type: 'Ort / Typ',
+  location_details: 'Ortsdetails',
+  meet_url: 'Google Meet',
+  attendee_name: 'Teilnehmer',
+  attendee_email: 'E-Mail',
+  attendee_phone: 'Telefon',
+  attendee_notes: 'Notizen',
+  cancellation_reason: 'Grund der Absage',
+  cancelled_at: 'Abgesagt am',
 };
 
 /**

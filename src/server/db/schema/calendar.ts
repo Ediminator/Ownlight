@@ -32,7 +32,13 @@ export type CalendarSyncEntityType = (typeof CALENDAR_SYNC_ENTITY_TYPES)[number]
 export const CALENDAR_SYNC_ACTIONS = ['create', 'update', 'delete'] as const;
 export type CalendarSyncAction = (typeof CALENDAR_SYNC_ACTIONS)[number];
 
-export const CALENDAR_SYNC_STATUSES = ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'] as const;
+export const CALENDAR_SYNC_STATUSES = [
+  'PENDING',
+  'PROCESSING',
+  'COMPLETED',
+  'FAILED',
+  'CANCELLED',
+] as const;
 export type CalendarSyncStatus = (typeof CALENDAR_SYNC_STATUSES)[number];
 
 export const CALENDAR_SYNC_PROVIDERS = ['google', 'caldav'] as const;
@@ -311,7 +317,7 @@ export const calendarSyncOutbox = pgTable(
     check('calendar_sync_outbox_action_check', sql`action IN ('create', 'update', 'delete')`),
     check(
       'calendar_sync_outbox_status_check',
-      sql`status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')`,
+      sql`status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED')`,
     ),
     index('calendar_sync_outbox_status_next_attempt_idx').on(table.status, table.nextAttemptAt),
   ],

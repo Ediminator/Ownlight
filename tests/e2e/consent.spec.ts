@@ -96,6 +96,7 @@ test.describe('TASK-0014: Consent Records & History E2E (AC-10 to AC-13)', () =>
 
     // Dialog closes
     await expect(dialog).not.toBeVisible();
+    await page.waitForTimeout(300);
 
     // Focus restored to trigger button
     await expect(recordBtn).toBeFocused();

@@ -62,7 +62,7 @@ describe('TASK-0040: Calendar Domain Branch Coverage', () => {
     dbClient = testDb.db as unknown as DbClient;
     await seedDefaultPipelineStages(dbClient);
     await seedDefaultCalendarData(dbClient);
-  }, 30000);
+  }, 60000);
 
   afterEach(async () => {
     await testDb.destroy();

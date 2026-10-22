@@ -19,6 +19,9 @@ import ProjectsPage, {
 import CalendarPage, {
   generateMetadata as generateCalendarMetadata,
 } from '@/app/[locale]/calendar/page';
+import AvailabilitySettingsPage, {
+  generateMetadata as generateAvailabilityMetadata,
+} from '@/app/[locale]/settings/calendar/availability/page';
 import SettingsPage from '@/app/[locale]/settings/page';
 import SignInPage from '@/app/[locale]/sign-in/page';
 import ForgotPasswordPage from '@/app/[locale]/forgot-password/page';
@@ -104,6 +107,9 @@ vi.mock('@/server/projects/service', () => ({
 
 vi.mock('@/server/calendar/service', () => ({
   getUnifiedCalendarEvents: vi.fn().mockResolvedValue([]),
+  getAvailabilitySchedules: vi.fn().mockResolvedValue([]),
+  getAllAvailabilityOverrides: vi.fn().mockResolvedValue([]),
+  getBookingTypes: vi.fn().mockResolvedValue([]),
 }));
 
 describe('App placeholder and auth pages', () => {
@@ -310,5 +316,46 @@ describe('App placeholder and auth pages', () => {
     const { notFound } = await import('next/navigation');
     await SetupPage({ params: Promise.resolve({ locale: 'en' }) });
     expect(notFound).toHaveBeenCalled();
+  });
+
+  it('renders AvailabilitySettingsPage component', async () => {
+    const el = await AvailabilitySettingsPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({ tab: 'overrides' }),
+    });
+    expect(React.isValidElement(el)).toBe(true);
+  });
+
+  it('generates metadata for AvailabilitySettingsPage with fallbacks', async () => {
+    const meta = await generateAvailabilityMetadata({
+      params: Promise.resolve({ locale: 'en' }),
+    });
+    expect(meta.title).toContain('translated-title');
+
+    const { getTranslations } = await import('next-intl/server');
+    vi.mocked(getTranslations).mockRejectedValueOnce(new Error('fail'));
+    const metaEn = await generateAvailabilityMetadata({
+      params: Promise.resolve({ locale: 'en' }),
+    });
+    expect(metaEn.title).toBe('Availability & Booking Types · Ownlight');
+
+    vi.mocked(getTranslations).mockRejectedValueOnce(new Error('fail'));
+    const metaDe = await generateAvailabilityMetadata({
+      params: Promise.resolve({ locale: 'de' }),
+    });
+    expect(metaDe.title).toBe('Verfügbarkeit & Buchungsarten · Ownlight');
+  });
+
+  it('redirects to sign-in in AvailabilitySettingsPage when unauthenticated', async () => {
+    const { requireOwner } = await import('@/server/auth/guards');
+    const { redirect } = await import('next/navigation');
+    vi.mocked(requireOwner).mockRejectedValueOnce(new Error('UNAUTHENTICATED'));
+    await AvailabilitySettingsPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({}),
+    });
+    expect(redirect).toHaveBeenCalledWith(
+      '/en/sign-in?callbackUrl=/en/settings/calendar/availability',
+    );
   });
 });

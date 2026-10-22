@@ -243,6 +243,61 @@ export function BookingTypesManager({
     return <Video className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
   };
 
+  const handleCopyLinkClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const slug = e.currentTarget.dataset.slug;
+    if (slug) void handleCopyLink(slug);
+  };
+
+  const handleEditClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const slug = e.currentTarget.dataset.slug;
+    const item = bookingTypes.find((b) => b.slug === slug);
+    if (item) handleOpenEdit(item);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const slug = e.currentTarget.dataset.slug;
+    const item = bookingTypes.find((b) => b.slug === slug);
+    if (item) setDeleteTarget(item);
+  };
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
+    const { name, value, type } = e.target;
+    if (name === 'title') {
+      handleTitleChange(value);
+      return;
+    }
+    if (name === 'slug') {
+      handleSlugChange(value);
+      return;
+    }
+    const isCheckbox = type === 'checkbox';
+    const isNumber = type === 'number';
+    const parsedValue = isCheckbox
+      ? (e.target as HTMLInputElement).checked
+      : isNumber
+        ? Number(value)
+        : value;
+
+    setFormValues((prev) => ({
+      ...prev,
+      [name]: parsedValue,
+    }));
+  };
+
+  const handleFormSubmit = (e: React.SyntheticEvent) => {
+    void handleSubmit(e);
+  };
+
+  const handleDeleteButtonClick = () => {
+    void handleDeleteConfirm();
+  };
+
+  const handleDeleteOpenChange = (open: boolean) => {
+    if (!open) setDeleteTarget(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -382,9 +437,8 @@ export function BookingTypesManager({
                     variant="outline"
                     size="sm"
                     data-testid={`copy-booking-type-link-${bt.slug}`}
-                    onClick={() => {
-                      void handleCopyLink(bt.slug);
-                    }}
+                    data-slug={bt.slug}
+                    onClick={handleCopyLinkClick}
                     className="flex items-center gap-1.5 text-xs h-8"
                   >
                     {isCopied ? (
@@ -406,9 +460,8 @@ export function BookingTypesManager({
                       variant="ghost"
                       size="icon"
                       data-testid={`edit-booking-type-${bt.slug}`}
-                      onClick={() => {
-                        handleOpenEdit(bt);
-                      }}
+                      data-slug={bt.slug}
+                      onClick={handleEditClick}
                       className="h-8 w-8 text-muted-foreground hover:text-foreground"
                       aria-label={`${t('editAria')} ${bt.title}`}
                     >
@@ -419,9 +472,8 @@ export function BookingTypesManager({
                       variant="ghost"
                       size="icon"
                       data-testid={`delete-booking-type-${bt.slug}`}
-                      onClick={() => {
-                        setDeleteTarget(bt);
-                      }}
+                      data-slug={bt.slug}
+                      onClick={handleDeleteClick}
                       className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                       aria-label={`${t('deleteAria')} ${bt.title}`}
                     >
@@ -442,12 +494,7 @@ export function BookingTypesManager({
           className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto"
           aria-describedby="booking-type-dialog-desc"
         >
-          <form
-            onSubmit={(e) => {
-              void handleSubmit(e);
-            }}
-            className="space-y-5"
-          >
+          <form onSubmit={handleFormSubmit} className="space-y-5">
             <DialogHeader>
               <DialogTitle>{editingItem ? t('dialogEditTitle') : t('dialogNewTitle')}</DialogTitle>
               <DialogDescription id="booking-type-dialog-desc">
@@ -479,13 +526,12 @@ export function BookingTypesManager({
                   <input
                     type="text"
                     id="booking-type-title-input"
+                    name="title"
                     data-testid="booking-type-title-input"
                     required
                     placeholder={t('titlePlaceholder')}
                     value={formValues.title}
-                    onChange={(e) => {
-                      handleTitleChange(e.target.value);
-                    }}
+                    onChange={handleInputChange}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
@@ -512,12 +558,11 @@ export function BookingTypesManager({
                     <input
                       type="text"
                       id="booking-type-slug-input"
+                      name="slug"
                       data-testid="booking-type-slug-input"
                       required
                       value={formValues.slug}
-                      onChange={(e) => {
-                        handleSlugChange(e.target.value);
-                      }}
+                      onChange={handleInputChange}
                       placeholder="consultation"
                       className="flex-1 bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none"
                     />
@@ -535,13 +580,12 @@ export function BookingTypesManager({
                 </label>
                 <textarea
                   id="booking-type-description-input"
+                  name="description"
                   data-testid="booking-type-description-input"
                   rows={2}
                   placeholder={t('descriptionPlaceholder')}
                   value={formValues.description}
-                  onChange={(e) => {
-                    setFormValues((prev) => ({ ...prev, description: e.target.value }));
-                  }}
+                  onChange={handleInputChange}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
                 />
               </div>
@@ -558,17 +602,13 @@ export function BookingTypesManager({
                   <input
                     type="number"
                     id="booking-type-duration-input"
+                    name="durationMinutes"
                     data-testid="booking-type-duration-input"
                     min={5}
                     max={480}
                     step={5}
                     value={formValues.durationMinutes}
-                    onChange={(e) => {
-                      setFormValues((prev) => ({
-                        ...prev,
-                        durationMinutes: Number(e.target.value),
-                      }));
-                    }}
+                    onChange={handleInputChange}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
@@ -583,17 +623,13 @@ export function BookingTypesManager({
                   <input
                     type="number"
                     id="booking-type-buffer-before-input"
+                    name="bufferBeforeMinutes"
                     data-testid="booking-type-buffer-before-input"
                     min={0}
                     max={240}
                     step={5}
                     value={formValues.bufferBeforeMinutes}
-                    onChange={(e) => {
-                      setFormValues((prev) => ({
-                        ...prev,
-                        bufferBeforeMinutes: Number(e.target.value),
-                      }));
-                    }}
+                    onChange={handleInputChange}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
@@ -608,17 +644,13 @@ export function BookingTypesManager({
                   <input
                     type="number"
                     id="booking-type-buffer-after-input"
+                    name="bufferAfterMinutes"
                     data-testid="booking-type-buffer-after-input"
                     min={0}
                     max={240}
                     step={5}
                     value={formValues.bufferAfterMinutes}
-                    onChange={(e) => {
-                      setFormValues((prev) => ({
-                        ...prev,
-                        bufferAfterMinutes: Number(e.target.value),
-                      }));
-                    }}
+                    onChange={handleInputChange}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
@@ -636,16 +668,12 @@ export function BookingTypesManager({
                   <input
                     type="number"
                     id="booking-type-notice-input"
+                    name="minNoticeHours"
                     data-testid="booking-type-notice-input"
                     min={0}
                     max={720}
                     value={formValues.minNoticeHours}
-                    onChange={(e) => {
-                      setFormValues((prev) => ({
-                        ...prev,
-                        minNoticeHours: Number(e.target.value),
-                      }));
-                    }}
+                    onChange={handleInputChange}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
@@ -660,16 +688,12 @@ export function BookingTypesManager({
                   <input
                     type="number"
                     id="booking-type-horizon-input"
+                    name="maxFutureDays"
                     data-testid="booking-type-horizon-input"
                     min={1}
                     max={365}
                     value={formValues.maxFutureDays}
-                    onChange={(e) => {
-                      setFormValues((prev) => ({
-                        ...prev,
-                        maxFutureDays: Number(e.target.value),
-                      }));
-                    }}
+                    onChange={handleInputChange}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
@@ -686,14 +710,10 @@ export function BookingTypesManager({
                   </label>
                   <select
                     id="booking-type-location-type-select"
+                    name="locationType"
                     data-testid="booking-type-location-type-select"
                     value={formValues.locationType}
-                    onChange={(e) => {
-                      setFormValues((prev) => ({
-                        ...prev,
-                        locationType: e.target.value as BookingLocationType,
-                      }));
-                    }}
+                    onChange={handleInputChange}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="google_meet">{t('locationGoogleMeet')}</option>
@@ -712,6 +732,7 @@ export function BookingTypesManager({
                   <input
                     type="text"
                     id="booking-type-location-details-input"
+                    name="locationDetails"
                     data-testid="booking-type-location-details-input"
                     placeholder={
                       formValues.locationType === 'phone'
@@ -721,12 +742,7 @@ export function BookingTypesManager({
                           : t('detailsPlaceholderMeet')
                     }
                     value={formValues.locationDetails}
-                    onChange={(e) => {
-                      setFormValues((prev) => ({
-                        ...prev,
-                        locationDetails: e.target.value,
-                      }));
-                    }}
+                    onChange={handleInputChange}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
@@ -774,11 +790,10 @@ export function BookingTypesManager({
                 <input
                   type="checkbox"
                   id="booking-type-active-toggle"
+                  name="isActive"
                   data-testid="booking-type-active-toggle"
                   checked={formValues.isActive}
-                  onChange={(e) => {
-                    setFormValues((prev) => ({ ...prev, isActive: e.target.checked }));
-                  }}
+                  onChange={handleInputChange}
                   className="h-4 w-4 rounded border-input text-primary focus:ring-primary focus:ring-offset-background"
                 />
                 <label
@@ -812,12 +827,7 @@ export function BookingTypesManager({
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={Boolean(deleteTarget)}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
-        }}
-      >
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={handleDeleteOpenChange}>
         <DialogContent
           data-testid="delete-booking-type-dialog"
           className="sm:max-w-[420px]"
@@ -843,9 +853,7 @@ export function BookingTypesManager({
               type="button"
               variant="destructive"
               disabled={isSubmitting}
-              onClick={() => {
-                void handleDeleteConfirm();
-              }}
+              onClick={handleDeleteButtonClick}
               data-testid="confirm-delete-booking-type-btn"
             >
               {isSubmitting ? t('deleting') : t('delete')}

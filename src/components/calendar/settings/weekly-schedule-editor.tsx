@@ -47,17 +47,21 @@ export function WeeklyScheduleEditor({
     message: string;
   } | null>(initialNotification);
 
-  const handleActiveToggle = (dayOfWeek: number) => {
+  const handleActiveToggleClick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const day = Number(e.currentTarget.dataset.day);
     setSchedules((prev) => {
-      const updated = toggleWeekdayActive(prev, dayOfWeek);
+      const updated = toggleWeekdayActive(prev, day);
       setClientErrors(validateWeeklyScheduleRanges(updated, t('errorInvalidRange')));
       return updated;
     });
   };
 
-  const handleTimeChange = (dayOfWeek: number, field: 'startTime' | 'endTime', value: string) => {
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const day = Number(e.currentTarget.dataset.day);
+    const field = e.currentTarget.dataset.field as 'startTime' | 'endTime';
+    const value = e.target.value;
     setSchedules((prev) => {
-      const updated = updateWeekdayTime(prev, dayOfWeek, field, value);
+      const updated = updateWeekdayTime(prev, day, field, value);
       setClientErrors(validateWeeklyScheduleRanges(updated, t('errorInvalidRange')));
       return updated;
     });
@@ -183,10 +187,9 @@ export function WeeklyScheduleEditor({
                     type="checkbox"
                     id={`schedule-active-toggle-${dayKey}`}
                     data-testid={`schedule-active-toggle-${dayKey}`}
+                    data-day={dayOfWeek}
                     checked={item.isActive}
-                    onChange={() => {
-                      handleActiveToggle(dayOfWeek);
-                    }}
+                    onChange={handleActiveToggleClick}
                     aria-label={`${weekdayName} active status`}
                     className="h-4 w-4 rounded border-input text-primary focus:ring-primary focus:ring-offset-background"
                   />
@@ -210,10 +213,10 @@ export function WeeklyScheduleEditor({
                           type="time"
                           id={`schedule-start-time-${dayKey}`}
                           data-testid={`schedule-start-time-${dayKey}`}
+                          data-day={dayOfWeek}
+                          data-field="startTime"
                           value={item.startTime}
-                          onChange={(e) => {
-                            handleTimeChange(dayOfWeek, 'startTime', e.target.value);
-                          }}
+                          onChange={handleTimeChange}
                           aria-invalid={Boolean(error)}
                           aria-describedby={error ? `schedule-error-${dayKey}` : undefined}
                           className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -232,10 +235,10 @@ export function WeeklyScheduleEditor({
                           type="time"
                           id={`schedule-end-time-${dayKey}`}
                           data-testid={`schedule-end-time-${dayKey}`}
+                          data-day={dayOfWeek}
+                          data-field="endTime"
                           value={item.endTime}
-                          onChange={(e) => {
-                            handleTimeChange(dayOfWeek, 'endTime', e.target.value);
-                          }}
+                          onChange={handleTimeChange}
                           aria-invalid={Boolean(error)}
                           aria-describedby={error ? `schedule-error-${dayKey}` : undefined}
                           className={cn(

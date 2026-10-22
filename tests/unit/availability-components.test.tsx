@@ -477,18 +477,18 @@ describe('TASK-0043: Availability Settings UI Components Static Render Tests', (
     });
 
     it('formatDateDisplay catch block returns isoDate if Intl.DateTimeFormat throws', () => {
-      const originalDateTimeFormat = Intl.DateTimeFormat;
-      // @ts-expect-error Mocking Intl.DateTimeFormat to force error
-      Intl.DateTimeFormat = class {
-        format() {
-          throw new Error('Locale error');
-        }
-      };
+      const spy = vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function () {
+        return {
+          format: () => {
+            throw new Error('Locale error');
+          },
+        } as unknown as Intl.DateTimeFormat;
+      });
 
       const result = formatDateDisplay('2026-11-20', 'en');
       expect(result).toBe('2026-11-20');
 
-      Intl.DateTimeFormat = originalDateTimeFormat;
+      spy.mockRestore();
     });
 
     it('getColorDotClass handles known and unknown color options', () => {

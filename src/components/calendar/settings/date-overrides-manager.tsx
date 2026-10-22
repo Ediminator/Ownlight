@@ -151,6 +151,32 @@ export function DateOverridesManager({
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setFormValues((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  const handleDeleteTargetClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const id = e.currentTarget.dataset.id;
+    const target = overrides.find((o) => o.id === id) ?? null;
+    setDeleteTarget(target);
+  };
+
+  const handleFormSubmit = (e: React.SyntheticEvent) => {
+    void handleCreateSubmit(e);
+  };
+
+  const handleDeleteButtonClick = () => {
+    void handleDeleteConfirm();
+  };
+
+  const handleDeleteOpenChange = (open: boolean) => {
+    if (!open) setDeleteTarget(null);
+  };
+
   return (
     <div data-testid="date-overrides-manager" className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -271,9 +297,8 @@ export function DateOverridesManager({
                         variant="ghost"
                         size="icon"
                         data-testid={`delete-override-${item.date}`}
-                        onClick={() => {
-                          setDeleteTarget(item);
-                        }}
+                        data-id={item.id}
+                        onClick={handleDeleteTargetClick}
                         className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                         aria-label={`${t('deleteAria')} ${item.date}`}
                       >
@@ -295,12 +320,7 @@ export function DateOverridesManager({
           className="sm:max-w-[480px]"
           aria-describedby="override-dialog-desc"
         >
-          <form
-            onSubmit={(e) => {
-              void handleCreateSubmit(e);
-            }}
-            className="space-y-4"
-          >
+          <form onSubmit={handleFormSubmit} className="space-y-4">
             <DialogHeader>
               <DialogTitle>{t('dialogAddTitle')}</DialogTitle>
               <DialogDescription id="override-dialog-desc">{t('dialogAddDesc')}</DialogDescription>
@@ -329,12 +349,11 @@ export function DateOverridesManager({
                 <input
                   type="date"
                   id="override-date-input"
+                  name="date"
                   data-testid="override-date-input"
                   required
                   value={formValues.date}
-                  onChange={(e) => {
-                    setFormValues((prev) => ({ ...prev, date: e.target.value }));
-                  }}
+                  onChange={handleInputChange}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
@@ -349,11 +368,10 @@ export function DateOverridesManager({
                     <input
                       type="checkbox"
                       id="override-unavailable-checkbox"
+                      name="isUnavailable"
                       data-testid="override-unavailable-checkbox"
                       checked={formValues.isUnavailable}
-                      onChange={(e) => {
-                        setFormValues((prev) => ({ ...prev, isUnavailable: e.target.checked }));
-                      }}
+                      onChange={handleInputChange}
                       className="text-primary focus:ring-primary h-4 w-4 rounded"
                     />
                     <span>{t('typeUnavailable')}</span>
@@ -371,11 +389,10 @@ export function DateOverridesManager({
                     <input
                       type="time"
                       id="override-start-time"
+                      name="startTime"
                       data-testid="override-start-time-input"
                       value={formValues.startTime}
-                      onChange={(e) => {
-                        setFormValues((prev) => ({ ...prev, startTime: e.target.value }));
-                      }}
+                      onChange={handleInputChange}
                       className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   </div>
@@ -389,11 +406,10 @@ export function DateOverridesManager({
                     <input
                       type="time"
                       id="override-end-time"
+                      name="endTime"
                       data-testid="override-end-time-input"
                       value={formValues.endTime}
-                      onChange={(e) => {
-                        setFormValues((prev) => ({ ...prev, endTime: e.target.value }));
-                      }}
+                      onChange={handleInputChange}
                       className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   </div>
@@ -411,13 +427,12 @@ export function DateOverridesManager({
                 <input
                   type="text"
                   id="override-reason-input"
+                  name="reason"
                   data-testid="override-reason-input"
                   placeholder={t('reasonPlaceholder')}
                   maxLength={100}
                   value={formValues.reason}
-                  onChange={(e) => {
-                    setFormValues((prev) => ({ ...prev, reason: e.target.value }));
-                  }}
+                  onChange={handleInputChange}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
@@ -441,12 +456,7 @@ export function DateOverridesManager({
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={Boolean(deleteTarget)}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
-        }}
-      >
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={handleDeleteOpenChange}>
         <DialogContent
           data-testid="delete-override-dialog"
           className="sm:max-w-[420px]"
@@ -474,9 +484,7 @@ export function DateOverridesManager({
               type="button"
               variant="destructive"
               disabled={isSubmitting}
-              onClick={() => {
-                void handleDeleteConfirm();
-              }}
+              onClick={handleDeleteButtonClick}
               data-testid="confirm-delete-override-btn"
             >
               {isSubmitting ? t('deleting') : t('delete')}

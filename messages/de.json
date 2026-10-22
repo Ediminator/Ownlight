@@ -1372,5 +1372,137 @@
         "phone": "Telefonat"
       }
     }
+  },
+  "calendar": {
+    "title": "Studiokalender",
+    "description": "Visuelle Terminübersicht aller Kundenshootings, Beratungen und Studiowartungszeiten.",
+    "views": {
+      "month": "Monat",
+      "week": "Woche",
+      "day": "Tag",
+      "toggleAria": "Kalenderansicht wechseln"
+    },
+    "nav": {
+      "prev": "Zurück",
+      "next": "Weiter",
+      "today": "Heute",
+      "prevPeriodAria": "Vorheriger Zeitraum",
+      "nextPeriodAria": "Nächster Zeitraum",
+      "todayAria": "Zu Heute springen"
+    },
+    "weekdays": {
+      "mon": "Mo",
+      "tue": "Di",
+      "wed": "Mi",
+      "thu": "Do",
+      "fri": "Fr",
+      "sat": "Sa",
+      "sun": "So",
+      "monday": "Montag",
+      "tuesday": "Dienstag",
+      "wednesday": "Mittwoch",
+      "thursday": "Donnerstag",
+      "friday": "Freitag",
+      "saturday": "Samstag",
+      "sunday": "Sonntag"
+    },
+    "months": {
+      "january": "Januar",
+      "february": "Februar",
+      "march": "März",
+      "april": "April",
+      "may": "Mai",
+      "june": "Juni",
+      "july": "Juli",
+      "august": "August",
+      "september": "September",
+      "october": "Oktober",
+      "november": "November",
+      "december": "Dezember"
+    },
+    "events": {
+      "shoot": "Shooting",
+      "appointment": "Termin",
+      "blockedTime": "Blockiert",
+      "allDay": "Ganztägig",
+      "more": "+{count} weitere",
+      "moreAria": "{count} weitere Termine an diesem Tag",
+      "viewProject": "Projekt anzeigen"
+    },
+    "inspector": {
+      "title": "Tagesplan",
+      "empty": "Keine Termine für dieses Datum geplant.",
+      "newAppointment": "Neuer Termin",
+      "blockTime": "Zeit blockieren",
+      "close": "Bereich schließen",
+      "shootDetails": "Shooting-Details",
+      "appointmentDetails": "Termindetails",
+      "blockedTimeDetails": "Sperrzeit",
+      "attendee": "Teilnehmer",
+      "location": "Ort",
+      "notes": "Notizen",
+      "viewProject": "Zum Projekt",
+      "editAppointment": "Bearbeiten",
+      "cancelAppointment": "Termin absagen",
+      "editBlockedTime": "Bearbeiten",
+      "deleteBlockedTime": "Löschen"
+    },
+    "modals": {
+      "appointment": {
+        "createTitle": "Neuer Termin",
+        "editTitle": "Termin bearbeiten",
+        "cancelTitle": "Termin absagen",
+        "cancelDescription": "Bitte geben Sie einen Grund für die Absage dieses Termins an.",
+        "cancelConfirm": "Absage bestätigen",
+        "titleLabel": "Titel",
+        "titlePlaceholder": "z.B. Hochzeitsberatung",
+        "startsAtLabel": "Beginn",
+        "endsAtLabel": "Ende",
+        "attendeeNameLabel": "Name des Teilnehmers",
+        "attendeeNamePlaceholder": "Vollständiger Name",
+        "attendeeEmailLabel": "E-Mail des Teilnehmers",
+        "attendeeEmailPlaceholder": "email@example.com",
+        "attendeePhoneLabel": "Telefonnummer",
+        "attendeePhonePlaceholder": "+49 30 12345678",
+        "locationTypeLabel": "Ortstyp",
+        "locationTypes": {
+          "googleMeet": "Google Meet",
+          "phone": "Telefonat",
+          "inPerson": "Vor Ort"
+        },
+        "locationDetailsLabel": "Ortsdetails / Adresse",
+        "notesLabel": "Notizen",
+        "notesPlaceholder": "Interne oder vorbereitende Notizen",
+        "save": "Termin speichern",
+        "saving": "Wird gespeichert...",
+        "cancel": "Abbrechen",
+        "cancelling": "Wird abgesagt..."
+      },
+      "blockedTime": {
+        "createTitle": "Zeit blockieren",
+        "editTitle": "Blockierte Zeit bearbeiten",
+        "deleteTitle": "Blockierte Zeit löschen",
+        "deleteDescription": "Sind Sie sicher, dass Sie diesen Sperrzeitraum entfernen möchten?",
+        "deleteConfirm": "Sperre löschen",
+        "titleLabel": "Titel",
+        "titlePlaceholder": "z.B. Studiowartung",
+        "startsAtLabel": "Beginn",
+        "endsAtLabel": "Ende",
+        "allDayLabel": "Ganztägig",
+        "notesLabel": "Notizen",
+        "notesPlaceholder": "Optionale Notizen zum Sperrzeitraum",
+        "save": "Sperre speichern",
+        "saving": "Wird gespeichert...",
+        "cancel": "Abbrechen",
+        "deleting": "Wird gelöscht..."
+      }
+    },
+    "aria": {
+      "gridLabel": "Studiokalender Monatsübersicht",
+      "currentPeriod": "Angezeigt wird {period}",
+      "selectedDate": "Ausgewähltes Datum: {date}",
+      "openInspector": "Details für {date} anzeigen",
+      "eventsSummary": "{count, plural, =0 {keine Termine} one {# Termin} other {# Termine}}"
+    }
   }
 }

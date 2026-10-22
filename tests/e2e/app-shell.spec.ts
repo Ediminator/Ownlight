@@ -70,27 +70,37 @@ test.describe('App Shell, Theming, and Internationalization E2E', () => {
   test('AC-2: language switcher preserves current route and persists choice across reloads', async ({
     page,
   }) => {
-    // Navigate to /en/calendar
-    await page.goto('/en/calendar');
-    await expect(page.locator('h1')).toHaveText('Calendar');
+    // Navigate to /en
+    await page.goto('/en');
+    await expect(page.locator('h1')).toHaveText('Ownlight');
+    await expect(page.locator('main p').first()).toHaveText('Your clients, your craft, your data.');
 
     // Open language switcher
     await page.click('[data-testid="locale-switcher-trigger"]');
     await page.click('[data-testid="locale-option-de"]');
 
-    // Route preserved to /de/calendar
-    await expect(page).toHaveURL(/\/de\/calendar$/);
-    await expect(page.locator('h1')).toHaveText('Kalender');
+    // Route preserved to /de
+    await expect(page).toHaveURL(/\/de$/);
+    await expect(page.locator('h1')).toHaveText('Ownlight');
+    await expect(page.locator('main p').first()).toHaveText(
+      'Autonomes Studio-Management für Fotografen und Videografen',
+    );
 
     // Reload page to verify persistence
     await page.reload();
-    await expect(page).toHaveURL(/\/de\/calendar$/);
-    await expect(page.locator('h1')).toHaveText('Kalender');
+    await expect(page).toHaveURL(/\/de$/);
+    await expect(page.locator('h1')).toHaveText('Ownlight');
+    await expect(page.locator('main p').first()).toHaveText(
+      'Autonomes Studio-Management für Fotografen und Videografen',
+    );
 
     // Open another page without locale prefix to verify cookie persistence
-    await page.goto('/calendar');
-    await expect(page).toHaveURL(/\/de\/calendar$/);
-    await expect(page.locator('h1')).toHaveText('Kalender');
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/de$/);
+    await expect(page.locator('h1')).toHaveText('Ownlight');
+    await expect(page.locator('main p').first()).toHaveText(
+      'Autonomes Studio-Management für Fotografen und Videografen',
+    );
   });
 
   test('AC-1 & AC-2: locale switcher accessible name contains visible uppercase locale text per WCAG 2.5.3', async ({

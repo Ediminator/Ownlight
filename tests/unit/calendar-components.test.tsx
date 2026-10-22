@@ -7,6 +7,10 @@ vi.mock('server-only', () => ({}));
 vi.mock('next-intl', () => ({
   useTranslations: (namespace?: string) => {
     const t = (key: string, values?: Record<string, unknown>) => {
+      if (key === 'aria.eventsSummary') {
+        const count = Number(values?.count ?? 0);
+        return count === 0 ? 'no events' : count === 1 ? '1 event' : `${String(count)} events`;
+      }
       const prefix = namespace ? `${namespace}.` : '';
       return `${prefix}${key}${values ? JSON.stringify(values) : ''}`;
     };
@@ -179,6 +183,20 @@ describe('TASK-0042: Calendar UI Components Static Render Tests', () => {
       expect(html).toContain('data-testid="week-day-column-2026-10-25"');
       expect(html).toContain('Wedding Shoot - Emma &amp; Liam');
       expect(html).toContain('Consultation Call');
+    });
+
+    it('I1-U01: provides accessible aria-label on week day columns for WCAG 4.1.2 even when days have no events', () => {
+      const html = renderToStaticMarkup(
+        <WeekView
+          currentDate={dummyDate}
+          selectedDate="2026-10-25"
+          onSelectDate={vi.fn()}
+          events={[]}
+          locale="en"
+        />,
+      );
+      expect(html).toContain('aria-label="2026-10-25, no events"');
+      expect(html).toContain('aria-label="2026-10-26, no events"');
     });
   });
 

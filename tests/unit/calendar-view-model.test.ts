@@ -490,15 +490,20 @@ describe('TASK-0042: Calendar View-Model & Color Token System (AC-2, AC-3, AC-4,
       expect(state.notes).toBe('');
     });
 
+    it('I1-U02: initializes create mode with empty title allowing localized input placeholder to show', () => {
+      const state = getInitialBlockedTimeState(null, 'create', '2026-10-25');
+      expect(state.title).toBe('');
+    });
+
     it('computes initial blocked time state in create mode with defaultDate', () => {
       const state = getInitialBlockedTimeState(null, 'create', '2026-10-25');
-      expect(state.title).toBe('Studio Maintenance');
+      expect(state.title).toBe('');
       expect(state.startsAt).toContain('2026-10-25');
     });
 
     it('computes initial blocked time state in create mode without defaultDate', () => {
       const state = getInitialBlockedTimeState(null, 'create');
-      expect(state.title).toBe('Studio Maintenance');
+      expect(state.title).toBe('');
       expect(state.startsAt).toBeDefined();
     });
 

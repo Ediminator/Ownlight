@@ -292,4 +292,18 @@ describe('TASK-0040: Calendar Registrations, Audit, Timeline, ADR, and i18n (AC-
       expect(deEvents?.appointment_cancelled).toBe('Termin abgesagt');
     });
   });
+
+  // I1-S01 (GDPR Art. 30 Data Inventory)
+  describe('I1-S01: Appointments Personal Data Inventory', () => {
+    it('I1-S01: docs/privacy/data-inventory.md documents appointments table personal data fields', () => {
+      const inventoryPath = path.resolve(process.cwd(), 'docs/privacy/data-inventory.md');
+      expect(fs.existsSync(inventoryPath)).toBe(true);
+
+      const content = fs.readFileSync(inventoryPath, 'utf8');
+      expect(content).toContain('appointments.attendee_name');
+      expect(content).toContain('appointments.attendee_email');
+      expect(content).toContain('appointments.attendee_phone');
+      expect(content).toContain('appointments.attendee_notes');
+    });
+  });
 });

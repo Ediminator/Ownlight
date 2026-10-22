@@ -331,6 +331,14 @@ test.describe('TASK-0042: Studio Calendar UI & Modals E2E Tests', () => {
           path: path.join(UX_RUN_DIR, `calendar-month-${vp.name}-${theme}.png`),
           fullPage: true,
         });
+
+        // Verify Week view accessibility (I1-U01)
+        await page.goto('/en/calendar?view=week');
+        await expect(page.locator('[data-testid="calendar-week-grid"]')).toBeVisible();
+        const weekAxeResults = await new AxeBuilder({ page })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
+          .analyze();
+        expect(weekAxeResults.violations).toEqual([]);
       }
     }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import type { UnifiedCalendarEvent } from '@/server/calendar/service';
 import { getFirstDayOfWeek, getWeekDays } from '@/client/calendar/grid-math';
@@ -21,6 +22,7 @@ export function WeekView({
   locale,
   onSelectDate,
 }: WeekViewProps) {
+  const t = useTranslations('calendar');
   const firstDayOfWeek = React.useMemo(() => getFirstDayOfWeek(locale), [locale]);
   const weekDays = React.useMemo(() => {
     return getWeekDays(currentDate, firstDayOfWeek);
@@ -81,6 +83,7 @@ export function WeekView({
               type="button"
               key={cell.dateString}
               data-testid={`week-day-column-${cell.dateString}`}
+              aria-label={`${cell.dateString}, ${t('aria.eventsSummary', { count: dayEvents.length })}`}
               onClick={() => {
                 onSelectDate(cell.dateString);
               }}

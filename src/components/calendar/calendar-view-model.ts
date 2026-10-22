@@ -358,7 +358,7 @@ export function getInitialBlockedTimeState(
   const endDefault = new Date(baseDate.getTime() + 8 * 60 * 60 * 1000);
 
   return {
-    title: 'Studio Maintenance',
+    title: '',
     startsAt: baseDate.toISOString().slice(0, 16),
     endsAt: endDefault.toISOString().slice(0, 16),
     allDay: false,

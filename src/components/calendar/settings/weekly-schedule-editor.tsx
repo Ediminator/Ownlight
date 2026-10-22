@@ -141,8 +141,13 @@ export function WeeklyScheduleEditor({
         >
           {WEEKDAY_ORDER.map((dayOfWeek) => {
             const dayKey = String(dayOfWeek);
-            const item = schedules[dayOfWeek]!;
-            const weekdayKey = WEEKDAY_KEY_MAP[dayOfWeek] as
+            const item = schedules[dayOfWeek] ?? {
+              dayOfWeek,
+              startTime: '09:00',
+              endTime: '17:00',
+              isActive: false,
+            };
+            const weekdayKey = (WEEKDAY_KEY_MAP[dayOfWeek] ?? 'monday') as
               'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
             const weekdayName = tWeekdays(weekdayKey);
             const error = clientErrors[dayOfWeek];

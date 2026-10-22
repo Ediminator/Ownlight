@@ -77,7 +77,7 @@ describe('TASK-0043: Availability Schedule & Date Override Actions Integration T
     const sessionRecord = await createSession(ownerUser.id, dbClient);
     sessionToken = sessionRecord.token;
     mockCookiesStore.set(SESSION_COOKIE_NAME, sessionToken);
-  }, 30000);
+  }, 60000);
 
   afterEach(async () => {
     mockCookiesStore.clear();

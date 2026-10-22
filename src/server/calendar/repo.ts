@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, lt, gt, or, isNull } from 'drizzle-orm';
+import { eq, and, gte, lte, lt, gt, or, isNull, inArray } from 'drizzle-orm';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
 import {
   bookingTypes,
@@ -18,7 +18,7 @@ import {
   type NewAvailabilityOverride,
   type AppointmentStatus,
 } from '@/server/db/schema/calendar';
-import { shoots } from '@/server/db/schema/projects';
+import { shoots, projects, shootLocations } from '@/server/db/schema/projects';
 
 // ==========================================
 // Booking Types
@@ -350,4 +350,69 @@ export async function listShootsInRange(
       ),
     )
     .orderBy(shoots.startsAt);
+}
+
+export interface CalendarShootItem {
+  id: string;
+  projectId: string;
+  projectTitle: string;
+  title: string;
+  startsAt: Date;
+  endsAt: Date | null;
+  timezone: string;
+  locationName: string | null;
+  notes: string | null;
+}
+
+export async function listShootsWithDetailsInRange(
+  params: { startDate: Date; endDate: Date },
+  tx: DbClient = defaultDb,
+): Promise<CalendarShootItem[]> {
+  const rows = await tx
+    .select({
+      id: shoots.id,
+      projectId: shoots.projectId,
+      projectTitle: projects.title,
+      title: shoots.title,
+      startsAt: shoots.startsAt,
+      endsAt: shoots.endsAt,
+      timezone: shoots.timezone,
+      notes: shoots.notes,
+    })
+    .from(shoots)
+    .innerJoin(projects, eq(shoots.projectId, projects.id))
+    .where(
+      and(
+        lt(shoots.startsAt, params.endDate),
+        or(isNull(shoots.endsAt), gt(shoots.endsAt, params.startDate)),
+      ),
+    )
+    .orderBy(shoots.startsAt);
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const shootIds = rows.map((r) => r.id);
+  const locRows = await tx
+    .select({
+      shootId: shootLocations.shootId,
+      name: shootLocations.name,
+      order: shootLocations.order,
+    })
+    .from(shootLocations)
+    .where(inArray(shootLocations.shootId, shootIds))
+    .orderBy(shootLocations.order);
+
+  const locationMap = new Map<string, string>();
+  for (const loc of locRows) {
+    if (!locationMap.has(loc.shootId)) {
+      locationMap.set(loc.shootId, loc.name);
+    }
+  }
+
+  return rows.map((r) => ({
+    ...r,
+    locationName: locationMap.get(r.id) ?? null,
+  }));
 }

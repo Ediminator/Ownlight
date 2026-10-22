@@ -1372,5 +1372,137 @@
         "phone": "Phone Call"
       }
     }
+  },
+  "calendar": {
+    "title": "Studio Calendar",
+    "description": "Visual schedule of client shoots, appointments, and studio maintenance windows.",
+    "views": {
+      "month": "Month",
+      "week": "Week",
+      "day": "Day",
+      "toggleAria": "Calendar view switcher"
+    },
+    "nav": {
+      "prev": "Previous",
+      "next": "Next",
+      "today": "Today",
+      "prevPeriodAria": "Previous period",
+      "nextPeriodAria": "Next period",
+      "todayAria": "Jump to today"
+    },
+    "weekdays": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun",
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
+    },
+    "months": {
+      "january": "January",
+      "february": "February",
+      "march": "March",
+      "april": "April",
+      "may": "May",
+      "june": "June",
+      "july": "July",
+      "august": "August",
+      "september": "September",
+      "october": "October",
+      "november": "November",
+      "december": "December"
+    },
+    "events": {
+      "shoot": "Shoot",
+      "appointment": "Appointment",
+      "blockedTime": "Blocked",
+      "allDay": "All Day",
+      "more": "+{count} more",
+      "moreAria": "{count} more events on this day",
+      "viewProject": "View Project"
+    },
+    "inspector": {
+      "title": "Day Inspector",
+      "empty": "No events scheduled for this date.",
+      "newAppointment": "New Appointment",
+      "blockTime": "Block Time",
+      "close": "Close panel",
+      "shootDetails": "Shoot Details",
+      "appointmentDetails": "Appointment Details",
+      "blockedTimeDetails": "Blocked Window",
+      "attendee": "Attendee",
+      "location": "Location",
+      "notes": "Notes",
+      "viewProject": "Go to Project",
+      "editAppointment": "Edit",
+      "cancelAppointment": "Cancel Appointment",
+      "editBlockedTime": "Edit",
+      "deleteBlockedTime": "Delete"
+    },
+    "modals": {
+      "appointment": {
+        "createTitle": "New Appointment",
+        "editTitle": "Edit Appointment",
+        "cancelTitle": "Cancel Appointment",
+        "cancelDescription": "Please provide a reason for cancelling this appointment.",
+        "cancelConfirm": "Confirm Cancellation",
+        "titleLabel": "Title",
+        "titlePlaceholder": "e.g. Wedding Consultation",
+        "startsAtLabel": "Starts At",
+        "endsAtLabel": "Ends At",
+        "attendeeNameLabel": "Attendee Name",
+        "attendeeNamePlaceholder": "Full name",
+        "attendeeEmailLabel": "Attendee Email",
+        "attendeeEmailPlaceholder": "email@example.com",
+        "attendeePhoneLabel": "Attendee Phone",
+        "attendeePhonePlaceholder": "+49 30 12345678",
+        "locationTypeLabel": "Location Type",
+        "locationTypes": {
+          "googleMeet": "Google Meet",
+          "phone": "Phone Call",
+          "inPerson": "In Person"
+        },
+        "locationDetailsLabel": "Location Details / Address",
+        "notesLabel": "Notes",
+        "notesPlaceholder": "Internal or preparation notes",
+        "save": "Save Appointment",
+        "saving": "Saving...",
+        "cancel": "Cancel",
+        "cancelling": "Cancelling..."
+      },
+      "blockedTime": {
+        "createTitle": "Block Time",
+        "editTitle": "Edit Blocked Time",
+        "deleteTitle": "Delete Blocked Time",
+        "deleteDescription": "Are you sure you want to remove this blackout window?",
+        "deleteConfirm": "Delete Blackout",
+        "titleLabel": "Title",
+        "titlePlaceholder": "e.g. Studio Maintenance",
+        "startsAtLabel": "Starts At",
+        "endsAtLabel": "Ends At",
+        "allDayLabel": "All-day event",
+        "notesLabel": "Notes",
+        "notesPlaceholder": "Optional blackout notes",
+        "save": "Save Blackout",
+        "saving": "Saving...",
+        "cancel": "Cancel",
+        "deleting": "Deleting..."
+      }
+    },
+    "aria": {
+      "gridLabel": "Studio calendar month grid",
+      "currentPeriod": "Viewing {period}",
+      "selectedDate": "Selected date: {date}",
+      "openInspector": "View details for {date}",
+      "eventsSummary": "{count, plural, =0 {no events} one {# event} other {# events}}"
+    }
   }
 }

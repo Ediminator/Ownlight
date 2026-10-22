@@ -780,3 +780,120 @@ export async function deleteAvailabilityOverride(
 
   return { success: true, data: { id } };
 }
+
+// ==========================================
+// Unified Calendar Events Query (TASK-0042)
+// ==========================================
+
+export type CalendarEventType = 'shoot' | 'appointment' | 'blocked_time';
+
+export interface UnifiedCalendarEvent {
+  id: string;
+  type: CalendarEventType;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  timezone: string;
+  status?: string;
+  projectId?: string;
+  projectTitle?: string;
+  locationName?: string | null;
+  attendeeName?: string;
+  attendeeEmail?: string;
+  attendeePhone?: string | null;
+  locationType?: string;
+  locationDetails?: string | null;
+  meetUrl?: string | null;
+  cancellationReason?: string | null;
+  clientId?: string | null;
+  projectId_appt?: string | null;
+  leadId?: string | null;
+  bookingTypeId?: string | null;
+  notes?: string | null;
+}
+
+export interface GetUnifiedCalendarEventsParams {
+  startDate: Date;
+  endDate: Date;
+  includeCancelled?: boolean;
+}
+
+export async function getUnifiedCalendarEvents(
+  params: GetUnifiedCalendarEventsParams,
+  tx: DbClient = defaultDb,
+): Promise<UnifiedCalendarEvent[]> {
+  const [shoots, appointments, blockedTimes] = await Promise.all([
+    repo.listShootsWithDetailsInRange({ startDate: params.startDate, endDate: params.endDate }, tx),
+    repo.listAppointmentsInRange({ startDate: params.startDate, endDate: params.endDate }, tx),
+    repo.listBlockedTimeInRange({ startDate: params.startDate, endDate: params.endDate }, tx),
+  ]);
+
+  const events: UnifiedCalendarEvent[] = [];
+
+  // Shoots
+  for (const s of shoots) {
+    const ends = s.endsAt ?? new Date(s.startsAt.getTime() + 60 * 60 * 1000);
+    events.push({
+      id: s.id,
+      type: 'shoot',
+      title: s.title,
+      startsAt: s.startsAt.toISOString(),
+      endsAt: ends.toISOString(),
+      allDay: false,
+      timezone: s.timezone,
+      projectId: s.projectId,
+      projectTitle: s.projectTitle,
+      locationName: s.locationName,
+      notes: s.notes,
+    });
+  }
+
+  // Appointments
+  for (const a of appointments) {
+    if (!params.includeCancelled && a.status === 'cancelled') {
+      continue;
+    }
+    events.push({
+      id: a.id,
+      type: 'appointment',
+      title: a.title,
+      startsAt: a.startsAt.toISOString(),
+      endsAt: a.endsAt.toISOString(),
+      allDay: false,
+      timezone: a.timezone,
+      status: a.status,
+      attendeeName: a.attendeeName,
+      attendeeEmail: a.attendeeEmail,
+      attendeePhone: a.attendeePhone,
+      locationType: a.locationType,
+      locationDetails: a.locationDetails,
+      meetUrl: a.meetUrl,
+      cancellationReason: a.cancellationReason,
+      clientId: a.clientId,
+      projectId: a.projectId ?? undefined,
+      leadId: a.leadId,
+      bookingTypeId: a.bookingTypeId,
+      notes: a.attendeeNotes,
+    });
+  }
+
+  // Blocked Times
+  for (const b of blockedTimes) {
+    events.push({
+      id: b.id,
+      type: 'blocked_time',
+      title: b.title,
+      startsAt: b.startsAt.toISOString(),
+      endsAt: b.endsAt.toISOString(),
+      allDay: b.allDay,
+      timezone: 'Europe/Berlin',
+      notes: b.notes,
+    });
+  }
+
+  // Sort events chronologically by startsAt
+  events.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+
+  return events;
+}

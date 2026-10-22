@@ -16,7 +16,9 @@ import ClientsPage from '@/app/[locale]/clients/page';
 import ProjectsPage, {
   generateMetadata as generateProjectsMetadata,
 } from '@/app/[locale]/projects/page';
-import CalendarPage from '@/app/[locale]/calendar/page';
+import CalendarPage, {
+  generateMetadata as generateCalendarMetadata,
+} from '@/app/[locale]/calendar/page';
 import SettingsPage from '@/app/[locale]/settings/page';
 import SignInPage from '@/app/[locale]/sign-in/page';
 import ForgotPasswordPage from '@/app/[locale]/forgot-password/page';
@@ -98,6 +100,10 @@ vi.mock('@/server/projects/service', () => ({
     projects: [],
   }),
   getProjectsForClient: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('@/server/calendar/service', () => ({
+  getUnifiedCalendarEvents: vi.fn().mockResolvedValue([]),
 }));
 
 describe('App placeholder and auth pages', () => {
@@ -233,9 +239,39 @@ describe('App placeholder and auth pages', () => {
     expect(metaEnFallback.title).toBe('Projects & Pipeline · Ownlight');
   });
 
-  it('renders CalendarPage component', () => {
-    const el = CalendarPage();
+  it('renders CalendarPage component', async () => {
+    const el = await CalendarPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({}),
+    });
     expect(React.isValidElement(el)).toBe(true);
+  });
+
+  it('redirects unauthenticated users to sign-in on CalendarPage', async () => {
+    const { requireOwner } = await import('@/server/auth/guards');
+    const { redirect } = await import('next/navigation');
+    vi.mocked(requireOwner).mockRejectedValueOnce(new Error('Unauthorized'));
+
+    const el = await CalendarPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({}),
+    });
+    expect(el).toBeNull();
+    expect(redirect).toHaveBeenCalledWith('/en/sign-in?callbackUrl=/en/calendar');
+  });
+
+  it('generates metadata for CalendarPage', async () => {
+    const metaEn = await generateCalendarMetadata({
+      params: Promise.resolve({ locale: 'en' }),
+    });
+    expect(metaEn.title).toBeDefined();
+
+    const { getTranslations } = await import('next-intl/server');
+    vi.mocked(getTranslations).mockRejectedValueOnce(new Error('Metadata translation fail'));
+    const metaDeFallback = await generateCalendarMetadata({
+      params: Promise.resolve({ locale: 'de' }),
+    });
+    expect(metaDeFallback.title).toBe('Studiokalender · Ownlight');
   });
 
   it('renders SettingsPage component', () => {

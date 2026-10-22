@@ -425,4 +425,129 @@ test.describe('TASK-0043: Availability Schedules, Date Overrides, & Booking Type
     await page.locator('[data-testid="booking-type-cancel-btn"]').click();
     await expect(page.locator('[role="dialog"]')).not.toBeVisible();
   });
+
+  // I2-U01 (BLOCKER regression test): Tab keyboard navigation
+  test('I2-U01: Settings tab navigation operates seamlessly via keyboard with WAI-ARIA roving tabindex', async ({
+    page,
+  }) => {
+    await page.goto('/en/settings/calendar/availability');
+
+    const tabSchedules = page.locator('[data-testid="tab-weekly-schedule"]');
+    const tabOverrides = page.locator('[data-testid="tab-date-overrides"]');
+    const tabBookingTypes = page.locator('[data-testid="tab-booking-types"]');
+
+    // Focus initial active tab
+    await tabSchedules.focus();
+    await expect(tabSchedules).toBeFocused();
+    await expect(tabSchedules).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('[data-testid="weekly-schedule-editor"]')).toBeVisible();
+
+    // ArrowRight -> Moves focus and activates Date Overrides tab
+    await page.keyboard.press('ArrowRight');
+    await expect(tabOverrides).toBeFocused();
+    await expect(tabOverrides).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('[data-testid="date-overrides-manager"]')).toBeVisible();
+
+    // ArrowRight -> Moves focus and activates Booking Types tab
+    await page.keyboard.press('ArrowRight');
+    await expect(tabBookingTypes).toBeFocused();
+    await expect(tabBookingTypes).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('[data-testid="booking-types-manager"]')).toBeVisible();
+
+    // ArrowRight -> Wraps around to first tab (Weekly Schedule)
+    await page.keyboard.press('ArrowRight');
+    await expect(tabSchedules).toBeFocused();
+    await expect(tabSchedules).toHaveAttribute('aria-selected', 'true');
+
+    // ArrowLeft -> Wraps backward to last tab (Booking Types)
+    await page.keyboard.press('ArrowLeft');
+    await expect(tabBookingTypes).toBeFocused();
+    await expect(tabBookingTypes).toHaveAttribute('aria-selected', 'true');
+
+    // Home -> Jumps to first tab (Weekly Schedule)
+    await page.keyboard.press('Home');
+    await expect(tabSchedules).toBeFocused();
+    await expect(tabSchedules).toHaveAttribute('aria-selected', 'true');
+
+    // End -> Jumps to last tab (Booking Types)
+    await page.keyboard.press('End');
+    await expect(tabBookingTypes).toBeFocused();
+    await expect(tabBookingTypes).toHaveAttribute('aria-selected', 'true');
+  });
+
+  // I2-U02 (MAJOR regression test): Date Overrides i18n
+  test('I2-U02: Date Overrides manager renders all localized text without raw translation path keys in EN and DE', async ({
+    page,
+  }) => {
+    for (const locale of ['en', 'de']) {
+      await page.goto(`/${locale}/settings/calendar/availability`);
+
+      // Switch to Date Overrides tab
+      await page.locator('[data-testid="tab-date-overrides"]').click();
+      await expect(page.locator('[data-testid="date-overrides-manager"]')).toBeVisible();
+
+      // Check "Add Date Override" button has localized text and no raw path
+      const addBtn = page.locator('[data-testid="add-date-override-btn"]');
+      const addBtnText = await addBtn.innerText();
+      expect(addBtnText.length).toBeGreaterThan(0);
+      expect(addBtnText).not.toContain('settings.availability.overrides');
+
+      // Open Add Date Override dialog
+      await addBtn.click();
+      const dialog = page.locator('[data-testid="add-override-dialog"]');
+      await expect(dialog).toBeVisible();
+
+      const dialogContent = await dialog.innerText();
+      expect(dialogContent).not.toContain('settings.availability.overrides');
+      expect(dialogContent).not.toContain('SETTINGS.AVAILABILITY.OVERRIDES');
+
+      // Verify specific translated labels
+      if (locale === 'de') {
+        expect(dialogContent).toContain('Datumsausnahme hinzufügen');
+        expect(dialogContent.toUpperCase()).toContain('DATUM');
+        expect(dialogContent.toUpperCase()).toContain('STATUS');
+        expect(dialogContent).toContain('Ganztägig nicht verfügbar');
+        expect(dialogContent).toContain('Abbrechen');
+        expect(dialogContent).toContain('Ausnahme hinzufügen');
+      } else {
+        expect(dialogContent).toContain('Add Date Override');
+        expect(dialogContent.toUpperCase()).toContain('DATE');
+        expect(dialogContent.toUpperCase()).toContain('STATUS');
+        expect(dialogContent).toContain('Entire day unavailable');
+        expect(dialogContent).toContain('Cancel');
+        expect(dialogContent).toContain('Add Override');
+      }
+
+      await page.locator('[data-testid="override-cancel-btn"]').click();
+      await expect(dialog).not.toBeVisible();
+    }
+  });
+
+  // I2-U03 (MINOR regression test): Mobile tab strip visibility
+  test('I2-U03: Settings tab list renders all three tabs cleanly on mobile viewports (375px)', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/de/settings/calendar/availability');
+
+    const tabSchedules = page.locator('[data-testid="tab-weekly-schedule"]');
+    const tabOverrides = page.locator('[data-testid="tab-date-overrides"]');
+    const tabBookingTypes = page.locator('[data-testid="tab-booking-types"]');
+
+    await expect(tabSchedules).toBeVisible();
+    await expect(tabOverrides).toBeVisible();
+    await expect(tabBookingTypes).toBeVisible();
+
+    // Verify all 3 tabs have non-zero bounding boxes and are within viewport width
+    const schedulesBox = await tabSchedules.boundingBox();
+    const overridesBox = await tabOverrides.boundingBox();
+    const bookingTypesBox = await tabBookingTypes.boundingBox();
+
+    expect(schedulesBox).not.toBeNull();
+    expect(overridesBox).not.toBeNull();
+    expect(bookingTypesBox).not.toBeNull();
+
+    expect((schedulesBox?.x ?? 0) + (schedulesBox?.width ?? 0)).toBeLessThanOrEqual(375);
+    expect((bookingTypesBox?.x ?? 0) + (bookingTypesBox?.width ?? 0)).toBeLessThanOrEqual(375);
+  });
 });

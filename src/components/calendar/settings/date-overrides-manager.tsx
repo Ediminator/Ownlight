@@ -165,7 +165,7 @@ export function DateOverridesManager({
           className="flex items-center gap-2 self-start sm:self-auto min-h-[38px]"
         >
           <Plus className="h-4 w-4" />
-          <span>{t('addOverride')}</span>
+          <span>{t('addOverrideBtn')}</span>
         </Button>
       </div>
 
@@ -209,7 +209,9 @@ export function DateOverridesManager({
         >
           <Calendar className="mx-auto h-8 w-8 text-muted-foreground/60 mb-2" />
           <p className="text-sm font-medium text-foreground">{t('emptyTitle')}</p>
-          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">{t('emptyDesc')}</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+            {t('emptyDescription')}
+          </p>
         </div>
       ) : (
         <div
@@ -217,23 +219,23 @@ export function DateOverridesManager({
           className="rounded-lg border bg-card shadow-xs overflow-hidden"
         >
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
+            <table className="w-full text-sm text-left" aria-label={t('tableAriaLabel')}>
               <thead className="bg-muted/50 text-muted-foreground font-medium border-b text-xs uppercase tracking-wider">
                 <tr>
                   <th scope="col" className="px-4 py-3">
-                    {t('colDate')}
+                    {t('thDate')}
                   </th>
                   <th scope="col" className="px-4 py-3">
-                    {t('colType')}
+                    {t('thStatus')}
                   </th>
                   <th scope="col" className="px-4 py-3">
-                    {t('colHours')}
+                    {t('thHours')}
                   </th>
                   <th scope="col" className="px-4 py-3">
-                    {t('colReason')}
+                    {t('thReason')}
                   </th>
                   <th scope="col" className="px-4 py-3 text-right">
-                    {t('colActions')}
+                    {t('thActions')}
                   </th>
                 </tr>
               </thead>
@@ -250,11 +252,11 @@ export function DateOverridesManager({
                     <td className="px-4 py-3 whitespace-nowrap">
                       {item.isUnavailable ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-destructive/10 text-destructive border border-destructive/20">
-                          {t('badgeUnavailable')}
+                          {t('statusUnavailable')}
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                          {t('badgeCustomHours')}
+                          {t('statusCustomHours')}
                         </span>
                       )}
                     </td>
@@ -276,7 +278,7 @@ export function DateOverridesManager({
                         data-id={item.id}
                         onClick={handleAction}
                         className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        aria-label={`${t('deleteAria')} ${item.date}`}
+                        aria-label={`${t('deleteBtnAria')} ${formatDateDisplay(item.date, locale)}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -299,7 +301,9 @@ export function DateOverridesManager({
           <form data-action="create-submit" onSubmit={handleAction} className="space-y-4">
             <DialogHeader>
               <DialogTitle>{t('dialogAddTitle')}</DialogTitle>
-              <DialogDescription id="override-dialog-desc">{t('dialogAddDesc')}</DialogDescription>
+              <DialogDescription id="override-dialog-desc">
+                {t('dialogAddDescription')}
+              </DialogDescription>
             </DialogHeader>
 
             {formError && (
@@ -320,7 +324,7 @@ export function DateOverridesManager({
                   htmlFor="override-date-input"
                   className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
-                  {t('fieldDate')}
+                  {t('labelDate')}
                 </label>
                 <input
                   type="date"
@@ -337,7 +341,7 @@ export function DateOverridesManager({
               {/* Status Radio / Toggles */}
               <div className="space-y-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t('fieldStatus')}
+                  {t('labelStatus')}
                 </span>
                 <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -350,7 +354,7 @@ export function DateOverridesManager({
                       onChange={handleInputChange}
                       className="text-primary focus:ring-primary h-4 w-4 rounded"
                     />
-                    <span>{t('typeUnavailable')}</span>
+                    <span>{t('labelUnavailableAllDay')}</span>
                   </label>
                 </div>
               </div>
@@ -360,7 +364,7 @@ export function DateOverridesManager({
                 <div className="flex items-center gap-2 pt-1">
                   <div className="flex-1 space-y-1">
                     <label htmlFor="override-start-time" className="text-xs text-muted-foreground">
-                      {t('startTime')}
+                      {t('labelStartTime')}
                     </label>
                     <input
                       type="time"
@@ -377,7 +381,7 @@ export function DateOverridesManager({
                   </span>
                   <div className="flex-1 space-y-1">
                     <label htmlFor="override-end-time" className="text-xs text-muted-foreground">
-                      {t('endTime')}
+                      {t('labelEndTime')}
                     </label>
                     <input
                       type="time"
@@ -398,7 +402,7 @@ export function DateOverridesManager({
                   htmlFor="override-reason-input"
                   className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
-                  {t('fieldReason')}
+                  {t('labelReason')}
                 </label>
                 <input
                   type="text"
@@ -422,10 +426,10 @@ export function DateOverridesManager({
                 onClick={handleAction}
                 data-testid="override-cancel-btn"
               >
-                {t('cancel')}
+                {t('cancelBtn')}
               </Button>
               <Button type="submit" disabled={isSubmitting} data-testid="override-save-btn">
-                {isSubmitting ? t('saving') : t('create')}
+                {isSubmitting ? t('saving') : t('saveBtn')}
               </Button>
             </DialogFooter>
           </form>
@@ -442,7 +446,7 @@ export function DateOverridesManager({
           <DialogHeader>
             <DialogTitle>{t('dialogDeleteTitle')}</DialogTitle>
             <DialogDescription id="delete-override-desc">
-              {t('dialogDeleteDesc', {
+              {t('dialogDeleteDescription', {
                 date: deleteTarget ? formatDateDisplay(deleteTarget.date, locale) : '',
               })}
             </DialogDescription>
@@ -456,7 +460,7 @@ export function DateOverridesManager({
               onClick={handleAction}
               data-testid="cancel-delete-override-btn"
             >
-              {t('cancel')}
+              {t('cancelBtn')}
             </Button>
             <Button
               type="button"
@@ -466,7 +470,7 @@ export function DateOverridesManager({
               onClick={handleAction}
               data-testid="confirm-delete-override-btn"
             >
-              {isSubmitting ? t('deleting') : t('delete')}
+              {isSubmitting ? t('deleting') : t('confirmDeleteBtn')}
             </Button>
           </DialogFooter>
         </DialogContent>

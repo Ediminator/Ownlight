@@ -16,6 +16,7 @@ import {
   isTimeRangeValid,
   formatDateDisplay,
   getColorDotClass,
+  getNextRovingTabIndex,
   WEEKDAY_ORDER,
   WEEKDAY_KEY_MAP,
 } from '@/components/calendar/settings/availability-helpers';
@@ -405,6 +406,34 @@ describe('TASK-0043: Availability & Booking Types Unit Tests', () => {
       expect(WEEKDAY_KEY_MAP[0]).toBe('sunday');
       expect(WEEKDAY_KEY_MAP[1]).toBe('monday');
     });
+
+    // I2-U01: WAI-ARIA Roving Tabindex Keyboard Navigation
+    describe('I2-U01: getNextRovingTabIndex Keyboard Tab Navigation', () => {
+      it('navigates forward with ArrowRight and wraps around', () => {
+        expect(getNextRovingTabIndex(0, 'ArrowRight', 3)).toBe(1);
+        expect(getNextRovingTabIndex(1, 'ArrowRight', 3)).toBe(2);
+        expect(getNextRovingTabIndex(2, 'ArrowRight', 3)).toBe(0); // wraps
+      });
+
+      it('navigates backward with ArrowLeft and wraps around', () => {
+        expect(getNextRovingTabIndex(2, 'ArrowLeft', 3)).toBe(1);
+        expect(getNextRovingTabIndex(1, 'ArrowLeft', 3)).toBe(0);
+        expect(getNextRovingTabIndex(0, 'ArrowLeft', 3)).toBe(2); // wraps
+      });
+
+      it('jumps to first tab with Home and last tab with End', () => {
+        expect(getNextRovingTabIndex(2, 'Home', 3)).toBe(0);
+        expect(getNextRovingTabIndex(0, 'End', 3)).toBe(2);
+      });
+
+      it('returns null for non-navigation keys or invalid totalCount', () => {
+        expect(getNextRovingTabIndex(0, 'Tab', 3)).toBeNull();
+        expect(getNextRovingTabIndex(0, 'Enter', 3)).toBeNull();
+        expect(getNextRovingTabIndex(0, 'ArrowDown', 3)).toBeNull();
+        expect(getNextRovingTabIndex(0, 'ArrowRight', 0)).toBeNull();
+        expect(getNextRovingTabIndex(0, 'ArrowRight', -1)).toBeNull();
+      });
+    });
   });
 
   // AC-9: Translation Parity for Availability & Booking Types
@@ -436,6 +465,88 @@ describe('TASK-0043: Availability & Booking Types Unit Tests', () => {
       if (enAvailability && deAvailability) {
         expect(enAvailability.title).toBe('Availability & Booking Types');
         expect(deAvailability.title).toBe('Verfügbarkeit & Buchungsarten');
+      }
+    });
+
+    // I2-U02: Regression test verifying all date overrides translation keys exist in both locales
+    it('I2-U02: settings.availability.overrides contains all required keys with non-empty localized strings', () => {
+      const enPath = path.resolve(process.cwd(), 'messages/en.json');
+      const dePath = path.resolve(process.cwd(), 'messages/de.json');
+
+      const en = JSON.parse(fs.readFileSync(enPath, 'utf8')) as {
+        settings: { availability: { overrides: Record<string, string> } };
+      };
+      const de = JSON.parse(fs.readFileSync(dePath, 'utf8')) as {
+        settings: { availability: { overrides: Record<string, string> } };
+      };
+
+      const enOverrides = en.settings.availability.overrides;
+      const deOverrides = de.settings.availability.overrides;
+
+      const requiredKeys = [
+        'title',
+        'description',
+        'addOverrideBtn',
+        'emptyTitle',
+        'emptyDescription',
+        'tableAriaLabel',
+        'thDate',
+        'thStatus',
+        'thHours',
+        'thReason',
+        'thActions',
+        'statusUnavailable',
+        'statusCustomHours',
+        'deleteBtnAria',
+        'dialogAddTitle',
+        'dialogAddDescription',
+        'labelDate',
+        'labelStatus',
+        'fieldStatus',
+        'labelUnavailableAllDay',
+        'labelStartTime',
+        'labelEndTime',
+        'labelReason',
+        'reasonPlaceholder',
+        'cancelBtn',
+        'saveBtn',
+        'saving',
+        'dialogDeleteTitle',
+        'dialogDeleteDescription',
+        'confirmDeleteBtn',
+        'deleting',
+        'successCreated',
+        'successDeleted',
+        'errorDateRequired',
+        'errorInvalidDate',
+        'errorInvalidRange',
+        'errorSaveFailed',
+        'errorDeleteFailed',
+        'dismissNotification',
+      ];
+
+      for (const key of requiredKeys) {
+        const enVal = enOverrides[key];
+        expect(enVal, `Missing English key for overrides.${key}`).toBeDefined();
+        expect(
+          typeof enVal === 'string' && enVal.length > 0,
+          `Empty English key for overrides.${key}`,
+        ).toBe(true);
+        expect(
+          enVal?.includes('settings.availability.overrides'),
+          `Raw key path found in enOverrides.${key}`,
+        ).toBe(false);
+
+        const deVal = deOverrides[key];
+        expect(deVal, `Missing German key for overrides.${key}`).toBeDefined();
+        expect(
+          typeof deVal === 'string' && deVal.length > 0,
+          `Empty German key for overrides.${key}`,
+        ).toBe(true);
+        expect(
+          deVal?.includes('settings.availability.overrides'),
+          `Raw key path found in deOverrides.${key}`,
+        ).toBe(false);
       }
     });
   });

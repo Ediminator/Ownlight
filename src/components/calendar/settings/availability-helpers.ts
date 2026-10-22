@@ -128,3 +128,28 @@ export function getColorDotClass(color: string): string {
       return 'bg-indigo-500';
   }
 }
+
+/**
+ * Calculates the next roving tab index according to WAI-ARIA APG Tabs pattern.
+ * Supports ArrowRight, ArrowLeft, Home, and End.
+ */
+export function getNextRovingTabIndex(
+  currentIndex: number,
+  key: string,
+  totalCount: number,
+): number | null {
+  if (totalCount <= 0) return null;
+  if (key === 'ArrowRight') {
+    return (currentIndex + 1) % totalCount;
+  }
+  if (key === 'ArrowLeft') {
+    return (currentIndex - 1 + totalCount) % totalCount;
+  }
+  if (key === 'Home') {
+    return 0;
+  }
+  if (key === 'End') {
+    return totalCount - 1;
+  }
+  return null;
+}

@@ -11,6 +11,7 @@ import type {
 import { WeeklyScheduleEditor } from './weekly-schedule-editor';
 import { DateOverridesManager } from './date-overrides-manager';
 import { BookingTypesManager } from './booking-types-manager';
+import { getNextRovingTabIndex } from './availability-helpers';
 import { ChevronRight, Calendar, Clock, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -55,6 +56,19 @@ export function AvailabilitySettingsView({
     },
   ];
 
+  const handleTabKeyDown = (e: React.KeyboardEvent, index: number) => {
+    const nextIndex = getNextRovingTabIndex(index, e.key, tabs.length);
+    if (nextIndex !== null) {
+      e.preventDefault();
+      const targetTab = tabs[nextIndex];
+      if (targetTab) {
+        setActiveTab(targetTab.id);
+        const nextButton = document.getElementById(`tab-${targetTab.id}`);
+        nextButton?.focus();
+      }
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Breadcrumbs (AC-1) */}
@@ -88,9 +102,9 @@ export function AvailabilitySettingsView({
         <div
           role="tablist"
           aria-label={t('tablistAria')}
-          className="flex border-b border-border gap-2 overflow-x-auto"
+          className="flex flex-wrap sm:flex-nowrap border-b border-border gap-2 overflow-x-auto pb-1 sm:pb-0"
         >
-          {tabs.map((tab) => {
+          {tabs.map((tab, index) => {
             const Icon = tab.icon;
             const isSelected = activeTab === tab.id;
 
@@ -106,6 +120,9 @@ export function AvailabilitySettingsView({
                 data-testid={tab.testId}
                 onClick={() => {
                   setActiveTab(tab.id);
+                }}
+                onKeyDown={(e) => {
+                  handleTabKeyDown(e, index);
                 }}
                 className={cn(
                   'inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',

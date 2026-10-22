@@ -3,13 +3,18 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import type { BookingType, BookingLocationType } from '@/server/db/schema/calendar';
-import {
-  createBookingTypeAction,
-  updateBookingTypeAction,
-  deleteBookingTypeAction,
-} from '@/server/calendar/availability-actions';
-import { generateSlug, isValidSlug } from '@/lib/slug';
 import { COLOR_OPTIONS, getColorDotClass, type ColorOption } from './availability-helpers';
+import {
+  getInitialBookingTypeFormState,
+  computeBookingTypeSlug,
+  validateBookingTypeFormState,
+  submitBookingTypeCreate,
+  submitBookingTypeUpdate,
+  submitBookingTypeDelete,
+  copyPublicBookingLink,
+  getBookingLocationBadgeInfo,
+  type BookingTypeFormState,
+} from './availability-view-model';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -39,30 +44,35 @@ import { cn } from '@/lib/utils';
 interface BookingTypesManagerProps {
   initialBookingTypes: BookingType[];
   locale?: string;
+  defaultDialogOpen?: boolean;
+  defaultEditingItem?: BookingType | null;
+  defaultDeleteTarget?: BookingType | null;
+  initialNotification?: {
+    type: 'success' | 'error';
+    message: string;
+  } | null;
 }
 
-export function BookingTypesManager({ initialBookingTypes }: BookingTypesManagerProps) {
+export function BookingTypesManager({
+  initialBookingTypes,
+  defaultDialogOpen = false,
+  defaultEditingItem = null,
+  defaultDeleteTarget = null,
+  initialNotification = null,
+}: BookingTypesManagerProps) {
   const t = useTranslations('settings.availability.bookingTypes');
 
   const [bookingTypes, setBookingTypes] = React.useState<BookingType[]>(initialBookingTypes);
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-  const [editingItem, setEditingItem] = React.useState<BookingType | null>(null);
-  const [deleteTarget, setDeleteTarget] = React.useState<BookingType | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = React.useState(
+    defaultDialogOpen || Boolean(defaultEditingItem),
+  );
+  const [editingItem, setEditingItem] = React.useState<BookingType | null>(defaultEditingItem);
+  const [deleteTarget, setDeleteTarget] = React.useState<BookingType | null>(defaultDeleteTarget);
 
   // Form State
-  const [title, setTitle] = React.useState('');
-  const [slug, setSlug] = React.useState('');
-  const [slugManuallyEdited, setSlugManuallyEdited] = React.useState(false);
-  const [description, setDescription] = React.useState('');
-  const [durationMinutes, setDurationMinutes] = React.useState(30);
-  const [bufferBeforeMinutes, setBufferBeforeMinutes] = React.useState(0);
-  const [bufferAfterMinutes, setBufferAfterMinutes] = React.useState(15);
-  const [minNoticeHours, setMinNoticeHours] = React.useState(24);
-  const [maxFutureDays, setMaxFutureDays] = React.useState(60);
-  const [locationType, setLocationType] = React.useState<BookingLocationType>('google_meet');
-  const [locationDetails, setLocationDetails] = React.useState('');
-  const [color, setColor] = React.useState<ColorOption>('indigo');
-  const [isActive, setIsActive] = React.useState(true);
+  const [formValues, setFormValues] = React.useState<BookingTypeFormState>(() =>
+    getInitialBookingTypeFormState(defaultEditingItem),
+  );
 
   const [formError, setFormError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -70,22 +80,10 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
   const [notification, setNotification] = React.useState<{
     type: 'success' | 'error';
     message: string;
-  } | null>(null);
+  } | null>(initialNotification);
 
   const resetForm = () => {
-    setTitle('');
-    setSlug('');
-    setSlugManuallyEdited(false);
-    setDescription('');
-    setDurationMinutes(30);
-    setBufferBeforeMinutes(0);
-    setBufferAfterMinutes(15);
-    setMinNoticeHours(24);
-    setMaxFutureDays(60);
-    setLocationType('google_meet');
-    setLocationDetails('');
-    setColor('indigo');
-    setIsActive(true);
+    setFormValues(getInitialBookingTypeFormState(null));
     setFormError(null);
     setEditingItem(null);
   };
@@ -95,45 +93,50 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
     setIsDialogOpen(true);
   };
 
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+  };
+
+  const handleCloseDelete = () => {
+    setDeleteTarget(null);
+  };
+
+  const handleDismissNotification = () => {
+    setNotification(null);
+  };
+
   const handleOpenEdit = (item: BookingType) => {
     setEditingItem(item);
-    setTitle(item.title);
-    setSlug(item.slug);
-    setSlugManuallyEdited(true);
-    setDescription(item.description ?? '');
-    setDurationMinutes(item.durationMinutes);
-    setBufferBeforeMinutes(item.bufferBeforeMinutes);
-    setBufferAfterMinutes(item.bufferAfterMinutes);
-    setMinNoticeHours(item.minNoticeHours);
-    setMaxFutureDays(item.maxFutureDays);
-    setLocationType(item.locationType);
-    setLocationDetails(item.locationDetails ?? '');
-    setColor(item.color as ColorOption);
-    setIsActive(item.isActive);
+    setFormValues(getInitialBookingTypeFormState(item));
     setFormError(null);
     setIsDialogOpen(true);
   };
 
   const handleTitleChange = (val: string) => {
-    setTitle(val);
-    if (!slugManuallyEdited && !editingItem) {
-      setSlug(generateSlug(val));
-    }
+    setFormValues((prev) => ({
+      ...prev,
+      title: val,
+      slug: computeBookingTypeSlug(val, prev.slug, prev.slugManuallyEdited, Boolean(editingItem)),
+    }));
   };
 
   const handleSlugChange = (val: string) => {
-    setSlugManuallyEdited(true);
-    setSlug(val.toLowerCase().trim());
+    setFormValues((prev) => ({
+      ...prev,
+      slugManuallyEdited: true,
+      slug: val.toLowerCase().trim(),
+    }));
+  };
+
+  const handleColorClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const colorVal = e.currentTarget.dataset.color as ColorOption | undefined;
+    if (colorVal) {
+      setFormValues((prev) => ({ ...prev, color: colorVal }));
+    }
   };
 
   const handleCopyLink = async (targetSlug: string) => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const url = `${origin}/book/${targetSlug}`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      // Ignore clipboard write rejection in headless/unfocused contexts
-    }
+    await copyPublicBookingLink(targetSlug);
     setCopiedSlug(targetSlug);
     setTimeout(() => {
       setCopiedSlug(null);
@@ -144,13 +147,17 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
     e.preventDefault();
     setFormError(null);
 
-    if (!title.trim()) {
-      setFormError(t('errorTitleRequired'));
-      return;
-    }
+    const validation = validateBookingTypeFormState(formValues, {
+      titleRequired: t('errorTitleRequired'),
+      slugRequired: t('errorSlugRequired'),
+      slugInvalid: t('errorInvalidSlug'),
+      durationMin: t('errorDurationMin'),
+      noticeMin: t('errorNoticeMin'),
+      horizonMin: t('errorHorizonMin'),
+    });
 
-    if (!isValidSlug(slug)) {
-      setFormError(t('errorInvalidSlug'));
+    if (validation) {
+      setFormError(validation);
       return;
     }
 
@@ -158,24 +165,11 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
     try {
       if (editingItem) {
         // Update
-        const res = await updateBookingTypeAction(editingItem.id, {
-          title: title.trim(),
-          slug: slug.trim(),
-          description: description.trim() ? description.trim() : null,
-          durationMinutes,
-          bufferBeforeMinutes,
-          bufferAfterMinutes,
-          minNoticeHours,
-          maxFutureDays,
-          locationType,
-          locationDetails: locationDetails.trim() ? locationDetails.trim() : null,
-          color,
-          isActive,
-        });
-
-        if (res.success) {
+        const res = await submitBookingTypeUpdate(editingItem.id, formValues);
+        if (res.success && res.data) {
+          const updated = res.data;
           setBookingTypes((prev) =>
-            prev.map((item) => (item.id === editingItem.id ? res.data : item)),
+            prev.map((item) => (item.id === editingItem.id ? updated : item)),
           );
           setIsDialogOpen(false);
           resetForm();
@@ -184,27 +178,14 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
             message: t('successUpdated'),
           });
         } else {
-          setFormError(res.error || t('errorSaveFailed'));
+          setFormError(res.error ?? t('errorSaveFailed'));
         }
       } else {
         // Create
-        const res = await createBookingTypeAction({
-          title: title.trim(),
-          slug: slug.trim(),
-          description: description.trim() ? description.trim() : null,
-          durationMinutes,
-          bufferBeforeMinutes,
-          bufferAfterMinutes,
-          minNoticeHours,
-          maxFutureDays,
-          locationType,
-          locationDetails: locationDetails.trim() ? locationDetails.trim() : null,
-          color,
-          isActive,
-        });
-
-        if (res.success) {
-          setBookingTypes((prev) => [...prev, res.data]);
+        const res = await submitBookingTypeCreate(formValues);
+        if (res.success && res.data) {
+          const created = res.data;
+          setBookingTypes((prev) => [...prev, created]);
           setIsDialogOpen(false);
           resetForm();
           setNotification({
@@ -212,7 +193,7 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
             message: t('successCreated'),
           });
         } else {
-          setFormError(res.error || t('errorSaveFailed'));
+          setFormError(res.error ?? t('errorSaveFailed'));
         }
       }
     } catch {
@@ -227,7 +208,7 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
 
     setIsSubmitting(true);
     try {
-      const res = await deleteBookingTypeAction(deleteTarget.id);
+      const res = await submitBookingTypeDelete(deleteTarget.id);
       if (res.success) {
         setBookingTypes((prev) => prev.filter((b) => b.id !== deleteTarget.id));
         setNotification({
@@ -238,7 +219,7 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
       } else {
         setNotification({
           type: 'error',
-          message: res.error || t('errorDeleteFailed'),
+          message: res.error ?? t('errorDeleteFailed'),
         });
       }
     } catch {
@@ -251,16 +232,15 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
     }
   };
 
-  const getLocationIcon = (type: BookingLocationType) => {
-    switch (type) {
-      case 'google_meet':
-        return <Video className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
-      case 'phone':
-        return <Phone className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
-      case 'in_person':
-      default:
-        return <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
+  const renderLocationIcon = (locationType: BookingLocationType) => {
+    const info = getBookingLocationBadgeInfo(locationType);
+    if (info.iconType === 'phone') {
+      return <Phone className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
     }
+    if (info.iconType === 'map-pin') {
+      return <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
+    }
+    return <Video className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
   };
 
   return (
@@ -272,12 +252,12 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
         </div>
         <Button
           type="button"
-          onClick={handleOpenNew}
           data-testid="new-booking-type-btn"
-          className="inline-flex items-center gap-2 self-start min-h-[38px]"
+          onClick={handleOpenNew}
+          className="flex items-center gap-2 self-start sm:self-auto min-h-[38px]"
         >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          <span>{t('newBtn')}</span>
+          <Plus className="h-4 w-4" />
+          <span>{t('newBookingType')}</span>
         </Button>
       </div>
 
@@ -303,9 +283,7 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
           </div>
           <button
             type="button"
-            onClick={() => {
-              setNotification(null);
-            }}
+            onClick={handleDismissNotification}
             className="rounded p-1 hover:bg-black/5 dark:hover:bg-white/5"
             aria-label={t('dismissNotification')}
           >
@@ -320,124 +298,103 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
           data-testid="booking-types-empty"
           className="rounded-lg border border-dashed p-8 text-center bg-card/50"
         >
-          <Sparkles
-            className="mx-auto h-10 w-10 text-muted-foreground/60 mb-3"
-            aria-hidden="true"
-          />
-          <h3 className="text-base font-medium text-foreground">{t('emptyTitle')}</h3>
-          <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-            {t('emptyDescription')}
-          </p>
+          <Calendar className="mx-auto h-8 w-8 text-muted-foreground/60 mb-2" />
+          <p className="text-sm font-medium text-foreground">{t('emptyTitle')}</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">{t('emptyDesc')}</p>
         </div>
       ) : (
         <div
           data-testid="booking-types-list"
-          className="grid gap-4 md:grid-cols-2"
-          role="region"
-          aria-label={t('listAriaLabel')}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
         >
-          {bookingTypes.map((item) => {
-            const dotClass = getColorDotClass(item.color);
+          {bookingTypes.map((bt) => {
+            const isCopied = copiedSlug === bt.slug;
+            const locationInfo = getBookingLocationBadgeInfo(bt.locationType);
 
             return (
               <div
-                key={item.id}
-                data-testid={`booking-type-card-${item.slug}`}
+                key={bt.id}
+                data-testid={`booking-type-card-${bt.slug}`}
                 className={cn(
-                  'rounded-lg border bg-card p-5 text-card-foreground shadow-xs flex flex-col justify-between transition-all space-y-4',
-                  !item.isActive && 'opacity-70 bg-muted/20 border-dashed',
+                  'rounded-lg border bg-card p-5 shadow-xs flex flex-col justify-between transition-all relative overflow-hidden',
+                  !bt.isActive && 'opacity-70 bg-muted/20 border-dashed',
                 )}
               >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn('h-3 w-3 rounded-full shrink-0', dotClass)}
-                        aria-hidden="true"
-                      />
-                      <h3
-                        data-testid={`booking-type-title-${item.slug}`}
-                        className="font-semibold text-base text-foreground leading-tight"
-                      >
-                        {item.title}
-                      </h3>
-                    </div>
-
-                    <span
-                      data-testid={`booking-type-status-${item.slug}`}
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-semibold uppercase tracking-wider',
-                        item.isActive
-                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                          : 'bg-muted text-muted-foreground border border-border',
-                      )}
-                    >
-                      {item.isActive ? t('activeBadge') : t('inactiveBadge')}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
-                    <span>/book/</span>
-                    <span
-                      data-testid={`booking-type-slug-${item.slug}`}
-                      className="font-semibold text-foreground"
-                    >
-                      {item.slug}
-                    </span>
-                  </div>
-
-                  {item.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+                {/* Color Stripe / Dot */}
+                <div
+                  className={cn(
+                    'absolute top-0 left-0 right-0 h-1.5',
+                    bt.color === 'emerald' && 'bg-emerald-500',
+                    bt.color === 'blue' && 'bg-blue-500',
+                    bt.color === 'amber' && 'bg-amber-500',
+                    bt.color === 'rose' && 'bg-rose-500',
+                    bt.color === 'purple' && 'bg-purple-500',
+                    bt.color === 'teal' && 'bg-teal-500',
+                    bt.color === 'indigo' && 'bg-indigo-500',
                   )}
+                  aria-hidden="true"
+                />
 
-                  {/* Metadata tags */}
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground pt-1">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{item.durationMinutes} min</span>
+                <div className="space-y-3 pt-1">
+                  {/* Header: Title and Active Badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-semibold text-base text-foreground leading-tight">
+                        {bt.title}
+                      </h3>
+                      <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                        /book/{bt.slug}
+                      </p>
                     </div>
-
-                    <div className="flex items-center gap-1">
-                      {getLocationIcon(item.locationType)}
-                      <span>{t(`location.${item.locationType}`)}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>
-                        {item.maxFutureDays}d {t('horizonSuffix')}
+                    {bt.isActive ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold uppercase tracking-wider bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                        {t('badgeActive')}
                       </span>
-                    </div>
-
-                    {(item.bufferBeforeMinutes > 0 || item.bufferAfterMinutes > 0) && (
-                      <span className="text-2xs bg-muted px-1.5 py-0.5 rounded">
-                        {item.bufferBeforeMinutes}m / {item.bufferAfterMinutes}m {t('bufferSuffix')}
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold uppercase tracking-wider bg-muted text-muted-foreground border shrink-0">
+                        {t('badgeInactive')}
                       </span>
                     )}
                   </div>
+
+                  {/* Description */}
+                  {bt.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{bt.description}</p>
+                  )}
+
+                  {/* Metadata Chips */}
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground pt-1">
+                    <span className="inline-flex items-center gap-1.5 bg-muted/40 px-2 py-1 rounded">
+                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{t('minutesLabel', { minutes: bt.durationMinutes })}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-muted/40 px-2 py-1 rounded">
+                      {renderLocationIcon(bt.locationType)}
+                      <span>{t(locationInfo.labelKey)}</span>
+                    </span>
+                  </div>
                 </div>
 
-                {/* Actions row */}
-                <div className="flex items-center justify-between pt-3 border-t gap-2">
+                {/* Actions Footer */}
+                <div className="flex items-center justify-between pt-4 mt-4 border-t gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
+                    data-testid={`copy-booking-type-link-${bt.slug}`}
                     onClick={() => {
-                      void handleCopyLink(item.slug);
+                      void handleCopyLink(bt.slug);
                     }}
-                    data-testid={`copy-booking-type-link-${item.slug}`}
-                    className="inline-flex items-center gap-1.5 text-xs h-8"
-                    aria-label={`${t('copyLinkAria')} ${item.title}`}
+                    className="flex items-center gap-1.5 text-xs h-8"
                   >
-                    {copiedSlug === item.slug ? (
+                    {isCopied ? (
                       <>
-                        <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
                         <span className="text-emerald-600 font-medium">{t('copied')}</span>
                       </>
                     ) : (
                       <>
-                        <Copy className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                        <Copy className="h-3.5 w-3.5" />
                         <span>{t('copyLink')}</span>
                       </>
                     )}
@@ -447,29 +404,28 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
                     <Button
                       type="button"
                       variant="ghost"
-                      size="sm"
+                      size="icon"
+                      data-testid={`edit-booking-type-${bt.slug}`}
                       onClick={() => {
-                        handleOpenEdit(item);
+                        handleOpenEdit(bt);
                       }}
-                      data-testid={`edit-booking-type-${item.slug}`}
-                      aria-label={`${t('editBtnAria')} ${item.title}`}
-                      className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      aria-label={`${t('editAria')} ${bt.title}`}
                     >
-                      <Edit2 className="h-4 w-4" aria-hidden="true" />
+                      <Edit2 className="h-4 w-4" />
                     </Button>
-
                     <Button
                       type="button"
                       variant="ghost"
-                      size="sm"
+                      size="icon"
+                      data-testid={`delete-booking-type-${bt.slug}`}
                       onClick={() => {
-                        setDeleteTarget(item);
+                        setDeleteTarget(bt);
                       }}
-                      data-testid={`delete-booking-type-${item.slug}`}
-                      aria-label={`${t('deleteBtnAria')} ${item.title}`}
-                      className="h-8 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      aria-label={`${t('deleteAria')} ${bt.title}`}
                     >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -479,19 +435,23 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
         </div>
       )}
 
-      {/* New / Edit Dialog */}
+      {/* Create / Edit Booking Type Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          data-testid="booking-type-dialog"
+          className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto"
+          aria-describedby="booking-type-dialog-desc"
+        >
           <form
             onSubmit={(e) => {
               void handleSubmit(e);
             }}
-            className="space-y-4"
+            className="space-y-5"
           >
             <DialogHeader>
               <DialogTitle>{editingItem ? t('dialogEditTitle') : t('dialogNewTitle')}</DialogTitle>
-              <DialogDescription>
-                {editingItem ? t('dialogEditDescription') : t('dialogNewDescription')}
+              <DialogDescription id="booking-type-dialog-desc">
+                {editingItem ? t('dialogEditDesc') : t('dialogNewDesc')}
               </DialogDescription>
             </DialogHeader>
 
@@ -499,31 +459,30 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
               <div
                 role="alert"
                 data-testid="booking-type-form-error"
-                className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive flex items-center gap-2"
+                className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-xs font-medium text-destructive flex items-center gap-2"
               >
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{formError}</span>
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-4 py-1">
               {/* Title & Slug */}
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <div className="space-y-1.5">
                   <label
                     htmlFor="booking-type-title-input"
-                    className="text-sm font-medium text-foreground"
+                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                   >
-                    {t('labelTitle')} *
+                    {t('fieldTitle')}
                   </label>
                   <input
                     type="text"
                     id="booking-type-title-input"
                     data-testid="booking-type-title-input"
                     required
-                    maxLength={150}
                     placeholder={t('titlePlaceholder')}
-                    value={title}
+                    value={formValues.title}
                     onChange={(e) => {
                       handleTitleChange(e.target.value);
                     }}
@@ -532,25 +491,37 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
                 </div>
 
                 <div className="space-y-1.5">
-                  <label
-                    htmlFor="booking-type-slug-input"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    {t('labelSlug')} *
-                  </label>
-                  <input
-                    type="text"
-                    id="booking-type-slug-input"
-                    data-testid="booking-type-slug-input"
-                    required
-                    maxLength={64}
-                    placeholder="portrait-consultation"
-                    value={slug}
-                    onChange={(e) => {
-                      handleSlugChange(e.target.value);
-                    }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
+                  <div className="flex items-center justify-between">
+                    <label
+                      htmlFor="booking-type-slug-input"
+                      className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                    >
+                      {t('fieldSlug')}
+                    </label>
+                    {!formValues.slugManuallyEdited && (
+                      <span className="text-2xs text-muted-foreground flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-primary" />
+                        <span>{t('autoSlug')}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex rounded-md border border-input shadow-xs overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                    <span className="bg-muted px-3 py-2 text-xs text-muted-foreground select-none border-r font-mono flex items-center">
+                      /book/
+                    </span>
+                    <input
+                      type="text"
+                      id="booking-type-slug-input"
+                      data-testid="booking-type-slug-input"
+                      required
+                      value={formValues.slug}
+                      onChange={(e) => {
+                        handleSlugChange(e.target.value);
+                      }}
+                      placeholder="consultation"
+                      className="flex-1 bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -558,120 +529,133 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
               <div className="space-y-1.5">
                 <label
                   htmlFor="booking-type-description-input"
-                  className="text-sm font-medium text-foreground"
+                  className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
-                  {t('labelDescription')}
+                  {t('fieldDescription')}
                 </label>
                 <textarea
                   id="booking-type-description-input"
                   data-testid="booking-type-description-input"
                   rows={2}
-                  maxLength={2000}
                   placeholder={t('descriptionPlaceholder')}
-                  value={description}
+                  value={formValues.description}
                   onChange={(e) => {
-                    setDescription(e.target.value);
+                    setFormValues((prev) => ({ ...prev, description: e.target.value }));
                   }}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
                 />
               </div>
 
-              {/* Duration and Buffers */}
-              <div className="grid grid-cols-3 gap-3">
+              {/* Timing Grid: Duration, Buffers */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <label
                     htmlFor="booking-type-duration-input"
-                    className="text-xs font-medium text-foreground"
+                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                   >
-                    {t('labelDuration')} (min) *
+                    {t('fieldDuration')}
                   </label>
                   <input
                     type="number"
                     id="booking-type-duration-input"
                     data-testid="booking-type-duration-input"
-                    required
                     min={5}
                     max={480}
-                    value={durationMinutes}
+                    step={5}
+                    value={formValues.durationMinutes}
                     onChange={(e) => {
-                      setDurationMinutes(Number(e.target.value));
+                      setFormValues((prev) => ({
+                        ...prev,
+                        durationMinutes: Number(e.target.value),
+                      }));
                     }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label
                     htmlFor="booking-type-buffer-before-input"
-                    className="text-xs font-medium text-foreground"
+                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                   >
-                    {t('labelBufferBefore')} (min)
+                    {t('fieldBufferBefore')}
                   </label>
                   <input
                     type="number"
                     id="booking-type-buffer-before-input"
                     data-testid="booking-type-buffer-before-input"
                     min={0}
-                    max={120}
-                    value={bufferBeforeMinutes}
+                    max={240}
+                    step={5}
+                    value={formValues.bufferBeforeMinutes}
                     onChange={(e) => {
-                      setBufferBeforeMinutes(Number(e.target.value));
+                      setFormValues((prev) => ({
+                        ...prev,
+                        bufferBeforeMinutes: Number(e.target.value),
+                      }));
                     }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label
                     htmlFor="booking-type-buffer-after-input"
-                    className="text-xs font-medium text-foreground"
+                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                   >
-                    {t('labelBufferAfter')} (min)
+                    {t('fieldBufferAfter')}
                   </label>
                   <input
                     type="number"
                     id="booking-type-buffer-after-input"
                     data-testid="booking-type-buffer-after-input"
                     min={0}
-                    max={120}
-                    value={bufferAfterMinutes}
+                    max={240}
+                    step={5}
+                    value={formValues.bufferAfterMinutes}
                     onChange={(e) => {
-                      setBufferAfterMinutes(Number(e.target.value));
+                      setFormValues((prev) => ({
+                        ...prev,
+                        bufferAfterMinutes: Number(e.target.value),
+                      }));
                     }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
               </div>
 
               {/* Notice & Horizon */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label
                     htmlFor="booking-type-notice-input"
-                    className="text-xs font-medium text-foreground"
+                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                   >
-                    {t('labelNotice')} (hours)
+                    {t('fieldMinNotice')}
                   </label>
                   <input
                     type="number"
                     id="booking-type-notice-input"
                     data-testid="booking-type-notice-input"
                     min={0}
-                    max={168}
-                    value={minNoticeHours}
+                    max={720}
+                    value={formValues.minNoticeHours}
                     onChange={(e) => {
-                      setMinNoticeHours(Number(e.target.value));
+                      setFormValues((prev) => ({
+                        ...prev,
+                        minNoticeHours: Number(e.target.value),
+                      }));
                     }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label
                     htmlFor="booking-type-horizon-input"
-                    className="text-xs font-medium text-foreground"
+                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                   >
-                    {t('labelHorizon')} (days)
+                    {t('fieldMaxFuture')}
                   </label>
                   <input
                     type="number"
@@ -679,87 +663,106 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
                     data-testid="booking-type-horizon-input"
                     min={1}
                     max={365}
-                    value={maxFutureDays}
+                    value={formValues.maxFutureDays}
                     onChange={(e) => {
-                      setMaxFutureDays(Number(e.target.value));
+                      setFormValues((prev) => ({
+                        ...prev,
+                        maxFutureDays: Number(e.target.value),
+                      }));
                     }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
               </div>
 
-              {/* Location Type and Details */}
-              <div className="grid sm:grid-cols-2 gap-3">
+              {/* Location Type & Details */}
+              <div className="space-y-3">
                 <div className="space-y-1.5">
                   <label
                     htmlFor="booking-type-location-type-select"
-                    className="text-sm font-medium text-foreground"
+                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                   >
-                    {t('labelLocationType')}
+                    {t('fieldLocationType')}
                   </label>
                   <select
                     id="booking-type-location-type-select"
                     data-testid="booking-type-location-type-select"
-                    value={locationType}
+                    value={formValues.locationType}
                     onChange={(e) => {
-                      setLocationType(e.target.value as BookingLocationType);
+                      setFormValues((prev) => ({
+                        ...prev,
+                        locationType: e.target.value as BookingLocationType,
+                      }));
                     }}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <option value="google_meet">{t('location.google_meet')}</option>
-                    <option value="phone">{t('location.phone')}</option>
-                    <option value="in_person">{t('location.in_person')}</option>
+                    <option value="google_meet">{t('locationGoogleMeet')}</option>
+                    <option value="phone">{t('locationPhone')}</option>
+                    <option value="in_person">{t('locationInPerson')}</option>
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
                   <label
                     htmlFor="booking-type-location-details-input"
-                    className="text-sm font-medium text-foreground"
+                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                   >
-                    {t('labelLocationDetails')}
+                    {t('fieldLocationDetails')}
                   </label>
                   <input
                     type="text"
                     id="booking-type-location-details-input"
                     data-testid="booking-type-location-details-input"
-                    maxLength={255}
-                    placeholder={t('locationDetailsPlaceholder')}
-                    value={locationDetails}
+                    placeholder={
+                      formValues.locationType === 'phone'
+                        ? t('detailsPlaceholderPhone')
+                        : formValues.locationType === 'in_person'
+                          ? t('detailsPlaceholderInPerson')
+                          : t('detailsPlaceholderMeet')
+                    }
+                    value={formValues.locationDetails}
                     onChange={(e) => {
-                      setLocationDetails(e.target.value);
+                      setFormValues((prev) => ({
+                        ...prev,
+                        locationDetails: e.target.value,
+                      }));
                     }}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
               </div>
 
-              {/* Color Token Selection */}
+              {/* Color Selector */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">{t('labelColor')}</label>
-                <div className="flex items-center gap-2 pt-0.5">
-                  {COLOR_OPTIONS.map((c) => {
-                    const dotClass = getColorDotClass(c);
-                    const isSelected = color === c;
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                  {t('fieldColor')}
+                </span>
+                <div
+                  className="flex items-center gap-2 flex-wrap"
+                  role="radiogroup"
+                  aria-label={t('fieldColor')}
+                >
+                  {COLOR_OPTIONS.map((colorKey) => {
+                    const isSelected = formValues.color === colorKey;
                     return (
                       <button
-                        key={c}
+                        key={colorKey}
                         type="button"
-                        onClick={() => {
-                          setColor(c);
-                        }}
-                        data-testid={`booking-type-color-${c}`}
-                        aria-label={`Color ${c}`}
-                        aria-pressed={isSelected}
+                        role="radio"
+                        aria-checked={isSelected}
+                        data-testid={`booking-type-color-${colorKey}`}
+                        data-color={colorKey}
+                        onClick={handleColorClick}
                         className={cn(
-                          'h-7 w-7 rounded-full flex items-center justify-center transition-all',
-                          dotClass,
-                          isSelected && 'ring-2 ring-primary ring-offset-2 scale-110',
+                          'h-7 w-7 rounded-full flex items-center justify-center transition-all border',
+                          getColorDotClass(colorKey),
+                          isSelected
+                            ? 'ring-2 ring-primary ring-offset-2 scale-110'
+                            : 'opacity-70 hover:opacity-100',
                         )}
+                        aria-label={colorKey}
                       >
-                        {isSelected && (
-                          <Check className="h-3.5 w-3.5 text-white" aria-hidden="true" />
-                        )}
+                        {isSelected && <Check className="h-3.5 w-3.5 text-white drop-shadow-xs" />}
                       </button>
                     );
                   })}
@@ -772,34 +775,36 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
                   type="checkbox"
                   id="booking-type-active-toggle"
                   data-testid="booking-type-active-toggle"
-                  checked={isActive}
+                  checked={formValues.isActive}
                   onChange={(e) => {
-                    setIsActive(e.target.checked);
+                    setFormValues((prev) => ({ ...prev, isActive: e.target.checked }));
                   }}
                   className="h-4 w-4 rounded border-input text-primary focus:ring-primary focus:ring-offset-background"
                 />
                 <label
                   htmlFor="booking-type-active-toggle"
-                  className="text-sm font-medium text-foreground cursor-pointer select-none"
+                  className="text-sm font-medium select-none cursor-pointer"
                 >
-                  {t('labelIsActive')}
+                  {t('fieldIsActive')}
                 </label>
               </div>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-2 sm:gap-0">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  setIsDialogOpen(false);
-                }}
+                onClick={handleCloseDialog}
                 data-testid="booking-type-cancel-btn"
               >
-                {t('cancelBtn')}
+                {t('cancel')}
               </Button>
               <Button type="submit" disabled={isSubmitting} data-testid="booking-type-submit-btn">
-                {isSubmitting ? t('saving') : editingItem ? t('saveChangesBtn') : t('createBtn')}
+                {isSubmitting
+                  ? t('saving')
+                  : editingItem
+                    ? t('saveChanges')
+                    : t('createBookingType')}
               </Button>
             </DialogFooter>
           </form>
@@ -808,41 +813,42 @@ export function BookingTypesManager({ initialBookingTypes }: BookingTypesManager
 
       {/* Delete Confirmation Dialog */}
       <Dialog
-        open={!!deleteTarget}
+        open={Boolean(deleteTarget)}
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          data-testid="delete-booking-type-dialog"
+          className="sm:max-w-[420px]"
+          aria-describedby="delete-booking-type-desc"
+        >
           <DialogHeader>
             <DialogTitle>{t('dialogDeleteTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('dialogDeleteDescription', {
-                title: deleteTarget?.title ?? '',
-              })}
+            <DialogDescription id="delete-booking-type-desc">
+              {t('dialogDeleteDesc', { title: deleteTarget?.title ?? '' })}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                setDeleteTarget(null);
-              }}
+              onClick={handleCloseDelete}
               data-testid="cancel-delete-booking-type-btn"
             >
-              {t('cancelBtn')}
+              {t('cancel')}
             </Button>
             <Button
               type="button"
               variant="destructive"
+              disabled={isSubmitting}
               onClick={() => {
                 void handleDeleteConfirm();
               }}
-              disabled={isSubmitting}
               data-testid="confirm-delete-booking-type-btn"
             >
-              {isSubmitting ? t('deleting') : t('confirmDeleteBtn')}
+              {isSubmitting ? t('deleting') : t('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

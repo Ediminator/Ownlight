@@ -31,11 +31,14 @@ export function generateTimeOptions(): string[] {
 
 export const TIME_OPTIONS = generateTimeOptions();
 
+const TIME_FORMAT_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 /**
  * Validates that startTime is strictly earlier than endTime (HH:MM strings).
  */
 export function isTimeRangeValid(startTime: string, endTime: string): boolean {
   if (!startTime || !endTime) return false;
+  if (!TIME_FORMAT_REGEX.test(startTime) || !TIME_FORMAT_REGEX.test(endTime)) return false;
   return startTime < endTime;
 }
 

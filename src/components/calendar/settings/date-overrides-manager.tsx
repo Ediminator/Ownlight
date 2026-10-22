@@ -3,11 +3,15 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import type { AvailabilityOverride } from '@/server/db/schema/calendar';
+import { formatDateDisplay } from './availability-helpers';
 import {
-  createDateOverrideAction,
-  deleteDateOverrideAction,
-} from '@/server/calendar/availability-actions';
-import { formatDateDisplay, isTimeRangeValid } from './availability-helpers';
+  getInitialOverrideFormState,
+  validateDateOverrideFormState,
+  filterAndSortUpcomingOverrides,
+  submitDateOverrideCreate,
+  submitDateOverrideDelete,
+  type OverrideFormState,
+} from './availability-view-model';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -23,35 +27,42 @@ import { cn } from '@/lib/utils';
 interface DateOverridesManagerProps {
   initialOverrides: AvailabilityOverride[];
   locale: string;
+  defaultAddOpen?: boolean;
+  defaultDeleteTarget?: AvailabilityOverride | null;
+  initialNotification?: {
+    type: 'success' | 'error';
+    message: string;
+  } | null;
 }
 
-export function DateOverridesManager({ initialOverrides, locale }: DateOverridesManagerProps) {
+export function DateOverridesManager({
+  initialOverrides,
+  locale,
+  defaultAddOpen = false,
+  defaultDeleteTarget = null,
+  initialNotification = null,
+}: DateOverridesManagerProps) {
   const t = useTranslations('settings.availability.overrides');
 
   const [overrides, setOverrides] = React.useState<AvailabilityOverride[]>(initialOverrides);
-  const [isAddOpen, setIsAddOpen] = React.useState(false);
-  const [deleteTarget, setDeleteTarget] = React.useState<AvailabilityOverride | null>(null);
+  const [isAddOpen, setIsAddOpen] = React.useState(defaultAddOpen);
+  const [deleteTarget, setDeleteTarget] = React.useState<AvailabilityOverride | null>(
+    defaultDeleteTarget,
+  );
 
   // Form state
-  const [date, setDate] = React.useState('');
-  const [isUnavailable, setIsUnavailable] = React.useState(true);
-  const [startTime, setStartTime] = React.useState('09:00');
-  const [endTime, setEndTime] = React.useState('17:00');
-  const [reason, setReason] = React.useState('');
-
+  const [formValues, setFormValues] = React.useState<OverrideFormState>(
+    getInitialOverrideFormState,
+  );
   const [formError, setFormError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [notification, setNotification] = React.useState<{
     type: 'success' | 'error';
     message: string;
-  } | null>(null);
+  } | null>(initialNotification);
 
   const resetForm = () => {
-    setDate('');
-    setIsUnavailable(true);
-    setStartTime('09:00');
-    setEndTime('17:00');
-    setReason('');
+    setFormValues(getInitialOverrideFormState());
     setFormError(null);
   };
 
@@ -60,35 +71,40 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
     setIsAddOpen(true);
   };
 
+  const handleCloseAdd = () => {
+    setIsAddOpen(false);
+  };
+
+  const handleCloseDelete = () => {
+    setDeleteTarget(null);
+  };
+
+  const handleDismissNotification = () => {
+    setNotification(null);
+  };
+
   const handleCreateSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      setFormError(t('errorDateRequired'));
-      return;
-    }
+    const validation = validateDateOverrideFormState(formValues, {
+      dateRequired: t('errorDateRequired'),
+      invalidDate: t('errorInvalidDate'),
+      invalidRange: t('errorInvalidRange'),
+    });
 
-    if (!isUnavailable && !isTimeRangeValid(startTime, endTime)) {
-      setFormError(t('errorInvalidRange'));
+    if (validation) {
+      setFormError(validation);
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await createDateOverrideAction({
-        date,
-        isUnavailable,
-        startTime: isUnavailable ? undefined : startTime,
-        endTime: isUnavailable ? undefined : endTime,
-        reason: reason.trim() ? reason.trim() : undefined,
-      });
-
-      if (res.success) {
+      const res = await submitDateOverrideCreate(formValues);
+      if (res.success && res.data) {
+        const created = res.data;
         setOverrides((prev) =>
-          [...prev.filter((o) => o.id !== res.data.id), res.data].sort((a, b) =>
-            a.date.localeCompare(b.date),
-          ),
+          filterAndSortUpcomingOverrides([...prev.filter((o) => o.id !== created.id), created]),
         );
         setIsAddOpen(false);
         resetForm();
@@ -97,7 +113,7 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
           message: t('successCreated'),
         });
       } else {
-        setFormError(res.error || t('errorSaveFailed'));
+        setFormError(res.error ?? t('errorSaveFailed'));
       }
     } catch {
       setFormError(t('errorSaveFailed'));
@@ -111,7 +127,7 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
 
     setIsSubmitting(true);
     try {
-      const res = await deleteDateOverrideAction(deleteTarget.id);
+      const res = await submitDateOverrideDelete(deleteTarget.id);
       if (res.success) {
         setOverrides((prev) => prev.filter((o) => o.id !== deleteTarget.id));
         setNotification({
@@ -122,7 +138,7 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
       } else {
         setNotification({
           type: 'error',
-          message: res.error || t('errorDeleteFailed'),
+          message: res.error ?? t('errorDeleteFailed'),
         });
       }
     } catch {
@@ -136,7 +152,7 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
   };
 
   return (
-    <div className="space-y-6">
+    <div data-testid="date-overrides-manager" className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold tracking-tight text-foreground">{t('title')}</h2>
@@ -144,12 +160,12 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
         </div>
         <Button
           type="button"
-          onClick={handleOpenAdd}
           data-testid="add-date-override-btn"
-          className="inline-flex items-center gap-2 self-start min-h-[38px]"
+          onClick={handleOpenAdd}
+          className="flex items-center gap-2 self-start sm:self-auto min-h-[38px]"
         >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          <span>{t('addOverrideBtn')}</span>
+          <Plus className="h-4 w-4" />
+          <span>{t('addOverride')}</span>
         </Button>
       </div>
 
@@ -175,9 +191,7 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
           </div>
           <button
             type="button"
-            onClick={() => {
-              setNotification(null);
-            }}
+            onClick={handleDismissNotification}
             className="rounded p-1 hover:bg-black/5 dark:hover:bg-white/5"
             aria-label={t('dismissNotification')}
           >
@@ -186,92 +200,84 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
         </div>
       )}
 
+      {/* Overrides Table */}
       {overrides.length === 0 ? (
         <div
           data-testid="date-overrides-empty"
           className="rounded-lg border border-dashed p-8 text-center bg-card/50"
         >
-          <Calendar
-            className="mx-auto h-10 w-10 text-muted-foreground/60 mb-3"
-            aria-hidden="true"
-          />
-          <h3 className="text-base font-medium text-foreground">{t('emptyTitle')}</h3>
-          <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-            {t('emptyDescription')}
-          </p>
+          <Calendar className="mx-auto h-8 w-8 text-muted-foreground/60 mb-2" />
+          <p className="text-sm font-medium text-foreground">{t('emptyTitle')}</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">{t('emptyDesc')}</p>
         </div>
       ) : (
-        <div className="rounded-lg border bg-card overflow-hidden shadow-xs">
+        <div
+          data-testid="date-overrides-table"
+          className="rounded-lg border bg-card shadow-xs overflow-hidden"
+        >
           <div className="overflow-x-auto">
-            <table
-              data-testid="date-overrides-table"
-              className="w-full text-left text-sm"
-              aria-label={t('tableAriaLabel')}
-            >
-              <thead className="bg-muted/50 border-b text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-muted/50 text-muted-foreground font-medium border-b text-xs uppercase tracking-wider">
                 <tr>
                   <th scope="col" className="px-4 py-3">
-                    {t('thDate')}
+                    {t('colDate')}
                   </th>
                   <th scope="col" className="px-4 py-3">
-                    {t('thStatus')}
+                    {t('colType')}
                   </th>
                   <th scope="col" className="px-4 py-3">
-                    {t('thHours')}
+                    {t('colHours')}
                   </th>
                   <th scope="col" className="px-4 py-3">
-                    {t('thReason')}
+                    {t('colReason')}
                   </th>
                   <th scope="col" className="px-4 py-3 text-right">
-                    {t('thActions')}
+                    {t('colActions')}
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y">
                 {overrides.map((item) => (
                   <tr
                     key={item.id}
                     data-testid={`override-row-${item.date}`}
-                    className="hover:bg-muted/30 transition-colors"
+                    className="hover:bg-muted/20 transition-colors"
                   >
-                    <td className="px-4 py-3 font-medium text-foreground whitespace-nowrap">
+                    <td className="px-4 py-3 font-medium whitespace-nowrap text-foreground">
                       {formatDateDisplay(item.date, locale)}
-                      <span className="block text-xs font-normal text-muted-foreground">
-                        {item.date}
-                      </span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {item.isUnavailable ? (
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                          {t('statusUnavailable')}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-destructive/10 text-destructive border border-destructive/20">
+                          {t('badgeUnavailable')}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                          {t('statusCustomHours')}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          {t('badgeCustomHours')}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
                       {item.isUnavailable
                         ? '—'
                         : `${item.startTime ?? '09:00'} – ${item.endTime ?? '17:00'}`}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">
+                    <td className="px-4 py-3 text-muted-foreground max-w-[200px] truncate">
                       {item.reason ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <Button
                         type="button"
                         variant="ghost"
-                        size="sm"
+                        size="icon"
+                        data-testid={`delete-override-${item.date}`}
                         onClick={() => {
                           setDeleteTarget(item);
                         }}
-                        data-testid={`delete-override-${item.date}`}
-                        aria-label={`${t('deleteBtnAria')} ${item.date}`}
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive h-8 px-2"
+                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        aria-label={`${t('deleteAria')} ${item.date}`}
                       >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </td>
                   </tr>
@@ -284,7 +290,11 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
 
       {/* Add Date Override Dialog */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          data-testid="add-override-dialog"
+          className="sm:max-w-[480px]"
+          aria-describedby="override-dialog-desc"
+        >
           <form
             onSubmit={(e) => {
               void handleCreateSubmit(e);
@@ -293,97 +303,96 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
           >
             <DialogHeader>
               <DialogTitle>{t('dialogAddTitle')}</DialogTitle>
-              <DialogDescription>{t('dialogAddDescription')}</DialogDescription>
+              <DialogDescription id="override-dialog-desc">{t('dialogAddDesc')}</DialogDescription>
             </DialogHeader>
 
             {formError && (
               <div
                 role="alert"
                 data-testid="override-form-error"
-                className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive flex items-center gap-2"
+                className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-xs font-medium text-destructive flex items-center gap-2"
               >
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{formError}</span>
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-4 py-2">
               {/* Date Input */}
               <div className="space-y-1.5">
                 <label
                   htmlFor="override-date-input"
-                  className="text-sm font-medium text-foreground"
+                  className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
-                  {t('labelDate')} *
+                  {t('fieldDate')}
                 </label>
                 <input
                   type="date"
                   id="override-date-input"
                   data-testid="override-date-input"
                   required
-                  value={date}
+                  value={formValues.date}
                   onChange={(e) => {
-                    setDate(e.target.value);
+                    setFormValues((prev) => ({ ...prev, date: e.target.value }));
                   }}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
 
-              {/* Entire day unavailable toggle */}
-              <div className="flex items-center gap-3 pt-1">
-                <input
-                  type="checkbox"
-                  id="override-unavailable-checkbox"
-                  data-testid="override-unavailable-checkbox"
-                  checked={isUnavailable}
-                  onChange={(e) => {
-                    setIsUnavailable(e.target.checked);
-                  }}
-                  className="h-4 w-4 rounded border-input text-primary focus:ring-primary focus:ring-offset-background"
-                />
-                <label
-                  htmlFor="override-unavailable-checkbox"
-                  className="text-sm font-medium text-foreground cursor-pointer select-none"
-                >
-                  {t('labelUnavailableAllDay')}
-                </label>
+              {/* Status Radio / Toggles */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t('fieldStatus')}
+                </span>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="override-unavailable-checkbox"
+                      data-testid="override-unavailable-checkbox"
+                      checked={formValues.isUnavailable}
+                      onChange={(e) => {
+                        setFormValues((prev) => ({ ...prev, isUnavailable: e.target.checked }));
+                      }}
+                      className="text-primary focus:ring-primary h-4 w-4 rounded"
+                    />
+                    <span>{t('typeUnavailable')}</span>
+                  </label>
+                </div>
               </div>
 
-              {/* Custom Hours fields (visible when not unavailable) */}
-              {!isUnavailable && (
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="override-start-time-input"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      {t('labelStartTime')}
+              {/* Custom Hours inputs if not unavailable */}
+              {!formValues.isUnavailable && (
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="flex-1 space-y-1">
+                    <label htmlFor="override-start-time" className="text-xs text-muted-foreground">
+                      {t('startTime')}
                     </label>
                     <input
                       type="time"
-                      id="override-start-time-input"
+                      id="override-start-time"
                       data-testid="override-start-time-input"
-                      value={startTime}
+                      value={formValues.startTime}
                       onChange={(e) => {
-                        setStartTime(e.target.value);
+                        setFormValues((prev) => ({ ...prev, startTime: e.target.value }));
                       }}
                       className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="override-end-time-input"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      {t('labelEndTime')}
+                  <span className="text-muted-foreground mt-5" aria-hidden="true">
+                    –
+                  </span>
+                  <div className="flex-1 space-y-1">
+                    <label htmlFor="override-end-time" className="text-xs text-muted-foreground">
+                      {t('endTime')}
                     </label>
                     <input
                       type="time"
-                      id="override-end-time-input"
+                      id="override-end-time"
                       data-testid="override-end-time-input"
-                      value={endTime}
+                      value={formValues.endTime}
                       onChange={(e) => {
-                        setEndTime(e.target.value);
+                        setFormValues((prev) => ({ ...prev, endTime: e.target.value }));
                       }}
                       className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
@@ -391,42 +400,40 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
                 </div>
               )}
 
-              {/* Reason input */}
+              {/* Optional Reason */}
               <div className="space-y-1.5">
                 <label
                   htmlFor="override-reason-input"
-                  className="text-sm font-medium text-foreground"
+                  className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                 >
-                  {t('labelReason')}
+                  {t('fieldReason')}
                 </label>
                 <input
                   type="text"
                   id="override-reason-input"
                   data-testid="override-reason-input"
-                  maxLength={150}
                   placeholder={t('reasonPlaceholder')}
-                  value={reason}
+                  maxLength={100}
+                  value={formValues.reason}
                   onChange={(e) => {
-                    setReason(e.target.value);
+                    setFormValues((prev) => ({ ...prev, reason: e.target.value }));
                   }}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="gap-2 sm:gap-0">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  setIsAddOpen(false);
-                }}
+                onClick={handleCloseAdd}
                 data-testid="override-cancel-btn"
               >
-                {t('cancelBtn')}
+                {t('cancel')}
               </Button>
               <Button type="submit" disabled={isSubmitting} data-testid="override-save-btn">
-                {isSubmitting ? t('saving') : t('saveBtn')}
+                {isSubmitting ? t('saving') : t('create')}
               </Button>
             </DialogFooter>
           </form>
@@ -435,41 +442,44 @@ export function DateOverridesManager({ initialOverrides, locale }: DateOverrides
 
       {/* Delete Confirmation Dialog */}
       <Dialog
-        open={!!deleteTarget}
+        open={Boolean(deleteTarget)}
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          data-testid="delete-override-dialog"
+          className="sm:max-w-[420px]"
+          aria-describedby="delete-override-desc"
+        >
           <DialogHeader>
             <DialogTitle>{t('dialogDeleteTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('dialogDeleteDescription', {
+            <DialogDescription id="delete-override-desc">
+              {t('dialogDeleteDesc', {
                 date: deleteTarget ? formatDateDisplay(deleteTarget.date, locale) : '',
               })}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                setDeleteTarget(null);
-              }}
+              onClick={handleCloseDelete}
               data-testid="cancel-delete-override-btn"
             >
-              {t('cancelBtn')}
+              {t('cancel')}
             </Button>
             <Button
               type="button"
               variant="destructive"
+              disabled={isSubmitting}
               onClick={() => {
                 void handleDeleteConfirm();
               }}
-              disabled={isSubmitting}
               data-testid="confirm-delete-override-btn"
             >
-              {isSubmitting ? t('deleting') : t('confirmDeleteBtn')}
+              {isSubmitting ? t('deleting') : t('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

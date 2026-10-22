@@ -38,6 +38,8 @@ import { auditEvents } from '@/server/db/schema/audit';
 import { createSession, SESSION_COOKIE_NAME } from '@/server/auth/session';
 import { eq, desc } from 'drizzle-orm';
 import { seedDefaultCalendarData } from '@/server/db/seeds/calendar';
+import * as service from '@/server/calendar/service';
+import * as repo from '@/server/calendar/repo';
 
 describe('TASK-0043: Availability Schedule & Date Override Actions Integration Tests', () => {
   let testDb: TestDatabaseInstance;
@@ -316,6 +318,52 @@ describe('TASK-0043: Availability Schedule & Date Override Actions Integration T
       expect(res.success).toBe(false);
       if (!res.success) {
         expect(res.code).toBe('UNAUTHENTICATED');
+      }
+    });
+  });
+
+  describe('Service & Repo direct queries for overrides', () => {
+    it('fetches all availability overrides via repo and service', async () => {
+      const overridesBefore = await service.getAllAvailabilityOverrides(dbClient);
+      const repoBefore = await repo.listAllAvailabilityOverrides(dbClient);
+      expect(overridesBefore).toEqual([]);
+      expect(repoBefore).toEqual([]);
+
+      // Insert an override
+      await service.createAvailabilityOverride(
+        { date: '2026-11-20', isUnavailable: true, reason: 'Conference' },
+        ownerUser.id,
+        dbClient,
+      );
+
+      const overridesAfter = await service.getAllAvailabilityOverrides(dbClient);
+      const repoAfter = await repo.listAllAvailabilityOverrides(dbClient);
+      expect(overridesAfter.length).toBe(1);
+      expect(repoAfter.length).toBe(1);
+      expect(overridesAfter[0]?.reason).toBe('Conference');
+    });
+
+    it('returns NOT_FOUND when deleting a non-existent override directly in service', async () => {
+      const res = await service.deleteAvailabilityOverride(
+        '01920000-0000-7000-8000-000000000099',
+        ownerUser.id,
+        dbClient,
+      );
+      expect(res.success).toBe(false);
+      if (!res.success) {
+        expect(res.code).toBe('NOT_FOUND');
+      }
+    });
+
+    it('returns VALIDATION_FAILED when creating an invalid override directly in service', async () => {
+      const res = await service.createAvailabilityOverride(
+        { date: 'bad-date', isUnavailable: true },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(res.success).toBe(false);
+      if (!res.success) {
+        expect(res.code).toBe('VALIDATION_FAILED');
       }
     });
   });

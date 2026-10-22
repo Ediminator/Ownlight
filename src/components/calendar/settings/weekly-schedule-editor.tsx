@@ -3,111 +3,75 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import type { AvailabilitySchedule } from '@/server/db/schema/calendar';
-import { updateWeeklyScheduleAction } from '@/server/calendar/availability-actions';
-import { WEEKDAY_ORDER, WEEKDAY_KEY_MAP, isTimeRangeValid } from './availability-helpers';
+import { WEEKDAY_ORDER, WEEKDAY_KEY_MAP } from './availability-helpers';
+import {
+  buildInitialScheduleMap,
+  toggleWeekdayActive,
+  updateWeekdayTime,
+  validateWeeklyScheduleRanges,
+  submitWeeklyScheduleUpdate,
+  type DayScheduleState,
+} from './availability-view-model';
 import { Button } from '@/components/ui/button';
 import { Check, AlertCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface WeeklyScheduleEditorProps {
   initialSchedules: AvailabilitySchedule[];
-  locale: string;
+  locale?: string;
+  initialNotification?: {
+    type: 'success' | 'error';
+    message: string;
+  } | null;
+  initialClientErrors?: Record<number, string>;
 }
 
-interface DayScheduleState {
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  isActive: boolean;
-}
-
-export function WeeklyScheduleEditor({ initialSchedules }: WeeklyScheduleEditorProps) {
+export function WeeklyScheduleEditor({
+  initialSchedules,
+  initialNotification = null,
+  initialClientErrors = {},
+}: WeeklyScheduleEditorProps) {
   const t = useTranslations('settings.availability.schedules');
   const tWeekdays = useTranslations('calendar.weekdays');
 
   // Initialize schedule map from 0 to 6
-  const [schedules, setSchedules] = React.useState<Record<number, DayScheduleState>>(() => {
-    const map: Record<number, DayScheduleState> = {};
-    for (let day = 0; day <= 6; day++) {
-      const found = initialSchedules.find((s) => s.dayOfWeek === day);
-      map[day] = {
-        dayOfWeek: day,
-        startTime: found?.startTime ?? '09:00',
-        endTime: found?.endTime ?? '17:00',
-        isActive: found ? found.isActive : day >= 1 && day <= 5,
-      };
-    }
-    return map;
-  });
+  const [schedules, setSchedules] = React.useState<Record<number, DayScheduleState>>(() =>
+    buildInitialScheduleMap(initialSchedules),
+  );
 
-  const [clientErrors, setClientErrors] = React.useState<Record<number, string>>({});
+  const [clientErrors, setClientErrors] =
+    React.useState<Record<number, string>>(initialClientErrors);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [notification, setNotification] = React.useState<{
     type: 'success' | 'error';
     message: string;
-  } | null>(null);
-
-  // Validate on change
-  const validateSchedules = (
-    currentSchedules: Record<number, DayScheduleState>,
-  ): Record<number, string> => {
-    const errors: Record<number, string> = {};
-    for (const day of WEEKDAY_ORDER) {
-      const item = currentSchedules[day];
-      if (item?.isActive) {
-        if (!isTimeRangeValid(item.startTime, item.endTime)) {
-          errors[day] = t('errorInvalidRange');
-        }
-      }
-    }
-    return errors;
-  };
+  } | null>(initialNotification);
 
   const handleActiveToggle = (dayOfWeek: number) => {
     setSchedules((prev) => {
-      const current = prev[dayOfWeek] ?? {
-        dayOfWeek,
-        startTime: '09:00',
-        endTime: '17:00',
-        isActive: false,
-      };
-      const updated: Record<number, DayScheduleState> = {
-        ...prev,
-        [dayOfWeek]: {
-          ...current,
-          isActive: !current.isActive,
-        },
-      };
-      setClientErrors(validateSchedules(updated));
+      const updated = toggleWeekdayActive(prev, dayOfWeek);
+      setClientErrors(validateWeeklyScheduleRanges(updated, t('errorInvalidRange')));
       return updated;
     });
   };
 
   const handleTimeChange = (dayOfWeek: number, field: 'startTime' | 'endTime', value: string) => {
     setSchedules((prev) => {
-      const current = prev[dayOfWeek] ?? {
-        dayOfWeek,
-        startTime: '09:00',
-        endTime: '17:00',
-        isActive: false,
-      };
-      const updated: Record<number, DayScheduleState> = {
-        ...prev,
-        [dayOfWeek]: {
-          ...current,
-          [field]: value,
-        },
-      };
-      setClientErrors(validateSchedules(updated));
+      const updated = updateWeekdayTime(prev, dayOfWeek, field, value);
+      setClientErrors(validateWeeklyScheduleRanges(updated, t('errorInvalidRange')));
       return updated;
     });
+  };
+
+  const handleDismissNotification = () => {
+    setNotification(null);
   };
 
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setNotification(null);
 
-    const validation = validateSchedules(schedules);
+    const validation = validateWeeklyScheduleRanges(schedules, t('errorInvalidRange'));
     setClientErrors(validation);
 
     if (Object.keys(validation).length > 0) {
@@ -120,9 +84,7 @@ export function WeeklyScheduleEditor({ initialSchedules }: WeeklyScheduleEditorP
 
     setIsSubmitting(true);
     try {
-      const payload = Object.values(schedules);
-      const res = await updateWeeklyScheduleAction({ schedules: payload });
-
+      const res = await submitWeeklyScheduleUpdate(schedules);
       if (res.success) {
         setNotification({
           type: 'success',
@@ -131,7 +93,7 @@ export function WeeklyScheduleEditor({ initialSchedules }: WeeklyScheduleEditorP
       } else {
         setNotification({
           type: 'error',
-          message: res.error || t('errorSaveFailed'),
+          message: res.error ?? t('errorSaveFailed'),
         });
       }
     } catch {
@@ -173,9 +135,7 @@ export function WeeklyScheduleEditor({ initialSchedules }: WeeklyScheduleEditorP
           </div>
           <button
             type="button"
-            onClick={() => {
-              setNotification(null);
-            }}
+            onClick={handleDismissNotification}
             className="rounded p-1 hover:bg-black/5 dark:hover:bg-white/5"
             aria-label={t('dismissNotification')}
           >
@@ -254,7 +214,7 @@ export function WeeklyScheduleEditor({ initialSchedules }: WeeklyScheduleEditorP
                           onChange={(e) => {
                             handleTimeChange(dayOfWeek, 'startTime', e.target.value);
                           }}
-                          aria-invalid={!!error}
+                          aria-invalid={Boolean(error)}
                           aria-describedby={error ? `schedule-error-${dayKey}` : undefined}
                           className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />
@@ -276,7 +236,7 @@ export function WeeklyScheduleEditor({ initialSchedules }: WeeklyScheduleEditorP
                           onChange={(e) => {
                             handleTimeChange(dayOfWeek, 'endTime', e.target.value);
                           }}
-                          aria-invalid={!!error}
+                          aria-invalid={Boolean(error)}
                           aria-describedby={error ? `schedule-error-${dayKey}` : undefined}
                           className={cn(
                             'rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',

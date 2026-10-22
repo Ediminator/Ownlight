@@ -38,6 +38,7 @@ import { auditEvents } from '@/server/db/schema/audit';
 import { createSession, SESSION_COOKIE_NAME } from '@/server/auth/session';
 import { eq, desc } from 'drizzle-orm';
 import { seedDefaultCalendarData } from '@/server/db/seeds/calendar';
+import * as service from '@/server/calendar/service';
 
 describe('TASK-0043: Booking Type Actions Integration Tests', () => {
   let testDb: TestDatabaseInstance;
@@ -372,6 +373,47 @@ describe('TASK-0043: Booking Type Actions Integration Tests', () => {
       expect(res.success).toBe(false);
       if (!res.success) {
         expect(res.code).toBe('UNAUTHENTICATED');
+      }
+    });
+  });
+
+  describe('Service direct queries for booking types', () => {
+    it('fetches booking types by id, slug and list', async () => {
+      const types = await service.getBookingTypes(true, dbClient);
+      expect(types.length).toBeGreaterThan(0);
+
+      const first = types[0];
+      expect(first).toBeDefined();
+      if (!first) return;
+      const byId = await service.getBookingTypeById(first.id, dbClient);
+      const bySlug = await service.getBookingTypeBySlug(first.slug, dbClient);
+
+      expect(byId?.id).toBe(first.id);
+      expect(bySlug?.slug).toBe(first.slug);
+    });
+
+    it('returns NOT_FOUND when updating non-existent booking type directly in service', async () => {
+      const res = await service.updateBookingType(
+        '01920000-0000-7000-8000-000000000099',
+        { title: 'Non-existent' },
+        ownerUser.id,
+        dbClient,
+      );
+      expect(res.success).toBe(false);
+      if (!res.success) {
+        expect(res.code).toBe('NOT_FOUND');
+      }
+    });
+
+    it('returns NOT_FOUND when deleting non-existent booking type directly in service', async () => {
+      const res = await service.deleteBookingType(
+        '01920000-0000-7000-8000-000000000099',
+        ownerUser.id,
+        dbClient,
+      );
+      expect(res.success).toBe(false);
+      if (!res.success) {
+        expect(res.code).toBe('NOT_FOUND');
       }
     });
   });

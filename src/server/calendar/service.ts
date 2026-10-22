@@ -140,6 +140,18 @@ export async function updateBookingType(
     };
   }
 
+  if (parsed.data.slug && parsed.data.slug !== existing.slug) {
+    const conflict = await repo.findBookingTypeBySlug(parsed.data.slug, tx);
+    if (conflict) {
+      return {
+        success: false,
+        code: 'CONFLICT',
+        error: `Booking type with slug "${parsed.data.slug}" already exists.`,
+        fields: ['slug'],
+      };
+    }
+  }
+
   const updated = await repo.updateBookingTypeRecord(id, parsed.data, tx);
   if (!updated) {
     return {
@@ -691,6 +703,12 @@ export async function getAvailabilityOverrides(
   tx: DbClient = defaultDb,
 ): Promise<AvailabilityOverride[]> {
   return repo.listAvailabilityOverridesInRange(params, tx);
+}
+
+export async function getAllAvailabilityOverrides(
+  tx: DbClient = defaultDb,
+): Promise<AvailabilityOverride[]> {
+  return repo.listAllAvailabilityOverrides(tx);
 }
 
 export async function createAvailabilityOverride(

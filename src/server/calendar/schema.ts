@@ -25,12 +25,32 @@ export const createBookingTypeSchema = z
       .number()
       .int()
       .min(5, 'Duration must be at least 5 minutes')
-      .max(1440)
+      .max(480, 'Duration must not exceed 480 minutes (8 hours)')
       .default(30),
-    bufferBeforeMinutes: z.number().int().min(0).max(720).default(0),
-    bufferAfterMinutes: z.number().int().min(0).max(720).default(15),
-    minNoticeHours: z.number().int().min(0).max(720).default(24),
-    maxFutureDays: z.number().int().min(1).max(365).default(60),
+    bufferBeforeMinutes: z
+      .number()
+      .int()
+      .min(0, 'Buffer before must be at least 0 minutes')
+      .max(120, 'Buffer before must not exceed 120 minutes')
+      .default(0),
+    bufferAfterMinutes: z
+      .number()
+      .int()
+      .min(0, 'Buffer after must be at least 0 minutes')
+      .max(120, 'Buffer after must not exceed 120 minutes')
+      .default(15),
+    minNoticeHours: z
+      .number()
+      .int()
+      .min(0, 'Minimum notice must be at least 0 hours')
+      .max(168, 'Minimum notice must not exceed 168 hours (7 days)')
+      .default(24),
+    maxFutureDays: z
+      .number()
+      .int()
+      .min(1, 'Horizon must be at least 1 day')
+      .max(365, 'Horizon must not exceed 365 days')
+      .default(60),
     locationType: bookingLocationTypeEnum.default('google_meet'),
     locationDetails: z.string().max(255).nullable().optional(),
     color: z.string().max(32).default('indigo'),
@@ -153,7 +173,11 @@ export const availabilityScheduleItemSchema = z
     endTime: z.string().regex(/^\d{2}:\d{2}$/, 'Format must be HH:MM'),
     isActive: z.boolean(),
   })
-  .strict();
+  .strict()
+  .refine((data) => data.startTime < data.endTime, {
+    message: 'End time must be after start time',
+    path: ['endTime'],
+  });
 
 export type AvailabilityScheduleItemInput = z.infer<typeof availabilityScheduleItemSchema>;
 
@@ -181,7 +205,15 @@ export const createAvailabilityOverrideSchema = z
     isUnavailable: z.boolean().default(false),
     reason: z.string().max(150).nullable().optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (data) =>
+      data.isUnavailable || !data.startTime || !data.endTime || data.startTime < data.endTime,
+    {
+      message: 'End time must be after start time',
+      path: ['endTime'],
+    },
+  );
 
 export type CreateAvailabilityOverrideInput = z.input<typeof createAvailabilityOverrideSchema>;
 

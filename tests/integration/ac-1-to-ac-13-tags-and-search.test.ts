@@ -637,7 +637,7 @@ describe('TASK-0010: Client tags and search (AC-1 through AC-13)', () => {
     let bestLatencies: number[] = [];
     let bestP95 = Infinity;
 
-    for (let pass = 0; pass < 25; pass++) {
+    for (let pass = 0; pass < 15; pass++) {
       const currentLatencies: number[] = [];
       for (const q of searchQueries) {
         const start = performance.now();
@@ -657,7 +657,6 @@ describe('TASK-0010: Client tags and search (AC-1 through AC-13)', () => {
       }
 
       if (bestP95 <= 300) break;
-      await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
     // Compute final p95

@@ -15,6 +15,8 @@ import {
 } from '@/server/calendar/availability-actions';
 import * as guards from '@/server/auth/guards';
 import * as service from '@/server/calendar/service';
+import * as calendarSchema from '@/server/calendar/schema';
+import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import type { DbClient } from '@/server/db/client';
 import type {
@@ -263,6 +265,21 @@ describe('TASK-0043: Availability Server Actions Branch & Edge Cases', () => {
       expect(res.success).toBe(false);
       expect(res.code).toBe('VALIDATION_FAILED');
       expect(res.fields).toBeDefined();
+    });
+
+    it('handles empty issues in formatValidationIssues gracefully with fallback error message', async () => {
+      vi.spyOn(guards, 'requireOwner').mockResolvedValueOnce(mockOwnerAuth);
+      const emptyZodError = new z.ZodError<z.infer<typeof calendarSchema.createBookingTypeSchema>>(
+        [],
+      );
+      vi.spyOn(calendarSchema.createBookingTypeSchema, 'safeParse').mockReturnValueOnce({
+        success: false,
+        error: emptyZodError,
+      });
+      const res = await createBookingTypeAction({}, dummyClient);
+      expect(res.success).toBe(false);
+      expect(res.code).toBe('VALIDATION_FAILED');
+      expect(res.error).toBe('Validation failed');
     });
 
     it('creates booking type successfully and revalidates paths including book link', async () => {
@@ -543,6 +560,10 @@ describe('TASK-0043: Availability Server Actions Branch & Edge Cases', () => {
       const updateRes = await updateBookingTypeAction({ id: 'bt-1', title: 'New Name' });
       expect(updateRes.success).toBe(true);
 
+      // updateBookingTypeAction with (id, input) and no client
+      const updateRes2 = await updateBookingTypeAction('bt-1', { title: 'New Name' });
+      expect(updateRes2.success).toBe(true);
+
       // deleteBookingTypeAction with string id and no client
       const deleteRes1 = await deleteBookingTypeAction('bt-1');
       expect(deleteRes1.success).toBe(true);
@@ -558,6 +579,63 @@ describe('TASK-0043: Availability Server Actions Branch & Edge Cases', () => {
       // deleteDateOverrideAction with object id and no client
       const deleteOvRes2 = await deleteDateOverrideAction({ id: 'ov-1' });
       expect(deleteOvRes2.success).toBe(true);
+
+      // createBookingTypeAction without client
+      vi.spyOn(service, 'createBookingType').mockResolvedValue({
+        success: true,
+        data: {
+          id: 'bt-2',
+          title: 'Portrait Session 2',
+          slug: 'portrait-session-2',
+          description: null,
+          durationMinutes: 30,
+          bufferBeforeMinutes: 0,
+          bufferAfterMinutes: 15,
+          minNoticeHours: 24,
+          maxFutureDays: 60,
+          locationType: 'in_person',
+          locationDetails: null,
+          color: 'indigo',
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      const createBtRes = await createBookingTypeAction({
+        title: 'Portrait Session 2',
+        slug: 'portrait-session-2',
+        durationMinutes: 30,
+        locationType: 'in_person',
+      });
+      expect(createBtRes.success).toBe(true);
+
+      // updateWeeklyScheduleAction without client
+      vi.spyOn(service, 'updateAvailabilitySchedules').mockResolvedValue({
+        success: true,
+        data: [],
+      });
+      const updateSchedRes = await updateWeeklyScheduleAction({ schedules: [] });
+      expect(updateSchedRes.success).toBe(true);
+
+      // createDateOverrideAction without client
+      vi.spyOn(service, 'createAvailabilityOverride').mockResolvedValue({
+        success: true,
+        data: {
+          id: 'ov-1',
+          date: '2026-11-20',
+          isUnavailable: true,
+          startTime: null,
+          endTime: null,
+          reason: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      const createOvRes = await createDateOverrideAction({
+        date: '2026-11-20',
+        isUnavailable: true,
+      });
+      expect(createOvRes.success).toBe(true);
     });
   });
 });

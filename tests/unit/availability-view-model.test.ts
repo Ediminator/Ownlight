@@ -442,6 +442,15 @@ describe('TASK-0043: Availability View-Model Unit Tests', () => {
       expect(state.durationMinutes).toBe(45);
       expect(state.color).toBe('rose');
       expect(state.isActive).toBe(false);
+
+      const nullItem: BookingType = {
+        ...dummyItem,
+        description: null,
+        locationDetails: null,
+      };
+      const nullState = getInitialBookingTypeFormState(nullItem);
+      expect(nullState.description).toBe('');
+      expect(nullState.locationDetails).toBe('');
     });
 
     it('computeBookingTypeSlug generates slug automatically when not manually edited and not editing', () => {
@@ -633,12 +642,40 @@ describe('TASK-0043: Availability View-Model Unit Tests', () => {
       } finally {
         if (originalClipboard) {
           Object.defineProperty(navigator, 'clipboard', originalClipboard);
+        } else {
+          delete (navigator as unknown as { clipboard?: unknown }).clipboard;
         }
       }
 
-      // Default without clipboard in Node environment returns false
-      const res3 = await copyPublicBookingLink('my-session', 'https://studio.example.org');
-      expect(typeof res3).toBe('boolean');
+      // Default without clipboard in Node environment returns false and covers default origin
+      const res3 = await copyPublicBookingLink('my-session');
+      expect(res3).toBe(false);
+
+      // Exercises window.location.origin when window is present
+      const globalWithWindow = globalThis as unknown as { window?: unknown };
+      const originalWindow = globalWithWindow.window;
+      try {
+        globalWithWindow.window = { location: { origin: 'https://browser.example.org' } };
+        const resWin = await copyPublicBookingLink('my-session');
+        expect(resWin).toBe(false);
+      } finally {
+        if (originalWindow !== undefined) {
+          globalWithWindow.window = originalWindow;
+        } else {
+          delete globalWithWindow.window;
+        }
+      }
+
+      // When navigator is undefined
+      const globalWithNav = globalThis as unknown as { navigator?: unknown };
+      const savedNav = globalWithNav.navigator;
+      try {
+        delete globalWithNav.navigator;
+        const resNoNav = await copyPublicBookingLink('my-session');
+        expect(resNoNav).toBe(false);
+      } finally {
+        globalWithNav.navigator = savedNav;
+      }
     });
 
     it('getBookingLocationBadgeInfo returns correct badge metadata for all location types', () => {
@@ -906,7 +943,10 @@ describe('TASK-0043: Availability View-Model Unit Tests', () => {
       });
 
       it('handles SAVE_SUCCESS (create and update) and DELETE_SUCCESS', () => {
-        let state = createInitialBookingTypesState([mockBT]);
+        let state = createInitialBookingTypesState([
+          mockBT,
+          { ...mockBT, id: 'bt-other', slug: 'bt-other' },
+        ]);
 
         // update
         const updatedBT = { ...mockBT, title: 'Updated Title' };
@@ -927,7 +967,7 @@ describe('TASK-0043: Availability View-Model Unit Tests', () => {
           isEdit: false,
           message: 'Created',
         });
-        expect(state.bookingTypes).toHaveLength(2);
+        expect(state.bookingTypes).toHaveLength(3);
 
         // delete
         state = bookingTypesReducer(state, {
@@ -935,8 +975,8 @@ describe('TASK-0043: Availability View-Model Unit Tests', () => {
           id: 'bt-1',
           message: 'Deleted',
         });
-        expect(state.bookingTypes).toHaveLength(1);
-        expect(state.bookingTypes[0]?.id).toBe('bt-2');
+        expect(state.bookingTypes).toHaveLength(2);
+        expect(state.bookingTypes.some((b) => b.id === 'bt-1')).toBe(false);
 
         state = bookingTypesReducer(state, {
           type: 'SET_NOTIFICATION',

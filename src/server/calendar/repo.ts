@@ -308,6 +308,12 @@ export async function listAvailabilityOverridesInRange(
     .orderBy(availabilityOverrides.date);
 }
 
+export async function listAllAvailabilityOverrides(
+  tx: DbClient = defaultDb,
+): Promise<AvailabilityOverride[]> {
+  return tx.select().from(availabilityOverrides).orderBy(availabilityOverrides.date);
+}
+
 export async function insertAvailabilityOverride(
   data: NewAvailabilityOverride,
   tx: DbClient = defaultDb,

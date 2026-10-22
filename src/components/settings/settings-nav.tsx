@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Shield, Cloud, ClipboardList } from 'lucide-react';
+import { Shield, Cloud, ClipboardList, CalendarClock } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +14,7 @@ export function SettingsNav({ className }: SettingsNavProps) {
   const tSec = useTranslations('settings.security');
   const tInt = useTranslations('settings.integrations.google');
   const tInq = useTranslations('settings.inquiryForms');
+  const tAvail = useTranslations('settings.availability');
   const pathname = usePathname();
 
   const links = [
@@ -22,6 +23,12 @@ export function SettingsNav({ className }: SettingsNavProps) {
       label: tSec('title'),
       shortLabel: 'Security',
       icon: Shield,
+    },
+    {
+      href: '/settings/calendar/availability',
+      label: tAvail('title'),
+      shortLabel: tAvail('navLabel'),
+      icon: CalendarClock,
     },
     {
       href: '/settings/integrations/google',

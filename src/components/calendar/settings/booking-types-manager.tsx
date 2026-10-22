@@ -386,11 +386,17 @@ export function BookingTypesManager({
                       </p>
                     </div>
                     {bt.isActive ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold uppercase tracking-wider bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                      <span
+                        data-testid={`booking-type-status-${bt.slug}`}
+                        className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold uppercase tracking-wider bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0"
+                      >
                         {t('badgeActive')}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold uppercase tracking-wider bg-muted text-muted-foreground border shrink-0">
+                      <span
+                        data-testid={`booking-type-status-${bt.slug}`}
+                        className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold uppercase tracking-wider bg-muted text-muted-foreground border shrink-0"
+                      >
                         {t('badgeInactive')}
                       </span>
                     )}

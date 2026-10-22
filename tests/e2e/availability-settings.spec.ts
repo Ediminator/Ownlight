@@ -183,7 +183,19 @@ test.describe('TASK-0043: Availability Schedules, Date Overrides, & Booking Type
     // Switch to Booking Types tab
     const tabBookingTypes = page.locator('[data-testid="tab-booking-types"]');
     await tabBookingTypes.click();
-    await expect(page.locator('[data-testid="booking-types-empty"]')).toBeVisible();
+    await expect(page.locator('[data-testid="new-booking-type-btn"]')).toBeVisible();
+
+    // Clean up leftover test card if previous test run was interrupted
+    const leftoverCard = page.locator(
+      '[data-testid="booking-type-card-e2e-portrait-consultation"]',
+    );
+    if (await leftoverCard.isVisible()) {
+      const delBtn = page.locator('[data-testid="delete-booking-type-e2e-portrait-consultation"]');
+      await delBtn.click();
+      await page.waitForTimeout(300);
+      await page.locator('[data-testid="confirm-delete-booking-type-btn"]').click();
+      await expect(leftoverCard).not.toBeVisible();
+    }
 
     // Open "New Booking Type" dialog
     const newBtn = page.locator('[data-testid="new-booking-type-btn"]');
@@ -357,7 +369,7 @@ test.describe('TASK-0043: Availability Schedules, Date Overrides, & Booking Type
         // Test Booking Types Tab accessibility
         const tabBookingTypes = page.locator('[data-testid="tab-booking-types"]');
         await tabBookingTypes.click();
-        await expect(page.locator('[data-testid="booking-types-empty"]')).toBeVisible();
+        await expect(page.locator('[data-testid="new-booking-type-btn"]')).toBeVisible();
 
         const bookingTypesAxe = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])

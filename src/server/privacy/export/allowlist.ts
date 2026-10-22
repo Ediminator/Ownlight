@@ -17,10 +17,6 @@ export const EXPORT_COVERAGE_ALLOWLIST: readonly ExportCoverageExemption[] = [
       'Internal ephemeral queue for asynchronous Google Contacts API operations, containing no independent personal data not already reflected in client_contacts and google_contacts_links.',
   },
   {
-    tableName: 'appointments',
-    reason: 'Temporary exemption: Appointments DSAR export provider is implemented in TASK-0041.',
-  },
-  {
     tableName: 'caldav_accounts',
     reason:
       'Temporary exemption: CalDAV credentials and sync provider export is handled in TASK-0047.',

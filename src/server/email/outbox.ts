@@ -112,3 +112,5 @@ export async function getFailedEmailOutboxCount(client: DbClient = defaultDb): P
     .where(eq(emailOutbox.status, 'FAILED'));
   return row?.total ?? 0;
 }
+
+export { enqueueAppointmentEmail } from './templates/appointment';

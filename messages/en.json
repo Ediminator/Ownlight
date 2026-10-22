@@ -1339,5 +1339,38 @@
         "submitting": "Adding..."
       }
     }
+  },
+  "emails": {
+    "appointment": {
+      "confirmation": {
+        "subject": "Appointment Confirmation: {title} with {studioName}",
+        "greeting": "Hello {attendeeName},",
+        "intro": "Your appointment has been confirmed.",
+        "appointmentTitle": "Appointment: {title}",
+        "dateTime": "Date & Time: {dateTime} ({timezone})",
+        "duration": "Duration: {duration} minutes",
+        "locationType": "Location: {locationType}",
+        "locationDetails": "Location Details: {locationDetails}",
+        "meetUrl": "Google Meet Link: {meetUrl}",
+        "notes": "Notes: {notes}",
+        "contactInfo": "If you have any questions or need to make changes, please contact {studioName}.",
+        "footer": "This is an automated transactional notification."
+      },
+      "cancellation": {
+        "subject": "Appointment Cancelled: {title} with {studioName}",
+        "greeting": "Hello {attendeeName},",
+        "intro": "Your appointment has been cancelled.",
+        "appointmentTitle": "Appointment: {title}",
+        "dateTime": "Scheduled Date & Time: {dateTime} ({timezone})",
+        "reason": "Cancellation Reason: {reason}",
+        "contactInfo": "If you would like to reschedule or have questions, please contact {studioName}.",
+        "footer": "This is an automated transactional notification."
+      },
+      "locations": {
+        "google_meet": "Google Meet (Video Call)",
+        "in_person": "In Person",
+        "phone": "Phone Call"
+      }
+    }
   }
 }

@@ -22,6 +22,14 @@ import {
   updateEmailOutboxRetry,
 } from './outbox';
 import { renderAutoReplyEmail } from './templates';
+import { appointments } from '@/server/db/schema/calendar';
+import { clients } from '@/server/db/schema/clients';
+import { leads } from '@/server/db/schema/leads';
+import {
+  renderAppointmentConfirmationEmail,
+  renderAppointmentCancellationEmail,
+  getAppointmentEmailHeaders,
+} from './templates/appointment';
 
 export interface EmailOutboxBatchOptions {
   batchSize?: number;
@@ -95,6 +103,141 @@ export async function processEmailOutboxBatch(
 
     try {
       await markEmailOutboxProcessing(item.id, dbClient);
+
+      // Branch A: Appointment transactional emails (TASK-0041 / AC-5, AC-6, AC-8)
+      if (item.kind === 'appointment_confirmation' || item.kind === 'appointment_cancellation') {
+        if (!item.appointmentId) {
+          await deleteEmailOutboxItem(item.id, dbClient);
+          suppressedCount += 1;
+          continue;
+        }
+
+        const [appointment] = await dbClient
+          .select()
+          .from(appointments)
+          .where(eq(appointments.id, item.appointmentId))
+          .limit(1);
+
+        if (!appointment) {
+          await deleteEmailOutboxItem(item.id, dbClient);
+          suppressedCount += 1;
+          continue;
+        }
+
+        // If erased before delivery, suppress sending
+        if (
+          appointment.attendeeEmail.endsWith('@redacted.local') ||
+          appointment.attendeeName === 'Erased Attendee'
+        ) {
+          await deleteEmailOutboxItem(item.id, dbClient);
+          suppressedCount += 1;
+          continue;
+        }
+
+        let studioName = 'Photo Studio';
+        let defaultLocale = 'en';
+        try {
+          const settings = await getStudioSettings(dbClient);
+          studioName = settings.studio_name;
+          defaultLocale = settings.default_locale;
+        } catch {
+          studioName = 'Photo Studio';
+        }
+
+        const recipientEmail = item.recipient ?? appointment.attendeeEmail;
+        if (!recipientEmail) {
+          await deleteEmailOutboxItem(item.id, dbClient);
+          suppressedCount += 1;
+          continue;
+        }
+
+        let locale = defaultLocale;
+        if (appointment.clientId) {
+          const [cl] = await dbClient
+            .select({ preferredLocale: clients.preferredLocale })
+            .from(clients)
+            .where(eq(clients.id, appointment.clientId))
+            .limit(1);
+          if (cl?.preferredLocale) locale = cl.preferredLocale;
+        } else if (appointment.leadId) {
+          const [ld] = await dbClient
+            .select({ locale: leads.locale })
+            .from(leads)
+            .where(eq(leads.id, appointment.leadId))
+            .limit(1);
+          if (ld?.locale) locale = ld.locale;
+        }
+
+        const rendered =
+          item.kind === 'appointment_confirmation'
+            ? renderAppointmentConfirmationEmail({ appointment, studioName, locale })
+            : renderAppointmentCancellationEmail({ appointment, studioName, locale });
+
+        const headers = getAppointmentEmailHeaders();
+
+        try {
+          await sendEmail({
+            to: { address: recipientEmail },
+            subject: rendered.subject,
+            text: rendered.text,
+            headers,
+            transporter: options.transporter,
+          });
+
+          await deleteEmailOutboxItem(item.id, dbClient);
+
+          // AC-8: Log appointment ID and outbox ID only, never recipient email or attendee notes
+          logger.info(
+            {
+              appointmentId: appointment.id,
+              outboxId: item.id,
+              kind: item.kind,
+            },
+            'Appointment transactional email sent successfully',
+          );
+
+          sentCount += 1;
+        } catch (err) {
+          failedCount += 1;
+          const newAttempts = item.attempts + 1;
+          const isTerminal = isTerminalRetry(newAttempts);
+          const nextAttemptAt = calculateNextAttemptDate(newAttempts, options.backoffOptions);
+
+          const rawMsg = err instanceof Error ? err.message : String(err);
+          const errorClass = err instanceof Error ? err.constructor.name : 'Error';
+          const sanitizedError = sanitizeOutboxError(rawMsg, errorClass);
+
+          // AC-8: Log appointment ID and outbox ID only, never recipient email or attendee notes
+          logger.warn(
+            {
+              outboxId: item.id,
+              appointmentId: appointment.id,
+              attempts: newAttempts,
+              isTerminal,
+              errorClass,
+            },
+            'Appointment transactional email sending failed',
+          );
+
+          await updateEmailOutboxRetry(
+            item.id,
+            newAttempts,
+            nextAttemptAt,
+            sanitizedError,
+            isTerminal,
+            dbClient,
+          );
+        }
+
+        continue;
+      }
+
+      // Branch B: Lead auto-reply
+      if (!item.leadId) {
+        await deleteEmailOutboxItem(item.id, dbClient);
+        suppressedCount += 1;
+        continue;
+      }
 
       // 1. Resolve lead details
       const lead = await getLeadById(item.leadId, dbClient);

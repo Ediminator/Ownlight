@@ -146,7 +146,7 @@ describe('TASK-0030 Unit Tests: Auto-Reply Templates & Mail Security', () => {
     expect(columnNames).toContain('created_at');
     expect(columnNames).toContain('updated_at');
 
-    expect(EMAIL_OUTBOX_KINDS).toEqual(['lead_auto_reply']);
+    expect(EMAIL_OUTBOX_KINDS).toContain('lead_auto_reply');
     expect(EMAIL_OUTBOX_STATUSES).toEqual(['PENDING', 'PROCESSING', 'FAILED']);
 
     expect(config.indexes.length).toBeGreaterThan(0);

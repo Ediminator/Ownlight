@@ -60,8 +60,19 @@ export default async function CalendarPage({ params, searchParams }: CalendarPag
     endDate: bounds.gridEnd,
   });
 
+  const t = await getTranslations({ locale, namespace: 'pages.calendar' });
+
   return (
-    <div className="container mx-auto px-4 py-6 max-w-7xl" data-testid="calendar-container">
+    <div
+      className="container mx-auto px-4 py-6 max-w-7xl space-y-6"
+      data-testid="calendar-container"
+    >
+      <header className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          {t('title')}
+        </h1>
+        <p className="text-sm text-muted-foreground">{t('description')}</p>
+      </header>
       <CalendarView
         initialEvents={initialEvents}
         locale={locale}

@@ -11,11 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import {
-  createBlockedTimeAction,
-  updateBlockedTimeAction,
-  deleteBlockedTimeAction,
-} from '@/server/calendar/actions';
+import { getInitialBlockedTimeState, submitBlockedTimeForm } from './calendar-view-model';
 import type { UnifiedCalendarEvent } from '@/server/calendar/service';
 
 export interface BlockedTimeModalProps {
@@ -37,11 +33,21 @@ export function BlockedTimeModal({
 }: BlockedTimeModalProps) {
   const t = useTranslations('calendar.modals.blockedTime');
 
-  const [title, setTitle] = useState('');
-  const [startsAt, setStartsAt] = useState('');
-  const [endsAt, setEndsAt] = useState('');
-  const [allDay, setAllDay] = useState(false);
-  const [notes, setNotes] = useState('');
+  const [title, setTitle] = useState(
+    () => getInitialBlockedTimeState(blockedTime, mode, defaultDate).title,
+  );
+  const [startsAt, setStartsAt] = useState(
+    () => getInitialBlockedTimeState(blockedTime, mode, defaultDate).startsAt,
+  );
+  const [endsAt, setEndsAt] = useState(
+    () => getInitialBlockedTimeState(blockedTime, mode, defaultDate).endsAt,
+  );
+  const [allDay, setAllDay] = useState(
+    () => getInitialBlockedTimeState(blockedTime, mode, defaultDate).allDay,
+  );
+  const [notes, setNotes] = useState(
+    () => getInitialBlockedTimeState(blockedTime, mode, defaultDate).notes,
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -56,26 +62,12 @@ export function BlockedTimeModal({
     setPrevMode(mode);
     setErrorMessage(null);
 
-    if (blockedTime && (mode === 'edit' || mode === 'delete')) {
-      setTitle(blockedTime.title);
-      setStartsAt(
-        blockedTime.startsAt ? new Date(blockedTime.startsAt).toISOString().slice(0, 16) : '',
-      );
-      setEndsAt(blockedTime.endsAt ? new Date(blockedTime.endsAt).toISOString().slice(0, 16) : '');
-      setAllDay(blockedTime.allDay);
-      setNotes(blockedTime.notes ?? '');
-    } else {
-      // Create mode
-      const baseDate = defaultDate ? new Date(defaultDate) : new Date();
-      baseDate.setHours(9, 0, 0, 0);
-      const endDefault = new Date(baseDate.getTime() + 8 * 60 * 60 * 1000);
-
-      setTitle('Studio Maintenance');
-      setStartsAt(baseDate.toISOString().slice(0, 16));
-      setEndsAt(endDefault.toISOString().slice(0, 16));
-      setAllDay(false);
-      setNotes('');
-    }
+    const initial = getInitialBlockedTimeState(blockedTime, mode, defaultDate);
+    setTitle(initial.title);
+    setStartsAt(initial.startsAt);
+    setEndsAt(initial.endsAt);
+    setAllDay(initial.allDay);
+    setNotes(initial.notes);
   }
 
   async function handleSubmit(e: React.SyntheticEvent) {
@@ -84,45 +76,21 @@ export function BlockedTimeModal({
     setErrorMessage(null);
 
     try {
-      if (mode === 'delete') {
-        if (!blockedTime) return;
-        const res = await deleteBlockedTimeAction(blockedTime.id);
-        if (!res.success) {
-          setErrorMessage(res.error);
-          return;
-        }
-      } else if (mode === 'edit') {
-        if (!blockedTime) return;
-        const res = await updateBlockedTimeAction(blockedTime.id, {
-          title,
-          startsAt: new Date(startsAt),
-          endsAt: new Date(endsAt),
-          allDay,
-          notes: notes || null,
-        });
-        if (!res.success) {
-          setErrorMessage(res.error);
-          return;
-        }
-      } else {
-        // Create mode
-        const res = await createBlockedTimeAction({
-          title: title || 'Blocked Time',
-          startsAt: new Date(startsAt),
-          endsAt: new Date(endsAt),
-          allDay,
-          notes: notes || undefined,
-        });
-        if (!res.success) {
-          setErrorMessage(res.error);
-          return;
-        }
+      const res = await submitBlockedTimeForm(mode, blockedTime, {
+        title,
+        startsAt,
+        endsAt,
+        allDay,
+        notes,
+      });
+
+      if (!res.success) {
+        setErrorMessage(res.error);
+        return;
       }
 
       onSuccess();
       onOpenChange(false);
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Operation failed');
     } finally {
       setIsSubmitting(false);
     }

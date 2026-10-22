@@ -9,6 +9,8 @@ import {
   EVENT_COLOR_TOKENS,
   groupEventsByDate,
   calculateNextGridFocus,
+  findCellCoordinates,
+  getOrderedWeekdays,
 } from './calendar-view-model';
 
 export interface MonthViewProps {
@@ -43,30 +45,16 @@ export function MonthView({
   // Focused cell state for roving tabindex (AC-3)
   const [prevSelectedDate, setPrevSelectedDate] = useState(selectedDate);
   const [focusedCoords, setFocusedCoords] = useState<{ row: number; col: number }>(() => {
-    for (let r = 0; r < grid.length; r++) {
-      for (let c = 0; c < 7; c++) {
-        if (grid[r]?.[c]?.dateString === selectedDate) {
-          return { row: r, col: c };
-        }
-      }
-    }
-    return { row: 0, col: 0 };
+    return findCellCoordinates(grid, selectedDate);
   });
 
   // Adjust focus coordinates during render when selectedDate prop changes
   if (prevSelectedDate !== selectedDate) {
     setPrevSelectedDate(selectedDate);
-    for (let r = 0; r < grid.length; r++) {
-      for (let c = 0; c < 7; c++) {
-        if (grid[r]?.[c]?.dateString === selectedDate) {
-          setFocusedCoords({ row: r, col: c });
-          break;
-        }
-      }
-    }
+    setFocusedCoords(findCellCoordinates(grid, selectedDate));
   }
 
-  const cellRefs = useRef<(HTMLDivElement | null)[][]>([[], [], [], [], [], [], []]);
+  const cellMap = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
   // Weekday column headers based on firstDayOfWeek and locale
   const weekdayNames = React.useMemo(() => {
@@ -79,11 +67,7 @@ export function MonthView({
       t('weekdays.fri'),
       t('weekdays.sat'),
     ];
-    const ordered: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      ordered.push(names[(firstDayOfWeek + i) % 7] ?? '');
-    }
-    return ordered;
+    return getOrderedWeekdays(names, firstDayOfWeek);
   }, [firstDayOfWeek, t]);
 
   function handleKeyDown(e: React.KeyboardEvent, row: number, col: number, cell: MonthGridCell) {
@@ -96,7 +80,7 @@ export function MonthView({
       e.preventDefault();
       const next = calculateNextGridFocus(row, col, e.key);
       setFocusedCoords(next);
-      cellRefs.current[next.row]?.[next.col]?.focus();
+      cellMap.current.get(`${String(next.row)}-${String(next.col)}`)?.focus();
       return;
     }
 
@@ -145,7 +129,7 @@ export function MonthView({
                 <div
                   key={cell.dateString}
                   ref={(el) => {
-                    (cellRefs.current[rowIdx] ??= [])[colIdx] = el;
+                    cellMap.current.set(`${String(rowIdx)}-${String(colIdx)}`, el);
                   }}
                   role="gridcell"
                   tabIndex={isFocused ? 0 : -1}

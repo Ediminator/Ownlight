@@ -11,11 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import {
-  createAppointmentAction,
-  updateAppointmentAction,
-  cancelAppointmentAction,
-} from '@/server/calendar/actions';
+import { getInitialAppointmentState, submitAppointmentForm } from './calendar-view-model';
 import type { UnifiedCalendarEvent } from '@/server/calendar/service';
 import type { BookingLocationType } from '@/server/db/schema/calendar';
 
@@ -38,15 +34,33 @@ export function AppointmentModal({
 }: AppointmentModalProps) {
   const t = useTranslations('calendar.modals.appointment');
 
-  const [title, setTitle] = useState('');
-  const [startsAt, setStartsAt] = useState('');
-  const [endsAt, setEndsAt] = useState('');
-  const [attendeeName, setAttendeeName] = useState('');
-  const [attendeeEmail, setAttendeeEmail] = useState('');
-  const [attendeePhone, setAttendeePhone] = useState('');
-  const [locationType, setLocationType] = useState<BookingLocationType>('google_meet');
-  const [locationDetails, setLocationDetails] = useState('');
-  const [notes, setNotes] = useState('');
+  const [title, setTitle] = useState(
+    () => getInitialAppointmentState(appointment, mode, defaultDate).title,
+  );
+  const [startsAt, setStartsAt] = useState(
+    () => getInitialAppointmentState(appointment, mode, defaultDate).startsAt,
+  );
+  const [endsAt, setEndsAt] = useState(
+    () => getInitialAppointmentState(appointment, mode, defaultDate).endsAt,
+  );
+  const [attendeeName, setAttendeeName] = useState(
+    () => getInitialAppointmentState(appointment, mode, defaultDate).attendeeName,
+  );
+  const [attendeeEmail, setAttendeeEmail] = useState(
+    () => getInitialAppointmentState(appointment, mode, defaultDate).attendeeEmail,
+  );
+  const [attendeePhone, setAttendeePhone] = useState(
+    () => getInitialAppointmentState(appointment, mode, defaultDate).attendeePhone,
+  );
+  const [locationType, setLocationType] = useState<BookingLocationType>(
+    () => getInitialAppointmentState(appointment, mode, defaultDate).locationType,
+  );
+  const [locationDetails, setLocationDetails] = useState(
+    () => getInitialAppointmentState(appointment, mode, defaultDate).locationDetails,
+  );
+  const [notes, setNotes] = useState(
+    () => getInitialAppointmentState(appointment, mode, defaultDate).notes,
+  );
   const [cancelReason, setCancelReason] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,40 +76,17 @@ export function AppointmentModal({
     setPrevMode(mode);
     setErrorMessage(null);
 
-    if (appointment && (mode === 'edit' || mode === 'cancel')) {
-      setTitle(appointment.title);
-      setStartsAt(
-        appointment.startsAt ? new Date(appointment.startsAt).toISOString().slice(0, 16) : '',
-      );
-      setEndsAt(appointment.endsAt ? new Date(appointment.endsAt).toISOString().slice(0, 16) : '');
-      setAttendeeName(appointment.attendeeName ?? '');
-      setAttendeeEmail(appointment.attendeeEmail ?? '');
-      setAttendeePhone(appointment.attendeePhone ?? '');
-      setLocationType(
-        appointment.locationType
-          ? (appointment.locationType as BookingLocationType)
-          : 'google_meet',
-      );
-      setLocationDetails(appointment.locationDetails ?? '');
-      setNotes(appointment.notes ?? '');
-      setCancelReason('');
-    } else {
-      // Create mode
-      const baseDate = defaultDate ? new Date(defaultDate) : new Date();
-      baseDate.setHours(10, 0, 0, 0);
-      const endDefault = new Date(baseDate.getTime() + 60 * 60 * 1000);
-
-      setTitle('');
-      setStartsAt(baseDate.toISOString().slice(0, 16));
-      setEndsAt(endDefault.toISOString().slice(0, 16));
-      setAttendeeName('');
-      setAttendeeEmail('');
-      setAttendeePhone('');
-      setLocationType('google_meet');
-      setLocationDetails('');
-      setNotes('');
-      setCancelReason('');
-    }
+    const initial = getInitialAppointmentState(appointment, mode, defaultDate);
+    setTitle(initial.title);
+    setStartsAt(initial.startsAt);
+    setEndsAt(initial.endsAt);
+    setAttendeeName(initial.attendeeName);
+    setAttendeeEmail(initial.attendeeEmail);
+    setAttendeePhone(initial.attendeePhone);
+    setLocationType(initial.locationType);
+    setLocationDetails(initial.locationDetails);
+    setNotes(initial.notes);
+    setCancelReason('');
   }
 
   async function handleSubmit(e: React.SyntheticEvent) {
@@ -104,55 +95,26 @@ export function AppointmentModal({
     setErrorMessage(null);
 
     try {
-      if (mode === 'cancel') {
-        if (!appointment) return;
-        const res = await cancelAppointmentAction(appointment.id, {
-          reason: cancelReason || undefined,
-        });
-        if (!res.success) {
-          setErrorMessage(res.error);
-          return;
-        }
-      } else if (mode === 'edit') {
-        if (!appointment) return;
-        const res = await updateAppointmentAction(appointment.id, {
-          title,
-          startsAt: new Date(startsAt),
-          endsAt: new Date(endsAt),
-          attendeeName,
-          attendeeEmail,
-          attendeePhone: attendeePhone || null,
-          locationType,
-          locationDetails: locationDetails || null,
-          attendeeNotes: notes || null,
-        });
-        if (!res.success) {
-          setErrorMessage(res.error);
-          return;
-        }
-      } else {
-        // Create mode
-        const res = await createAppointmentAction({
-          title,
-          startsAt: new Date(startsAt),
-          endsAt: new Date(endsAt),
-          attendeeName,
-          attendeeEmail,
-          attendeePhone: attendeePhone || undefined,
-          locationType,
-          locationDetails: locationDetails || undefined,
-          attendeeNotes: notes || undefined,
-        });
-        if (!res.success) {
-          setErrorMessage(res.error);
-          return;
-        }
+      const res = await submitAppointmentForm(mode, appointment, {
+        title,
+        startsAt,
+        endsAt,
+        attendeeName,
+        attendeeEmail,
+        attendeePhone,
+        locationType,
+        locationDetails,
+        notes,
+        cancelReason,
+      });
+
+      if (!res.success) {
+        setErrorMessage(res.error);
+        return;
       }
 
       onSuccess();
       onOpenChange(false);
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Operation failed');
     } finally {
       setIsSubmitting(false);
     }

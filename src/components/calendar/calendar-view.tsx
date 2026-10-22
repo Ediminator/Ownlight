@@ -17,6 +17,7 @@ import {
   getMonthBoundaries,
 } from '@/client/calendar/grid-math';
 import { getCalendarEventsAction } from '@/server/calendar/actions';
+import { matchCalendarKeyboardShortcut } from './calendar-view-model';
 
 export interface CalendarViewProps {
   initialEvents: UnifiedCalendarEvent[];
@@ -130,31 +131,23 @@ export function CalendarView({
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
-      if (
+      const isInput = Boolean(
         target &&
         (target.tagName === 'INPUT' ||
           target.tagName === 'TEXTAREA' ||
           target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-      if (appointmentModal.open || blockedTimeModal.open) {
-        return;
-      }
+          target.isContentEditable),
+      );
+      const isModalOpen = appointmentModal.open || blockedTimeModal.open;
 
-      if (e.key === 'm' || e.key === 'M') {
-        e.preventDefault();
-        setCurrentView('month');
-      } else if (e.key === 'w' || e.key === 'W') {
-        e.preventDefault();
-        setCurrentView('week');
-      } else if (e.key === 'd' || e.key === 'D') {
-        e.preventDefault();
-        setCurrentView('day');
-      } else if (e.key === 't' || e.key === 'T') {
-        e.preventDefault();
+      const action = matchCalendarKeyboardShortcut(e.key, isInput, isModalOpen);
+      if (!action) return;
+
+      e.preventDefault();
+      if (action === 'today') {
         handleNavigate('today');
+      } else {
+        setCurrentView(action);
       }
     }
 

@@ -23,6 +23,12 @@ import {
   submitBookingTypeDelete,
   copyPublicBookingLink,
   getBookingLocationBadgeInfo,
+  createInitialWeeklyScheduleState,
+  weeklyScheduleReducer,
+  createInitialDateOverridesState,
+  dateOverridesReducer,
+  createInitialBookingTypesState,
+  bookingTypesReducer,
   type OverrideFormState,
   type BookingTypeFormState,
 } from '@/components/calendar/settings/availability-view-model';
@@ -647,6 +653,284 @@ describe('TASK-0043: Availability View-Model Unit Tests', () => {
       expect(getBookingLocationBadgeInfo('in_person')).toEqual({
         iconType: 'map-pin',
         labelKey: 'locationInPerson',
+      });
+    });
+  });
+
+  describe('Availability View-Model Reducers', () => {
+    describe('weeklyScheduleReducer', () => {
+      it('initializes state correctly', () => {
+        const state = createInitialWeeklyScheduleState([]);
+        expect(state.isSubmitting).toBe(false);
+        expect(state.notification).toBeNull();
+        expect(state.schedules[1]?.isActive).toBe(true);
+      });
+
+      it('handles TOGGLE_DAY and CHANGE_TIME with range validation', () => {
+        let state = createInitialWeeklyScheduleState([]);
+        state = weeklyScheduleReducer(state, {
+          type: 'TOGGLE_DAY',
+          dayOfWeek: 1,
+          errorMsg: 'Invalid range',
+        });
+        expect(state.schedules[1]?.isActive).toBe(false);
+
+        state = weeklyScheduleReducer(state, {
+          type: 'TOGGLE_DAY',
+          dayOfWeek: 1,
+          errorMsg: 'Invalid range',
+        });
+        expect(state.schedules[1]?.isActive).toBe(true);
+
+        state = weeklyScheduleReducer(state, {
+          type: 'CHANGE_TIME',
+          dayOfWeek: 1,
+          field: 'startTime',
+          value: '18:00',
+          errorMsg: 'Invalid range',
+        });
+        expect(state.clientErrors[1]).toBe('Invalid range');
+
+        state = weeklyScheduleReducer(state, {
+          type: 'CHANGE_TIME',
+          dayOfWeek: 1,
+          field: 'endTime',
+          value: '19:00',
+          errorMsg: 'Invalid range',
+        });
+        expect(state.clientErrors[1]).toBeUndefined();
+      });
+
+      it('handles SET_SUBMITTING, SET_CLIENT_ERRORS, and SET_NOTIFICATION', () => {
+        let state = createInitialWeeklyScheduleState([]);
+        state = weeklyScheduleReducer(state, { type: 'SET_SUBMITTING', isSubmitting: true });
+        expect(state.isSubmitting).toBe(true);
+
+        state = weeklyScheduleReducer(state, {
+          type: 'SET_CLIENT_ERRORS',
+          errors: { 1: 'Error' },
+        });
+        expect(state.clientErrors[1]).toBe('Error');
+
+        state = weeklyScheduleReducer(state, {
+          type: 'SET_NOTIFICATION',
+          notification: { type: 'success', message: 'Saved' },
+        });
+        expect(state.notification?.message).toBe('Saved');
+
+        // default unknown action
+        // @ts-expect-error Testing fallback
+        expect(weeklyScheduleReducer(state, { type: 'UNKNOWN' })).toBe(state);
+      });
+    });
+
+    describe('dateOverridesReducer', () => {
+      const mockOverride: AvailabilityOverride = {
+        id: 'ov-1',
+        date: '2026-11-20',
+        isUnavailable: true,
+        startTime: null,
+        endTime: null,
+        reason: 'Holiday',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      it('initializes state correctly', () => {
+        const state = createInitialDateOverridesState([mockOverride]);
+        expect(state.overrides).toHaveLength(1);
+        expect(state.isAddOpen).toBe(false);
+      });
+
+      it('handles OPEN_ADD, CLOSE_ADD, OPEN_DELETE, CLOSE_DELETE', () => {
+        let state = createInitialDateOverridesState([mockOverride]);
+        state = dateOverridesReducer(state, { type: 'OPEN_ADD' });
+        expect(state.isAddOpen).toBe(true);
+
+        state = dateOverridesReducer(state, { type: 'CLOSE_ADD' });
+        expect(state.isAddOpen).toBe(false);
+
+        state = dateOverridesReducer(state, { type: 'OPEN_DELETE', item: mockOverride });
+        expect(state.deleteTarget?.id).toBe('ov-1');
+
+        state = dateOverridesReducer(state, { type: 'CLOSE_DELETE' });
+        expect(state.deleteTarget).toBeNull();
+      });
+
+      it('handles UPDATE_FORM_FIELD, SET_FORM_ERROR, SET_SUBMITTING', () => {
+        let state = createInitialDateOverridesState([]);
+        state = dateOverridesReducer(state, {
+          type: 'UPDATE_FORM_FIELD',
+          name: 'date',
+          value: '2026-11-25',
+        });
+        expect(state.formValues.date).toBe('2026-11-25');
+
+        state = dateOverridesReducer(state, {
+          type: 'SET_FORM_ERROR',
+          error: 'Date required',
+        });
+        expect(state.formError).toBe('Date required');
+
+        state = dateOverridesReducer(state, { type: 'SET_SUBMITTING', isSubmitting: true });
+        expect(state.isSubmitting).toBe(true);
+      });
+
+      it('handles CREATE_SUCCESS, DELETE_SUCCESS, SET_NOTIFICATION', () => {
+        let state = createInitialDateOverridesState([]);
+        state = dateOverridesReducer(state, {
+          type: 'CREATE_SUCCESS',
+          item: mockOverride,
+          message: 'Created',
+        });
+        expect(state.overrides).toHaveLength(1);
+        expect(state.notification?.message).toBe('Created');
+
+        state = dateOverridesReducer(state, {
+          type: 'DELETE_SUCCESS',
+          id: 'ov-1',
+          message: 'Deleted',
+        });
+        expect(state.overrides).toHaveLength(0);
+        expect(state.notification?.message).toBe('Deleted');
+
+        state = dateOverridesReducer(state, { type: 'SET_NOTIFICATION', notification: null });
+        expect(state.notification).toBeNull();
+
+        // default unknown action
+        // @ts-expect-error Testing fallback
+        expect(dateOverridesReducer(state, { type: 'UNKNOWN' })).toBe(state);
+      });
+    });
+
+    describe('bookingTypesReducer', () => {
+      const mockBT: BookingType = {
+        id: 'bt-1',
+        title: 'Portrait Session',
+        slug: 'portrait-session',
+        description: '30 mins',
+        durationMinutes: 30,
+        bufferBeforeMinutes: 0,
+        bufferAfterMinutes: 10,
+        minNoticeHours: 24,
+        maxFutureDays: 60,
+        locationType: 'in_person',
+        locationDetails: 'Studio',
+        color: 'rose',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      it('initializes state correctly', () => {
+        const state = createInitialBookingTypesState([mockBT]);
+        expect(state.bookingTypes).toHaveLength(1);
+        expect(state.isDialogOpen).toBe(false);
+      });
+
+      it('handles OPEN_NEW, OPEN_EDIT, CLOSE_DIALOG, OPEN_DELETE, CLOSE_DELETE', () => {
+        let state = createInitialBookingTypesState([mockBT]);
+        state = bookingTypesReducer(state, { type: 'OPEN_NEW' });
+        expect(state.isDialogOpen).toBe(true);
+        expect(state.editingItem).toBeNull();
+
+        state = bookingTypesReducer(state, { type: 'CLOSE_DIALOG' });
+        expect(state.isDialogOpen).toBe(false);
+
+        state = bookingTypesReducer(state, { type: 'OPEN_EDIT', item: mockBT });
+        expect(state.isDialogOpen).toBe(true);
+        expect(state.editingItem?.id).toBe('bt-1');
+
+        state = bookingTypesReducer(state, { type: 'OPEN_DELETE', item: mockBT });
+        expect(state.deleteTarget?.id).toBe('bt-1');
+
+        state = bookingTypesReducer(state, { type: 'CLOSE_DELETE' });
+        expect(state.deleteTarget).toBeNull();
+      });
+
+      it('handles UPDATE_FORM_FIELD for title, slug, and general fields', () => {
+        let state = createInitialBookingTypesState([]);
+        state = bookingTypesReducer(state, {
+          type: 'UPDATE_FORM_FIELD',
+          name: 'title',
+          value: 'New Consultation',
+        });
+        expect(state.formValues.title).toBe('New Consultation');
+        expect(state.formValues.slug).toBe('new-consultation');
+
+        state = bookingTypesReducer(state, {
+          type: 'UPDATE_FORM_FIELD',
+          name: 'slug',
+          value: 'Custom-Slug ',
+        });
+        expect(state.formValues.slug).toBe('custom-slug');
+        expect(state.formValues.slugManuallyEdited).toBe(true);
+
+        state = bookingTypesReducer(state, {
+          type: 'UPDATE_FORM_FIELD',
+          name: 'durationMinutes',
+          value: 45,
+        });
+        expect(state.formValues.durationMinutes).toBe(45);
+      });
+
+      it('handles SET_COLOR, SET_COPIED_SLUG, SET_FORM_ERROR, SET_SUBMITTING', () => {
+        let state = createInitialBookingTypesState([]);
+        state = bookingTypesReducer(state, { type: 'SET_COLOR', color: 'emerald' });
+        expect(state.formValues.color).toBe('emerald');
+
+        state = bookingTypesReducer(state, { type: 'SET_COPIED_SLUG', slug: 'test' });
+        expect(state.copiedSlug).toBe('test');
+
+        state = bookingTypesReducer(state, { type: 'SET_FORM_ERROR', error: 'Title required' });
+        expect(state.formError).toBe('Title required');
+
+        state = bookingTypesReducer(state, { type: 'SET_SUBMITTING', isSubmitting: true });
+        expect(state.isSubmitting).toBe(true);
+      });
+
+      it('handles SAVE_SUCCESS (create and update) and DELETE_SUCCESS', () => {
+        let state = createInitialBookingTypesState([mockBT]);
+
+        // update
+        const updatedBT = { ...mockBT, title: 'Updated Title' };
+        state = bookingTypesReducer(state, {
+          type: 'SAVE_SUCCESS',
+          item: updatedBT,
+          isEdit: true,
+          message: 'Updated',
+        });
+        expect(state.bookingTypes[0]?.title).toBe('Updated Title');
+        expect(state.notification?.message).toBe('Updated');
+
+        // create
+        const newBT = { ...mockBT, id: 'bt-2', slug: 'bt-2' };
+        state = bookingTypesReducer(state, {
+          type: 'SAVE_SUCCESS',
+          item: newBT,
+          isEdit: false,
+          message: 'Created',
+        });
+        expect(state.bookingTypes).toHaveLength(2);
+
+        // delete
+        state = bookingTypesReducer(state, {
+          type: 'DELETE_SUCCESS',
+          id: 'bt-1',
+          message: 'Deleted',
+        });
+        expect(state.bookingTypes).toHaveLength(1);
+        expect(state.bookingTypes[0]?.id).toBe('bt-2');
+
+        state = bookingTypesReducer(state, {
+          type: 'SET_NOTIFICATION',
+          notification: null,
+        });
+        expect(state.notification).toBeNull();
+
+        // default unknown action
+        // @ts-expect-error Testing fallback
+        expect(bookingTypesReducer(state, { type: 'UNKNOWN' })).toBe(state);
       });
     });
   });

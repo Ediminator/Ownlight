@@ -5,12 +5,10 @@ import { useTranslations } from 'next-intl';
 import type { AvailabilitySchedule } from '@/server/db/schema/calendar';
 import { WEEKDAY_ORDER, WEEKDAY_KEY_MAP } from './availability-helpers';
 import {
-  buildInitialScheduleMap,
-  toggleWeekdayActive,
-  updateWeekdayTime,
   validateWeeklyScheduleRanges,
   submitWeeklyScheduleUpdate,
-  type DayScheduleState,
+  createInitialWeeklyScheduleState,
+  weeklyScheduleReducer,
 } from './availability-view-model';
 import { Button } from '@/components/ui/button';
 import { Check, AlertCircle, X } from 'lucide-react';
@@ -34,80 +32,66 @@ export function WeeklyScheduleEditor({
   const t = useTranslations('settings.availability.schedules');
   const tWeekdays = useTranslations('calendar.weekdays');
 
-  // Initialize schedule map from 0 to 6
-  const [schedules, setSchedules] = React.useState<Record<number, DayScheduleState>>(() =>
-    buildInitialScheduleMap(initialSchedules),
+  const [state, dispatch] = React.useReducer(weeklyScheduleReducer, undefined, () =>
+    createInitialWeeklyScheduleState(initialSchedules, initialNotification, initialClientErrors),
   );
 
-  const [clientErrors, setClientErrors] =
-    React.useState<Record<number, string>>(initialClientErrors);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [notification, setNotification] = React.useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(initialNotification);
+  const { schedules, clientErrors, isSubmitting, notification } = state;
 
-  const handleActiveToggleClick = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const day = Number(e.currentTarget.dataset.day);
-    setSchedules((prev) => {
-      const updated = toggleWeekdayActive(prev, day);
-      setClientErrors(validateWeeklyScheduleRanges(updated, t('errorInvalidRange')));
-      return updated;
-    });
+    if (e.target.type === 'checkbox') {
+      dispatch({ type: 'TOGGLE_DAY', dayOfWeek: day, errorMsg: t('errorInvalidRange') });
+    } else {
+      const field = e.currentTarget.dataset.field as 'startTime' | 'endTime';
+      dispatch({
+        type: 'CHANGE_TIME',
+        dayOfWeek: day,
+        field,
+        value: e.target.value,
+        errorMsg: t('errorInvalidRange'),
+      });
+    }
   };
 
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const day = Number(e.currentTarget.dataset.day);
-    const field = e.currentTarget.dataset.field as 'startTime' | 'endTime';
-    const value = e.target.value;
-    setSchedules((prev) => {
-      const updated = updateWeekdayTime(prev, day, field, value);
-      setClientErrors(validateWeeklyScheduleRanges(updated, t('errorInvalidRange')));
-      return updated;
-    });
-  };
+  const handleAction = (e: React.SyntheticEvent) => {
+    const action = (e.currentTarget as HTMLElement).dataset.action;
+    if (action === 'dismiss') {
+      dispatch({ type: 'SET_NOTIFICATION', notification: null });
+      return;
+    }
 
-  const handleDismissNotification = () => {
-    setNotification(null);
-  };
-
-  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
-    setNotification(null);
-
     const validation = validateWeeklyScheduleRanges(schedules, t('errorInvalidRange'));
-    setClientErrors(validation);
+    dispatch({ type: 'SET_CLIENT_ERRORS', errors: validation });
 
     if (Object.keys(validation).length > 0) {
-      setNotification({
-        type: 'error',
-        message: t('errorValidationGeneral'),
+      dispatch({
+        type: 'SET_NOTIFICATION',
+        notification: { type: 'error', message: t('errorValidationGeneral') },
       });
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const res = await submitWeeklyScheduleUpdate(schedules);
-      if (res.success) {
-        setNotification({
-          type: 'success',
-          message: t('successSaved'),
+    dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
+    void (async () => {
+      try {
+        const res = await submitWeeklyScheduleUpdate(schedules);
+        dispatch({
+          type: 'SET_NOTIFICATION',
+          notification: res.success
+            ? { type: 'success', message: t('successSaved') }
+            : { type: 'error', message: res.error ?? t('errorSaveFailed') },
         });
-      } else {
-        setNotification({
-          type: 'error',
-          message: res.error ?? t('errorSaveFailed'),
+      } catch {
+        dispatch({
+          type: 'SET_NOTIFICATION',
+          notification: { type: 'error', message: t('errorSaveFailed') },
         });
+      } finally {
+        dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
       }
-    } catch {
-      setNotification({
-        type: 'error',
-        message: t('errorSaveFailed'),
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    })();
   };
 
   return (
@@ -139,7 +123,8 @@ export function WeeklyScheduleEditor({
           </div>
           <button
             type="button"
-            onClick={handleDismissNotification}
+            data-action="dismiss"
+            onClick={handleAction}
             className="rounded p-1 hover:bg-black/5 dark:hover:bg-white/5"
             aria-label={t('dismissNotification')}
           >
@@ -148,12 +133,7 @@ export function WeeklyScheduleEditor({
         </div>
       )}
 
-      <form
-        onSubmit={(e) => {
-          void handleSubmit(e);
-        }}
-        className="space-y-4"
-      >
+      <form onSubmit={handleAction} className="space-y-4">
         <div
           className="rounded-lg border bg-card divide-y shadow-xs"
           role="region"
@@ -189,7 +169,7 @@ export function WeeklyScheduleEditor({
                     data-testid={`schedule-active-toggle-${dayKey}`}
                     data-day={dayOfWeek}
                     checked={item.isActive}
-                    onChange={handleActiveToggleClick}
+                    onChange={handleInputChange}
                     aria-label={`${weekdayName} active status`}
                     className="h-4 w-4 rounded border-input text-primary focus:ring-primary focus:ring-offset-background"
                   />
@@ -216,7 +196,7 @@ export function WeeklyScheduleEditor({
                           data-day={dayOfWeek}
                           data-field="startTime"
                           value={item.startTime}
-                          onChange={handleTimeChange}
+                          onChange={handleInputChange}
                           aria-invalid={Boolean(error)}
                           aria-describedby={error ? `schedule-error-${dayKey}` : undefined}
                           className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -238,7 +218,7 @@ export function WeeklyScheduleEditor({
                           data-day={dayOfWeek}
                           data-field="endTime"
                           value={item.endTime}
-                          onChange={handleTimeChange}
+                          onChange={handleInputChange}
                           aria-invalid={Boolean(error)}
                           aria-describedby={error ? `schedule-error-${dayKey}` : undefined}
                           className={cn(

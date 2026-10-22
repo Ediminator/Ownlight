@@ -5,15 +5,14 @@ import { useTranslations } from 'next-intl';
 import type { BookingType, BookingLocationType } from '@/server/db/schema/calendar';
 import { COLOR_OPTIONS, getColorDotClass, type ColorOption } from './availability-helpers';
 import {
-  getInitialBookingTypeFormState,
-  computeBookingTypeSlug,
   validateBookingTypeFormState,
   submitBookingTypeCreate,
   submitBookingTypeUpdate,
   submitBookingTypeDelete,
   copyPublicBookingLink,
   getBookingLocationBadgeInfo,
-  type BookingTypeFormState,
+  createInitialBookingTypesState,
+  bookingTypesReducer,
 } from './availability-view-model';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,6 +40,17 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+export function BookingLocationIcon({ locationType }: { locationType: BookingLocationType }) {
+  const info = getBookingLocationBadgeInfo(locationType);
+  if (info.iconType === 'phone') {
+    return <Phone className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
+  }
+  if (info.iconType === 'map-pin') {
+    return <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
+  }
+  return <Video className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
+}
+
 interface BookingTypesManagerProps {
   initialBookingTypes: BookingType[];
   locale?: string;
@@ -62,90 +72,156 @@ export function BookingTypesManager({
 }: BookingTypesManagerProps) {
   const t = useTranslations('settings.availability.bookingTypes');
 
-  const [bookingTypes, setBookingTypes] = React.useState<BookingType[]>(initialBookingTypes);
-  const [isDialogOpen, setIsDialogOpen] = React.useState(
-    defaultDialogOpen || Boolean(defaultEditingItem),
-  );
-  const [editingItem, setEditingItem] = React.useState<BookingType | null>(defaultEditingItem);
-  const [deleteTarget, setDeleteTarget] = React.useState<BookingType | null>(defaultDeleteTarget);
-
-  // Form State
-  const [formValues, setFormValues] = React.useState<BookingTypeFormState>(() =>
-    getInitialBookingTypeFormState(defaultEditingItem),
+  const [state, dispatch] = React.useReducer(bookingTypesReducer, undefined, () =>
+    createInitialBookingTypesState(
+      initialBookingTypes,
+      defaultDialogOpen,
+      defaultEditingItem,
+      defaultDeleteTarget,
+      initialNotification,
+    ),
   );
 
-  const [formError, setFormError] = React.useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [copiedSlug, setCopiedSlug] = React.useState<string | null>(null);
-  const [notification, setNotification] = React.useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(initialNotification);
+  const {
+    bookingTypes,
+    isDialogOpen,
+    editingItem,
+    deleteTarget,
+    formValues,
+    formError,
+    isSubmitting,
+    copiedSlug,
+    notification,
+  } = state;
 
-  const resetForm = () => {
-    setFormValues(getInitialBookingTypeFormState(null));
-    setFormError(null);
-    setEditingItem(null);
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
+    const { name, value, type } = e.target;
+    const isCheckbox = type === 'checkbox';
+    const isNumber = type === 'number';
+    const parsedValue = isCheckbox
+      ? (e.target as HTMLInputElement).checked
+      : isNumber
+        ? Number(value)
+        : value;
+
+    dispatch({
+      type: 'UPDATE_FORM_FIELD',
+      name,
+      value: parsedValue,
+    });
   };
 
-  const handleOpenNew = () => {
-    resetForm();
-    setIsDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-  };
-
-  const handleCloseDelete = () => {
-    setDeleteTarget(null);
-  };
-
-  const handleDismissNotification = () => {
-    setNotification(null);
-  };
-
-  const handleOpenEdit = (item: BookingType) => {
-    setEditingItem(item);
-    setFormValues(getInitialBookingTypeFormState(item));
-    setFormError(null);
-    setIsDialogOpen(true);
-  };
-
-  const handleTitleChange = (val: string) => {
-    setFormValues((prev) => ({
-      ...prev,
-      title: val,
-      slug: computeBookingTypeSlug(val, prev.slug, prev.slugManuallyEdited, Boolean(editingItem)),
-    }));
-  };
-
-  const handleSlugChange = (val: string) => {
-    setFormValues((prev) => ({
-      ...prev,
-      slugManuallyEdited: true,
-      slug: val.toLowerCase().trim(),
-    }));
-  };
-
-  const handleColorClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const colorVal = e.currentTarget.dataset.color as ColorOption | undefined;
-    if (colorVal) {
-      setFormValues((prev) => ({ ...prev, color: colorVal }));
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      dispatch({ type: 'CLOSE_DIALOG' });
     }
   };
 
-  const handleCopyLink = async (targetSlug: string) => {
-    await copyPublicBookingLink(targetSlug);
-    setCopiedSlug(targetSlug);
-    setTimeout(() => {
-      setCopiedSlug(null);
-    }, 2500);
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      dispatch({ type: 'CLOSE_DELETE' });
+    }
   };
 
-  const handleSubmit = async (e: React.SyntheticEvent) => {
+  const handleAction = (e: React.SyntheticEvent) => {
+    const target = e.currentTarget as HTMLElement;
+    const action = target.dataset.action;
+
+    if (action === 'open-new') {
+      dispatch({ type: 'OPEN_NEW' });
+      return;
+    }
+
+    if (action === 'close-dialog') {
+      dispatch({ type: 'CLOSE_DIALOG' });
+      return;
+    }
+
+    if (action === 'open-edit') {
+      const slug = target.dataset.slug;
+      const item = bookingTypes.find((b) => b.slug === slug);
+      if (item) {
+        dispatch({ type: 'OPEN_EDIT', item });
+      }
+      return;
+    }
+
+    if (action === 'open-delete') {
+      const slug = target.dataset.slug;
+      const item = bookingTypes.find((b) => b.slug === slug);
+      if (item) {
+        dispatch({ type: 'OPEN_DELETE', item });
+      }
+      return;
+    }
+
+    if (action === 'close-delete') {
+      dispatch({ type: 'CLOSE_DELETE' });
+      return;
+    }
+
+    if (action === 'dismiss') {
+      dispatch({ type: 'SET_NOTIFICATION', notification: null });
+      return;
+    }
+
+    if (action === 'color') {
+      const colorVal = target.dataset.color as ColorOption | undefined;
+      if (colorVal) {
+        dispatch({ type: 'SET_COLOR', color: colorVal });
+      }
+      return;
+    }
+
+    if (action === 'copy') {
+      const slug = target.dataset.slug;
+      if (slug) {
+        void (async () => {
+          await copyPublicBookingLink(slug);
+          dispatch({ type: 'SET_COPIED_SLUG', slug });
+          setTimeout(() => {
+            dispatch({ type: 'SET_COPIED_SLUG', slug: null });
+          }, 2500);
+        })();
+      }
+      return;
+    }
+
+    if (action === 'confirm-delete') {
+      if (!deleteTarget) return;
+      dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
+      void (async () => {
+        try {
+          const res = await submitBookingTypeDelete(deleteTarget.id);
+          if (res.success) {
+            dispatch({
+              type: 'DELETE_SUCCESS',
+              id: deleteTarget.id,
+              message: t('successDeleted'),
+            });
+          } else {
+            dispatch({
+              type: 'SET_NOTIFICATION',
+              notification: { type: 'error', message: res.error ?? t('errorDeleteFailed') },
+            });
+          }
+        } catch {
+          dispatch({
+            type: 'SET_NOTIFICATION',
+            notification: { type: 'error', message: t('errorDeleteFailed') },
+          });
+        } finally {
+          dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
+        }
+      })();
+      return;
+    }
+
+    // Default action is form submit
     e.preventDefault();
-    setFormError(null);
+    dispatch({ type: 'SET_FORM_ERROR', error: null });
 
     const validation = validateBookingTypeFormState(formValues, {
       titleRequired: t('errorTitleRequired'),
@@ -157,145 +233,50 @@ export function BookingTypesManager({
     });
 
     if (validation) {
-      setFormError(validation);
+      dispatch({ type: 'SET_FORM_ERROR', error: validation });
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      if (editingItem) {
-        // Update
-        const res = await submitBookingTypeUpdate(editingItem.id, formValues);
-        if (res.success && res.data) {
-          const updated = res.data;
-          setBookingTypes((prev) =>
-            prev.map((item) => (item.id === editingItem.id ? updated : item)),
-          );
-          setIsDialogOpen(false);
-          resetForm();
-          setNotification({
-            type: 'success',
-            message: t('successUpdated'),
-          });
+    dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
+    void (async () => {
+      try {
+        if (editingItem) {
+          const res = await submitBookingTypeUpdate(editingItem.id, formValues);
+          if (res.success && res.data) {
+            dispatch({
+              type: 'SAVE_SUCCESS',
+              item: res.data,
+              isEdit: true,
+              message: t('successUpdated'),
+            });
+          } else {
+            dispatch({
+              type: 'SET_FORM_ERROR',
+              error: res.error ?? t('errorSaveFailed'),
+            });
+          }
         } else {
-          setFormError(res.error ?? t('errorSaveFailed'));
+          const res = await submitBookingTypeCreate(formValues);
+          if (res.success && res.data) {
+            dispatch({
+              type: 'SAVE_SUCCESS',
+              item: res.data,
+              isEdit: false,
+              message: t('successCreated'),
+            });
+          } else {
+            dispatch({
+              type: 'SET_FORM_ERROR',
+              error: res.error ?? t('errorSaveFailed'),
+            });
+          }
         }
-      } else {
-        // Create
-        const res = await submitBookingTypeCreate(formValues);
-        if (res.success && res.data) {
-          const created = res.data;
-          setBookingTypes((prev) => [...prev, created]);
-          setIsDialogOpen(false);
-          resetForm();
-          setNotification({
-            type: 'success',
-            message: t('successCreated'),
-          });
-        } else {
-          setFormError(res.error ?? t('errorSaveFailed'));
-        }
+      } catch {
+        dispatch({ type: 'SET_FORM_ERROR', error: t('errorSaveFailed') });
+      } finally {
+        dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
       }
-    } catch {
-      setFormError(t('errorSaveFailed'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteTarget) return;
-
-    setIsSubmitting(true);
-    try {
-      const res = await submitBookingTypeDelete(deleteTarget.id);
-      if (res.success) {
-        setBookingTypes((prev) => prev.filter((b) => b.id !== deleteTarget.id));
-        setNotification({
-          type: 'success',
-          message: t('successDeleted'),
-        });
-        setDeleteTarget(null);
-      } else {
-        setNotification({
-          type: 'error',
-          message: res.error ?? t('errorDeleteFailed'),
-        });
-      }
-    } catch {
-      setNotification({
-        type: 'error',
-        message: t('errorDeleteFailed'),
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const renderLocationIcon = (locationType: BookingLocationType) => {
-    const info = getBookingLocationBadgeInfo(locationType);
-    if (info.iconType === 'phone') {
-      return <Phone className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
-    }
-    if (info.iconType === 'map-pin') {
-      return <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
-    }
-    return <Video className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />;
-  };
-
-  const handleCopyLinkClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const slug = e.currentTarget.dataset.slug;
-    if (slug) void handleCopyLink(slug);
-  };
-
-  const handleEditClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const slug = e.currentTarget.dataset.slug;
-    const item = bookingTypes.find((b) => b.slug === slug);
-    if (item) handleOpenEdit(item);
-  };
-
-  const handleDeleteClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const slug = e.currentTarget.dataset.slug;
-    const item = bookingTypes.find((b) => b.slug === slug);
-    if (item) setDeleteTarget(item);
-  };
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-  ) => {
-    const { name, value, type } = e.target;
-    if (name === 'title') {
-      handleTitleChange(value);
-      return;
-    }
-    if (name === 'slug') {
-      handleSlugChange(value);
-      return;
-    }
-    const isCheckbox = type === 'checkbox';
-    const isNumber = type === 'number';
-    const parsedValue = isCheckbox
-      ? (e.target as HTMLInputElement).checked
-      : isNumber
-        ? Number(value)
-        : value;
-
-    setFormValues((prev) => ({
-      ...prev,
-      [name]: parsedValue,
-    }));
-  };
-
-  const handleFormSubmit = (e: React.SyntheticEvent) => {
-    void handleSubmit(e);
-  };
-
-  const handleDeleteButtonClick = () => {
-    void handleDeleteConfirm();
-  };
-
-  const handleDeleteOpenChange = (open: boolean) => {
-    if (!open) setDeleteTarget(null);
+    })();
   };
 
   return (
@@ -308,7 +289,8 @@ export function BookingTypesManager({
         <Button
           type="button"
           data-testid="new-booking-type-btn"
-          onClick={handleOpenNew}
+          data-action="open-new"
+          onClick={handleAction}
           className="flex items-center gap-2 self-start sm:self-auto min-h-[38px]"
         >
           <Plus className="h-4 w-4" />
@@ -338,7 +320,8 @@ export function BookingTypesManager({
           </div>
           <button
             type="button"
-            onClick={handleDismissNotification}
+            data-action="dismiss"
+            onClick={handleAction}
             className="rounded p-1 hover:bg-black/5 dark:hover:bg-white/5"
             aria-label={t('dismissNotification')}
           >
@@ -424,7 +407,7 @@ export function BookingTypesManager({
                       <span>{t('minutesLabel', { minutes: bt.durationMinutes })}</span>
                     </span>
                     <span className="inline-flex items-center gap-1.5 bg-muted/40 px-2 py-1 rounded">
-                      {renderLocationIcon(bt.locationType)}
+                      <BookingLocationIcon locationType={bt.locationType} />
                       <span>{t(locationInfo.labelKey)}</span>
                     </span>
                   </div>
@@ -437,8 +420,9 @@ export function BookingTypesManager({
                     variant="outline"
                     size="sm"
                     data-testid={`copy-booking-type-link-${bt.slug}`}
+                    data-action="copy"
                     data-slug={bt.slug}
-                    onClick={handleCopyLinkClick}
+                    onClick={handleAction}
                     className="flex items-center gap-1.5 text-xs h-8"
                   >
                     {isCopied ? (
@@ -460,8 +444,9 @@ export function BookingTypesManager({
                       variant="ghost"
                       size="icon"
                       data-testid={`edit-booking-type-${bt.slug}`}
+                      data-action="open-edit"
                       data-slug={bt.slug}
-                      onClick={handleEditClick}
+                      onClick={handleAction}
                       className="h-8 w-8 text-muted-foreground hover:text-foreground"
                       aria-label={`${t('editAria')} ${bt.title}`}
                     >
@@ -472,8 +457,9 @@ export function BookingTypesManager({
                       variant="ghost"
                       size="icon"
                       data-testid={`delete-booking-type-${bt.slug}`}
+                      data-action="open-delete"
                       data-slug={bt.slug}
-                      onClick={handleDeleteClick}
+                      onClick={handleAction}
                       className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                       aria-label={`${t('deleteAria')} ${bt.title}`}
                     >
@@ -488,13 +474,13 @@ export function BookingTypesManager({
       )}
 
       {/* Create / Edit Booking Type Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent
           data-testid="booking-type-dialog"
           className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto"
           aria-describedby="booking-type-dialog-desc"
         >
-          <form onSubmit={handleFormSubmit} className="space-y-5">
+          <form onSubmit={handleAction} className="space-y-5">
             <DialogHeader>
               <DialogTitle>{editingItem ? t('dialogEditTitle') : t('dialogNewTitle')}</DialogTitle>
               <DialogDescription id="booking-type-dialog-desc">
@@ -767,8 +753,9 @@ export function BookingTypesManager({
                         role="radio"
                         aria-checked={isSelected}
                         data-testid={`booking-type-color-${colorKey}`}
+                        data-action="color"
                         data-color={colorKey}
-                        onClick={handleColorClick}
+                        onClick={handleAction}
                         className={cn(
                           'h-7 w-7 rounded-full flex items-center justify-center transition-all border',
                           getColorDotClass(colorKey),
@@ -809,7 +796,8 @@ export function BookingTypesManager({
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleCloseDialog}
+                data-action="close-dialog"
+                onClick={handleAction}
                 data-testid="booking-type-cancel-btn"
               >
                 {t('cancel')}
@@ -827,7 +815,7 @@ export function BookingTypesManager({
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={Boolean(deleteTarget)} onOpenChange={handleDeleteOpenChange}>
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={handleDeleteDialogOpenChange}>
         <DialogContent
           data-testid="delete-booking-type-dialog"
           className="sm:max-w-[420px]"
@@ -844,7 +832,8 @@ export function BookingTypesManager({
             <Button
               type="button"
               variant="outline"
-              onClick={handleCloseDelete}
+              data-action="close-delete"
+              onClick={handleAction}
               data-testid="cancel-delete-booking-type-btn"
             >
               {t('cancel')}
@@ -853,7 +842,8 @@ export function BookingTypesManager({
               type="button"
               variant="destructive"
               disabled={isSubmitting}
-              onClick={handleDeleteButtonClick}
+              data-action="confirm-delete"
+              onClick={handleAction}
               data-testid="confirm-delete-booking-type-btn"
             >
               {isSubmitting ? t('deleting') : t('delete')}

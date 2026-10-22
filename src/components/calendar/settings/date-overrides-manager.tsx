@@ -5,12 +5,11 @@ import { useTranslations } from 'next-intl';
 import type { AvailabilityOverride } from '@/server/db/schema/calendar';
 import { formatDateDisplay } from './availability-helpers';
 import {
-  getInitialOverrideFormState,
   validateDateOverrideFormState,
-  filterAndSortUpcomingOverrides,
   submitDateOverrideCreate,
   submitDateOverrideDelete,
-  type OverrideFormState,
+  createInitialDateOverridesState,
+  dateOverridesReducer,
 } from './availability-view-model';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,137 +43,104 @@ export function DateOverridesManager({
 }: DateOverridesManagerProps) {
   const t = useTranslations('settings.availability.overrides');
 
-  const [overrides, setOverrides] = React.useState<AvailabilityOverride[]>(initialOverrides);
-  const [isAddOpen, setIsAddOpen] = React.useState(defaultAddOpen);
-  const [deleteTarget, setDeleteTarget] = React.useState<AvailabilityOverride | null>(
-    defaultDeleteTarget,
+  const [state, dispatch] = React.useReducer(dateOverridesReducer, undefined, () =>
+    createInitialDateOverridesState(
+      initialOverrides,
+      defaultAddOpen,
+      defaultDeleteTarget,
+      initialNotification,
+    ),
   );
 
-  // Form state
-  const [formValues, setFormValues] = React.useState<OverrideFormState>(
-    getInitialOverrideFormState,
-  );
-  const [formError, setFormError] = React.useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [notification, setNotification] = React.useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(initialNotification);
-
-  const resetForm = () => {
-    setFormValues(getInitialOverrideFormState());
-    setFormError(null);
-  };
-
-  const handleOpenAdd = () => {
-    resetForm();
-    setIsAddOpen(true);
-  };
-
-  const handleCloseAdd = () => {
-    setIsAddOpen(false);
-  };
-
-  const handleCloseDelete = () => {
-    setDeleteTarget(null);
-  };
-
-  const handleDismissNotification = () => {
-    setNotification(null);
-  };
-
-  const handleCreateSubmit = async (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    setFormError(null);
-
-    const validation = validateDateOverrideFormState(formValues, {
-      dateRequired: t('errorDateRequired'),
-      invalidDate: t('errorInvalidDate'),
-      invalidRange: t('errorInvalidRange'),
-    });
-
-    if (validation) {
-      setFormError(validation);
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const res = await submitDateOverrideCreate(formValues);
-      if (res.success && res.data) {
-        const created = res.data;
-        setOverrides((prev) =>
-          filterAndSortUpcomingOverrides([...prev.filter((o) => o.id !== created.id), created]),
-        );
-        setIsAddOpen(false);
-        resetForm();
-        setNotification({
-          type: 'success',
-          message: t('successCreated'),
-        });
-      } else {
-        setFormError(res.error ?? t('errorSaveFailed'));
-      }
-    } catch {
-      setFormError(t('errorSaveFailed'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteTarget) return;
-
-    setIsSubmitting(true);
-    try {
-      const res = await submitDateOverrideDelete(deleteTarget.id);
-      if (res.success) {
-        setOverrides((prev) => prev.filter((o) => o.id !== deleteTarget.id));
-        setNotification({
-          type: 'success',
-          message: t('successDeleted'),
-        });
-        setDeleteTarget(null);
-      } else {
-        setNotification({
-          type: 'error',
-          message: res.error ?? t('errorDeleteFailed'),
-        });
-      }
-    } catch {
-      setNotification({
-        type: 'error',
-        message: t('errorDeleteFailed'),
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const { overrides, isAddOpen, deleteTarget, formValues, formError, isSubmitting, notification } =
+    state;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setFormValues((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    dispatch({
+      type: 'UPDATE_FORM_FIELD',
+      name,
+      value: type === 'checkbox' ? checked : value,
+    });
   };
 
-  const handleDeleteTargetClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const id = e.currentTarget.dataset.id;
-    const target = overrides.find((o) => o.id === id) ?? null;
-    setDeleteTarget(target);
+  const handleAction = (e: React.SyntheticEvent) => {
+    const target = e.currentTarget as HTMLElement;
+    const action = target.dataset.action;
+
+    if (action === 'open-add') {
+      dispatch({ type: 'OPEN_ADD' });
+    } else if (action === 'close-add') {
+      dispatch({ type: 'CLOSE_ADD' });
+    } else if (action === 'open-delete') {
+      const id = target.dataset.id;
+      const item = overrides.find((o) => o.id === id) ?? null;
+      dispatch({ type: 'OPEN_DELETE', item });
+    } else if (action === 'close-delete') {
+      dispatch({ type: 'CLOSE_DELETE' });
+    } else if (action === 'dismiss') {
+      dispatch({ type: 'SET_NOTIFICATION', notification: null });
+    } else if (action === 'confirm-delete') {
+      if (!deleteTarget) return;
+      dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
+      void (async () => {
+        try {
+          const res = await submitDateOverrideDelete(deleteTarget.id);
+          if (res.success) {
+            dispatch({
+              type: 'DELETE_SUCCESS',
+              id: deleteTarget.id,
+              message: t('successDeleted'),
+            });
+          } else {
+            dispatch({
+              type: 'SET_NOTIFICATION',
+              notification: { type: 'error', message: res.error ?? t('errorDeleteFailed') },
+            });
+          }
+        } catch {
+          dispatch({
+            type: 'SET_NOTIFICATION',
+            notification: { type: 'error', message: t('errorDeleteFailed') },
+          });
+        } finally {
+          dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
+        }
+      })();
+    } else if (action === 'create-submit') {
+      e.preventDefault();
+      const validation = validateDateOverrideFormState(formValues, {
+        dateRequired: t('errorDateRequired'),
+        invalidDate: t('errorInvalidDate'),
+        invalidRange: t('errorInvalidRange'),
+      });
+      if (validation) {
+        dispatch({ type: 'SET_FORM_ERROR', error: validation });
+        return;
+      }
+      dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
+      void (async () => {
+        try {
+          const res = await submitDateOverrideCreate(formValues);
+          if (res.success && res.data) {
+            dispatch({ type: 'CREATE_SUCCESS', item: res.data, message: t('successCreated') });
+          } else {
+            dispatch({ type: 'SET_FORM_ERROR', error: res.error ?? t('errorSaveFailed') });
+          }
+        } catch {
+          dispatch({ type: 'SET_FORM_ERROR', error: t('errorSaveFailed') });
+        } finally {
+          dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
+        }
+      })();
+    }
   };
 
-  const handleFormSubmit = (e: React.SyntheticEvent) => {
-    void handleCreateSubmit(e);
-  };
-
-  const handleDeleteButtonClick = () => {
-    void handleDeleteConfirm();
-  };
-
-  const handleDeleteOpenChange = (open: boolean) => {
-    if (!open) setDeleteTarget(null);
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      if (isAddOpen) dispatch({ type: 'CLOSE_ADD' });
+      if (deleteTarget) dispatch({ type: 'CLOSE_DELETE' });
+    }
   };
 
   return (
@@ -187,7 +153,8 @@ export function DateOverridesManager({
         <Button
           type="button"
           data-testid="add-date-override-btn"
-          onClick={handleOpenAdd}
+          data-action="open-add"
+          onClick={handleAction}
           className="flex items-center gap-2 self-start sm:self-auto min-h-[38px]"
         >
           <Plus className="h-4 w-4" />
@@ -217,7 +184,8 @@ export function DateOverridesManager({
           </div>
           <button
             type="button"
-            onClick={handleDismissNotification}
+            data-action="dismiss"
+            onClick={handleAction}
             className="rounded p-1 hover:bg-black/5 dark:hover:bg-white/5"
             aria-label={t('dismissNotification')}
           >
@@ -297,8 +265,9 @@ export function DateOverridesManager({
                         variant="ghost"
                         size="icon"
                         data-testid={`delete-override-${item.date}`}
+                        data-action="open-delete"
                         data-id={item.id}
-                        onClick={handleDeleteTargetClick}
+                        onClick={handleAction}
                         className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                         aria-label={`${t('deleteAria')} ${item.date}`}
                       >
@@ -314,13 +283,13 @@ export function DateOverridesManager({
       )}
 
       {/* Add Date Override Dialog */}
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+      <Dialog open={isAddOpen} onOpenChange={handleOpenChange}>
         <DialogContent
           data-testid="add-override-dialog"
           className="sm:max-w-[480px]"
           aria-describedby="override-dialog-desc"
         >
-          <form onSubmit={handleFormSubmit} className="space-y-4">
+          <form data-action="create-submit" onSubmit={handleAction} className="space-y-4">
             <DialogHeader>
               <DialogTitle>{t('dialogAddTitle')}</DialogTitle>
               <DialogDescription id="override-dialog-desc">{t('dialogAddDesc')}</DialogDescription>
@@ -442,7 +411,8 @@ export function DateOverridesManager({
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleCloseAdd}
+                data-action="close-add"
+                onClick={handleAction}
                 data-testid="override-cancel-btn"
               >
                 {t('cancel')}
@@ -456,7 +426,7 @@ export function DateOverridesManager({
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={Boolean(deleteTarget)} onOpenChange={handleDeleteOpenChange}>
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={handleOpenChange}>
         <DialogContent
           data-testid="delete-override-dialog"
           className="sm:max-w-[420px]"
@@ -475,7 +445,8 @@ export function DateOverridesManager({
             <Button
               type="button"
               variant="outline"
-              onClick={handleCloseDelete}
+              data-action="close-delete"
+              onClick={handleAction}
               data-testid="cancel-delete-override-btn"
             >
               {t('cancel')}
@@ -484,7 +455,8 @@ export function DateOverridesManager({
               type="button"
               variant="destructive"
               disabled={isSubmitting}
-              onClick={handleDeleteButtonClick}
+              data-action="confirm-delete"
+              onClick={handleAction}
               data-testid="confirm-delete-override-btn"
             >
               {isSubmitting ? t('deleting') : t('delete')}

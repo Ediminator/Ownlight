@@ -526,3 +526,329 @@ export function getBookingLocationBadgeInfo(locationType: BookingLocationType): 
       return { iconType: 'video', labelKey: 'locationGoogleMeet' };
   }
 }
+
+// ==========================================
+// View-Model Reducers & State Management
+// ==========================================
+
+export interface WeeklyScheduleViewState {
+  schedules: Record<number, DayScheduleState>;
+  clientErrors: Record<number, string>;
+  isSubmitting: boolean;
+  notification: { type: 'success' | 'error'; message: string } | null;
+}
+
+export type WeeklyScheduleAction =
+  | { type: 'TOGGLE_DAY'; dayOfWeek: number; errorMsg: string }
+  | {
+      type: 'CHANGE_TIME';
+      dayOfWeek: number;
+      field: 'startTime' | 'endTime';
+      value: string;
+      errorMsg: string;
+    }
+  | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
+  | { type: 'SET_CLIENT_ERRORS'; errors: Record<number, string> }
+  | {
+      type: 'SET_NOTIFICATION';
+      notification: { type: 'success' | 'error'; message: string } | null;
+    };
+
+export function createInitialWeeklyScheduleState(
+  initialSchedules: AvailabilitySchedule[],
+  initialNotification: { type: 'success' | 'error'; message: string } | null = null,
+  initialClientErrors: Record<number, string> = {},
+): WeeklyScheduleViewState {
+  return {
+    schedules: buildInitialScheduleMap(initialSchedules),
+    clientErrors: initialClientErrors,
+    isSubmitting: false,
+    notification: initialNotification,
+  };
+}
+
+export function weeklyScheduleReducer(
+  state: WeeklyScheduleViewState,
+  action: WeeklyScheduleAction,
+): WeeklyScheduleViewState {
+  switch (action.type) {
+    case 'TOGGLE_DAY': {
+      const updated = toggleWeekdayActive(state.schedules, action.dayOfWeek);
+      return {
+        ...state,
+        schedules: updated,
+        clientErrors: validateWeeklyScheduleRanges(updated, action.errorMsg),
+      };
+    }
+    case 'CHANGE_TIME': {
+      const updated = updateWeekdayTime(
+        state.schedules,
+        action.dayOfWeek,
+        action.field,
+        action.value,
+      );
+      return {
+        ...state,
+        schedules: updated,
+        clientErrors: validateWeeklyScheduleRanges(updated, action.errorMsg),
+      };
+    }
+    case 'SET_SUBMITTING':
+      return { ...state, isSubmitting: action.isSubmitting };
+    case 'SET_CLIENT_ERRORS':
+      return { ...state, clientErrors: action.errors };
+    case 'SET_NOTIFICATION':
+      return { ...state, notification: action.notification };
+    default:
+      return state;
+  }
+}
+
+export interface DateOverridesViewState {
+  overrides: AvailabilityOverride[];
+  isAddOpen: boolean;
+  deleteTarget: AvailabilityOverride | null;
+  formValues: OverrideFormState;
+  formError: string | null;
+  isSubmitting: boolean;
+  notification: { type: 'success' | 'error'; message: string } | null;
+}
+
+export type DateOverridesAction =
+  | { type: 'OPEN_ADD' }
+  | { type: 'CLOSE_ADD' }
+  | { type: 'OPEN_DELETE'; item: AvailabilityOverride | null }
+  | { type: 'CLOSE_DELETE' }
+  | { type: 'UPDATE_FORM_FIELD'; name: string; value: unknown }
+  | { type: 'SET_FORM_ERROR'; error: string | null }
+  | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
+  | { type: 'CREATE_SUCCESS'; item: AvailabilityOverride; message: string }
+  | { type: 'DELETE_SUCCESS'; id: string; message: string }
+  | {
+      type: 'SET_NOTIFICATION';
+      notification: { type: 'success' | 'error'; message: string } | null;
+    };
+
+export function createInitialDateOverridesState(
+  initialOverrides: AvailabilityOverride[],
+  defaultAddOpen = false,
+  defaultDeleteTarget: AvailabilityOverride | null = null,
+  initialNotification: { type: 'success' | 'error'; message: string } | null = null,
+): DateOverridesViewState {
+  return {
+    overrides: initialOverrides,
+    isAddOpen: defaultAddOpen,
+    deleteTarget: defaultDeleteTarget,
+    formValues: getInitialOverrideFormState(),
+    formError: null,
+    isSubmitting: false,
+    notification: initialNotification,
+  };
+}
+
+export function dateOverridesReducer(
+  state: DateOverridesViewState,
+  action: DateOverridesAction,
+): DateOverridesViewState {
+  switch (action.type) {
+    case 'OPEN_ADD':
+      return {
+        ...state,
+        isAddOpen: true,
+        formValues: getInitialOverrideFormState(),
+        formError: null,
+      };
+    case 'CLOSE_ADD':
+      return { ...state, isAddOpen: false, formError: null };
+    case 'OPEN_DELETE':
+      return { ...state, deleteTarget: action.item };
+    case 'CLOSE_DELETE':
+      return { ...state, deleteTarget: null };
+    case 'UPDATE_FORM_FIELD':
+      return {
+        ...state,
+        formValues: { ...state.formValues, [action.name]: action.value },
+      };
+    case 'SET_FORM_ERROR':
+      return { ...state, formError: action.error };
+    case 'SET_SUBMITTING':
+      return { ...state, isSubmitting: action.isSubmitting };
+    case 'CREATE_SUCCESS':
+      return {
+        ...state,
+        overrides: filterAndSortUpcomingOverrides([
+          ...state.overrides.filter((o) => o.id !== action.item.id),
+          action.item,
+        ]),
+        isAddOpen: false,
+        formValues: getInitialOverrideFormState(),
+        formError: null,
+        notification: { type: 'success', message: action.message },
+      };
+    case 'DELETE_SUCCESS':
+      return {
+        ...state,
+        overrides: state.overrides.filter((o) => o.id !== action.id),
+        deleteTarget: null,
+        notification: { type: 'success', message: action.message },
+      };
+    case 'SET_NOTIFICATION':
+      return { ...state, notification: action.notification };
+    default:
+      return state;
+  }
+}
+
+export interface BookingTypesViewState {
+  bookingTypes: BookingType[];
+  isDialogOpen: boolean;
+  editingItem: BookingType | null;
+  deleteTarget: BookingType | null;
+  formValues: BookingTypeFormState;
+  formError: string | null;
+  isSubmitting: boolean;
+  copiedSlug: string | null;
+  notification: { type: 'success' | 'error'; message: string } | null;
+}
+
+export type BookingTypesAction =
+  | { type: 'OPEN_NEW' }
+  | { type: 'OPEN_EDIT'; item: BookingType }
+  | { type: 'CLOSE_DIALOG' }
+  | { type: 'OPEN_DELETE'; item: BookingType | null }
+  | { type: 'CLOSE_DELETE' }
+  | { type: 'UPDATE_FORM_FIELD'; name: string; value: unknown }
+  | { type: 'SET_COLOR'; color: ColorOption }
+  | { type: 'SET_COPIED_SLUG'; slug: string | null }
+  | { type: 'SET_FORM_ERROR'; error: string | null }
+  | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
+  | { type: 'SAVE_SUCCESS'; item: BookingType; isEdit: boolean; message: string }
+  | { type: 'DELETE_SUCCESS'; id: string; message: string }
+  | {
+      type: 'SET_NOTIFICATION';
+      notification: { type: 'success' | 'error'; message: string } | null;
+    };
+
+export function createInitialBookingTypesState(
+  initialBookingTypes: BookingType[],
+  defaultDialogOpen = false,
+  defaultEditingItem: BookingType | null = null,
+  defaultDeleteTarget: BookingType | null = null,
+  initialNotification: { type: 'success' | 'error'; message: string } | null = null,
+): BookingTypesViewState {
+  return {
+    bookingTypes: initialBookingTypes,
+    isDialogOpen: defaultDialogOpen || Boolean(defaultEditingItem),
+    editingItem: defaultEditingItem,
+    deleteTarget: defaultDeleteTarget,
+    formValues: getInitialBookingTypeFormState(defaultEditingItem),
+    formError: null,
+    isSubmitting: false,
+    copiedSlug: null,
+    notification: initialNotification,
+  };
+}
+
+export function bookingTypesReducer(
+  state: BookingTypesViewState,
+  action: BookingTypesAction,
+): BookingTypesViewState {
+  switch (action.type) {
+    case 'OPEN_NEW':
+      return {
+        ...state,
+        isDialogOpen: true,
+        editingItem: null,
+        formValues: getInitialBookingTypeFormState(null),
+        formError: null,
+      };
+    case 'OPEN_EDIT':
+      return {
+        ...state,
+        isDialogOpen: true,
+        editingItem: action.item,
+        formValues: getInitialBookingTypeFormState(action.item),
+        formError: null,
+      };
+    case 'CLOSE_DIALOG':
+      return { ...state, isDialogOpen: false, editingItem: null, formError: null };
+    case 'OPEN_DELETE':
+      return { ...state, deleteTarget: action.item };
+    case 'CLOSE_DELETE':
+      return { ...state, deleteTarget: null };
+    case 'UPDATE_FORM_FIELD': {
+      if (action.name === 'title') {
+        const title = String(action.value);
+        return {
+          ...state,
+          formValues: {
+            ...state.formValues,
+            title,
+            slug: computeBookingTypeSlug(
+              title,
+              state.formValues.slug,
+              state.formValues.slugManuallyEdited,
+              Boolean(state.editingItem),
+            ),
+          },
+        };
+      }
+      if (action.name === 'slug') {
+        return {
+          ...state,
+          formValues: {
+            ...state.formValues,
+            slugManuallyEdited: true,
+            slug: String(action.value).toLowerCase().trim(),
+          },
+        };
+      }
+      return {
+        ...state,
+        formValues: {
+          ...state.formValues,
+          [action.name]: action.value,
+        },
+      };
+    }
+    case 'SET_COLOR':
+      return {
+        ...state,
+        formValues: {
+          ...state.formValues,
+          color: action.color,
+        },
+      };
+    case 'SET_COPIED_SLUG':
+      return { ...state, copiedSlug: action.slug };
+    case 'SET_FORM_ERROR':
+      return { ...state, formError: action.error };
+    case 'SET_SUBMITTING':
+      return { ...state, isSubmitting: action.isSubmitting };
+    case 'SAVE_SUCCESS': {
+      const updatedList = action.isEdit
+        ? state.bookingTypes.map((b) => (b.id === action.item.id ? action.item : b))
+        : [...state.bookingTypes, action.item];
+      return {
+        ...state,
+        bookingTypes: updatedList,
+        isDialogOpen: false,
+        editingItem: null,
+        formValues: getInitialBookingTypeFormState(null),
+        formError: null,
+        notification: { type: 'success', message: action.message },
+      };
+    }
+    case 'DELETE_SUCCESS':
+      return {
+        ...state,
+        bookingTypes: state.bookingTypes.filter((b) => b.id !== action.id),
+        deleteTarget: null,
+        notification: { type: 'success', message: action.message },
+      };
+    case 'SET_NOTIFICATION':
+      return { ...state, notification: action.notification };
+    default:
+      return state;
+  }
+}

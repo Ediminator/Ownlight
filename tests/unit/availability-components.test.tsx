@@ -58,7 +58,10 @@ vi.mock('@/server/calendar/availability-actions', () => ({
 import { AvailabilitySettingsView } from '@/components/calendar/settings/availability-settings-view';
 import { WeeklyScheduleEditor } from '@/components/calendar/settings/weekly-schedule-editor';
 import { DateOverridesManager } from '@/components/calendar/settings/date-overrides-manager';
-import { BookingTypesManager } from '@/components/calendar/settings/booking-types-manager';
+import {
+  BookingTypesManager,
+  BookingLocationIcon,
+} from '@/components/calendar/settings/booking-types-manager';
 import {
   generateTimeOptions,
   isTimeRangeValid,
@@ -441,6 +444,17 @@ describe('TASK-0043: Availability Settings UI Components Static Render Tests', (
       );
       expect(notifHtml).toContain('availability-notification');
       expect(notifHtml).toContain('Booking type saved');
+    });
+
+    it('BookingLocationIcon renders correct icons for all location types', () => {
+      const phoneHtml = renderToStaticMarkup(<BookingLocationIcon locationType="phone" />);
+      expect(phoneHtml).toBeDefined();
+
+      const mapPinHtml = renderToStaticMarkup(<BookingLocationIcon locationType="in_person" />);
+      expect(mapPinHtml).toBeDefined();
+
+      const videoHtml = renderToStaticMarkup(<BookingLocationIcon locationType="google_meet" />);
+      expect(videoHtml).toBeDefined();
     });
   });
 

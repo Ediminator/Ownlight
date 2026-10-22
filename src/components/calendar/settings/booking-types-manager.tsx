@@ -13,6 +13,7 @@ import {
   getBookingLocationBadgeInfo,
   createInitialBookingTypesState,
   bookingTypesReducer,
+  type BookingTypeFormState,
 } from './availability-view-model';
 import { Button } from '@/components/ui/button';
 import {
@@ -61,6 +62,9 @@ interface BookingTypesManagerProps {
     type: 'success' | 'error';
     message: string;
   } | null;
+  initialFormError?: string | null;
+  initialFormValues?: Partial<BookingTypeFormState>;
+  initialCopiedSlug?: string | null;
 }
 
 export function BookingTypesManager({
@@ -69,6 +73,9 @@ export function BookingTypesManager({
   defaultEditingItem = null,
   defaultDeleteTarget = null,
   initialNotification = null,
+  initialFormError = null,
+  initialFormValues,
+  initialCopiedSlug = null,
 }: BookingTypesManagerProps) {
   const t = useTranslations('settings.availability.bookingTypes');
 
@@ -79,6 +86,9 @@ export function BookingTypesManager({
       defaultEditingItem,
       defaultDeleteTarget,
       initialNotification,
+      initialFormError,
+      initialFormValues,
+      initialCopiedSlug,
     ),
   );
 
@@ -360,16 +370,7 @@ export function BookingTypesManager({
               >
                 {/* Color Stripe / Dot */}
                 <div
-                  className={cn(
-                    'absolute top-0 left-0 right-0 h-1.5',
-                    bt.color === 'emerald' && 'bg-emerald-500',
-                    bt.color === 'blue' && 'bg-blue-500',
-                    bt.color === 'amber' && 'bg-amber-500',
-                    bt.color === 'rose' && 'bg-rose-500',
-                    bt.color === 'purple' && 'bg-purple-500',
-                    bt.color === 'teal' && 'bg-teal-500',
-                    bt.color === 'indigo' && 'bg-indigo-500',
-                  )}
+                  className={cn('absolute top-0 left-0 right-0 h-1.5', getColorDotClass(bt.color))}
                   aria-hidden="true"
                 />
 

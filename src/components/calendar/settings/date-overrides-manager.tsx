@@ -10,6 +10,7 @@ import {
   submitDateOverrideDelete,
   createInitialDateOverridesState,
   dateOverridesReducer,
+  type OverrideFormState,
 } from './availability-view-model';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,6 +33,8 @@ interface DateOverridesManagerProps {
     type: 'success' | 'error';
     message: string;
   } | null;
+  initialFormError?: string | null;
+  initialFormValues?: Partial<OverrideFormState>;
 }
 
 export function DateOverridesManager({
@@ -40,6 +43,8 @@ export function DateOverridesManager({
   defaultAddOpen = false,
   defaultDeleteTarget = null,
   initialNotification = null,
+  initialFormError = null,
+  initialFormValues,
 }: DateOverridesManagerProps) {
   const t = useTranslations('settings.availability.overrides');
 
@@ -49,6 +54,8 @@ export function DateOverridesManager({
       defaultAddOpen,
       defaultDeleteTarget,
       initialNotification,
+      initialFormError,
+      initialFormValues,
     ),
   );
 

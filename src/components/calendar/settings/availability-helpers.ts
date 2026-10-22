@@ -49,9 +49,7 @@ export function formatDateDisplay(isoDate: string, locale = 'en'): string {
   if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate;
   try {
     const parts = isoDate.split('-').map(Number);
-    const year = parts[0] ?? 2026;
-    const month = parts[1] ?? 1;
-    const day = parts[2] ?? 1;
+    const [year, month, day] = parts as [number, number, number];
     const date = new Date(Date.UTC(year, month - 1, day));
     return new Intl.DateTimeFormat(locale === 'de' ? 'de-DE' : 'en-US', {
       year: 'numeric',

@@ -5,6 +5,10 @@ import {
   createAvailabilityOverrideSchema,
   createBookingTypeSchema,
   updateBookingTypeSchema,
+  createAppointmentSchema,
+  updateAppointmentSchema,
+  createBlockedTimeSchema,
+  updateBlockedTimeSchema,
 } from '@/server/calendar/schema';
 import { generateSlug, isValidSlug } from '@/lib/slug';
 import {
@@ -259,6 +263,66 @@ describe('TASK-0043: Availability & Booking Types Unit Tests', () => {
         expect(partial.data.durationMinutes).toBe(60);
         expect(partial.data.isActive).toBe(false);
       }
+    });
+
+    it('calendar schema refinements: appointment and blocked time validation branches', () => {
+      const now = new Date('2026-11-20T10:00:00Z');
+      const later = new Date('2026-11-20T11:00:00Z');
+      const earlier = new Date('2026-11-20T09:00:00Z');
+
+      // createAppointmentSchema
+      expect(
+        createAppointmentSchema.safeParse({
+          title: 'Consultation',
+          startsAt: now,
+          endsAt: earlier,
+          timezone: 'UTC',
+          attendeeName: 'Jane Doe',
+          attendeeEmail: 'jane@example.com',
+        }).success,
+      ).toBe(false);
+
+      expect(
+        createAppointmentSchema.safeParse({
+          title: 'Consultation',
+          startsAt: now,
+          endsAt: later,
+          timezone: 'UTC',
+          attendeeName: 'Jane Doe',
+          attendeeEmail: 'jane@example.com',
+        }).success,
+      ).toBe(true);
+
+      // updateAppointmentSchema
+      expect(updateAppointmentSchema.safeParse({ startsAt: now, endsAt: later }).success).toBe(
+        true,
+      );
+      expect(updateAppointmentSchema.safeParse({ startsAt: now, endsAt: earlier }).success).toBe(
+        false,
+      );
+      expect(updateAppointmentSchema.safeParse({ startsAt: now }).success).toBe(true);
+      expect(updateAppointmentSchema.safeParse({ endsAt: later }).success).toBe(true);
+      expect(updateAppointmentSchema.safeParse({}).success).toBe(true);
+
+      // createBlockedTimeSchema
+      expect(createBlockedTimeSchema.safeParse({ startsAt: now, endsAt: earlier }).success).toBe(
+        false,
+      );
+      expect(createBlockedTimeSchema.safeParse({ startsAt: now, endsAt: later }).success).toBe(
+        true,
+      );
+      expect(createBlockedTimeSchema.safeParse({ startsAt: now, endsAt: now }).success).toBe(true);
+
+      // updateBlockedTimeSchema
+      expect(updateBlockedTimeSchema.safeParse({ startsAt: now, endsAt: later }).success).toBe(
+        true,
+      );
+      expect(updateBlockedTimeSchema.safeParse({ startsAt: now, endsAt: earlier }).success).toBe(
+        false,
+      );
+      expect(updateBlockedTimeSchema.safeParse({ startsAt: now }).success).toBe(true);
+      expect(updateBlockedTimeSchema.safeParse({ endsAt: later }).success).toBe(true);
+      expect(updateBlockedTimeSchema.safeParse({}).success).toBe(true);
     });
   });
 

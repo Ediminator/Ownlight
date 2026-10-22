@@ -491,5 +491,73 @@ describe('TASK-0043: Availability Server Actions Branch & Edge Cases', () => {
       expect(res.success).toBe(false);
       expect(res.code).toBe('NOT_FOUND');
     });
+
+    it('covers createDateOverrideAction when service returns failure', async () => {
+      vi.spyOn(guards, 'requireOwner').mockResolvedValueOnce(mockOwnerAuth);
+      vi.spyOn(service, 'createAvailabilityOverride').mockResolvedValueOnce({
+        success: false,
+        code: 'VALIDATION_FAILED',
+        error: 'Overlap',
+      });
+
+      const res = await createDateOverrideAction(
+        { date: '2026-11-20', isUnavailable: true },
+        dummyClient,
+      );
+      expect(res.success).toBe(false);
+      expect(res.code).toBe('VALIDATION_FAILED');
+    });
+
+    it('covers defaultDb fallback branches in updateBookingTypeAction and deleteBookingTypeAction', async () => {
+      vi.spyOn(guards, 'requireOwner').mockResolvedValue(mockOwnerAuth);
+      vi.spyOn(service, 'updateBookingType').mockResolvedValue({
+        success: true,
+        data: {
+          id: 'bt-1',
+          title: 'Portrait Session',
+          slug: 'portrait-session',
+          description: null,
+          durationMinutes: 30,
+          bufferBeforeMinutes: 0,
+          bufferAfterMinutes: 15,
+          minNoticeHours: 24,
+          maxFutureDays: 60,
+          locationType: 'in_person',
+          locationDetails: null,
+          color: 'indigo',
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+      vi.spyOn(service, 'deleteBookingType').mockResolvedValue({
+        success: true,
+        data: { id: 'bt-1' },
+      });
+      vi.spyOn(service, 'deleteAvailabilityOverride').mockResolvedValue({
+        success: true,
+        data: { id: 'ov-1' },
+      });
+
+      // updateBookingTypeAction with single object argument without client
+      const updateRes = await updateBookingTypeAction({ id: 'bt-1', title: 'New Name' });
+      expect(updateRes.success).toBe(true);
+
+      // deleteBookingTypeAction with string id and no client
+      const deleteRes1 = await deleteBookingTypeAction('bt-1');
+      expect(deleteRes1.success).toBe(true);
+
+      // deleteBookingTypeAction with object id and no client
+      const deleteRes2 = await deleteBookingTypeAction({ id: 'bt-1' });
+      expect(deleteRes2.success).toBe(true);
+
+      // deleteDateOverrideAction with string id and no client
+      const deleteOvRes1 = await deleteDateOverrideAction('ov-1');
+      expect(deleteOvRes1.success).toBe(true);
+
+      // deleteDateOverrideAction with object id and no client
+      const deleteOvRes2 = await deleteDateOverrideAction({ id: 'ov-1' });
+      expect(deleteOvRes2.success).toBe(true);
+    });
   });
 });

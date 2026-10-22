@@ -719,8 +719,11 @@ describe('TASK-0043: Availability View-Model Unit Tests', () => {
         expect(state.notification?.message).toBe('Saved');
 
         // default unknown action
-        // @ts-expect-error Testing fallback
-        expect(weeklyScheduleReducer(state, { type: 'UNKNOWN' })).toBe(state);
+        expect(
+          weeklyScheduleReducer(state, { type: 'UNKNOWN' } as unknown as Parameters<
+            typeof weeklyScheduleReducer
+          >[1]),
+        ).toBe(state);
       });
     });
 
@@ -786,6 +789,16 @@ describe('TASK-0043: Availability View-Model Unit Tests', () => {
         expect(state.overrides).toHaveLength(1);
         expect(state.notification?.message).toBe('Created');
 
+        // Replacing existing item
+        const updatedOverride = { ...mockOverride, reason: 'Updated reason' };
+        state = dateOverridesReducer(state, {
+          type: 'CREATE_SUCCESS',
+          item: updatedOverride,
+          message: 'Updated',
+        });
+        expect(state.overrides).toHaveLength(1);
+        expect(state.overrides[0]?.reason).toBe('Updated reason');
+
         state = dateOverridesReducer(state, {
           type: 'DELETE_SUCCESS',
           id: 'ov-1',
@@ -798,8 +811,11 @@ describe('TASK-0043: Availability View-Model Unit Tests', () => {
         expect(state.notification).toBeNull();
 
         // default unknown action
-        // @ts-expect-error Testing fallback
-        expect(dateOverridesReducer(state, { type: 'UNKNOWN' })).toBe(state);
+        expect(
+          dateOverridesReducer(state, { type: 'UNKNOWN' } as unknown as Parameters<
+            typeof dateOverridesReducer
+          >[1]),
+        ).toBe(state);
       });
     });
 
@@ -929,8 +945,11 @@ describe('TASK-0043: Availability View-Model Unit Tests', () => {
         expect(state.notification).toBeNull();
 
         // default unknown action
-        // @ts-expect-error Testing fallback
-        expect(bookingTypesReducer(state, { type: 'UNKNOWN' })).toBe(state);
+        expect(
+          bookingTypesReducer(state, { type: 'UNKNOWN' } as unknown as Parameters<
+            typeof bookingTypesReducer
+          >[1]),
+        ).toBe(state);
       });
     });
   });

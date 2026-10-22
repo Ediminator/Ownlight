@@ -634,13 +634,18 @@ export function createInitialDateOverridesState(
   defaultAddOpen = false,
   defaultDeleteTarget: AvailabilityOverride | null = null,
   initialNotification: { type: 'success' | 'error'; message: string } | null = null,
+  initialFormError: string | null = null,
+  initialFormValues?: Partial<OverrideFormState>,
 ): DateOverridesViewState {
   return {
     overrides: initialOverrides,
     isAddOpen: defaultAddOpen,
     deleteTarget: defaultDeleteTarget,
-    formValues: getInitialOverrideFormState(),
-    formError: null,
+    formValues: {
+      ...getInitialOverrideFormState(),
+      ...(initialFormValues ?? {}),
+    },
+    formError: initialFormError,
     isSubmitting: false,
     notification: initialNotification,
   };
@@ -735,16 +740,22 @@ export function createInitialBookingTypesState(
   defaultEditingItem: BookingType | null = null,
   defaultDeleteTarget: BookingType | null = null,
   initialNotification: { type: 'success' | 'error'; message: string } | null = null,
+  initialFormError: string | null = null,
+  initialFormValues?: Partial<BookingTypeFormState>,
+  initialCopiedSlug: string | null = null,
 ): BookingTypesViewState {
   return {
     bookingTypes: initialBookingTypes,
     isDialogOpen: defaultDialogOpen || Boolean(defaultEditingItem),
     editingItem: defaultEditingItem,
     deleteTarget: defaultDeleteTarget,
-    formValues: getInitialBookingTypeFormState(defaultEditingItem),
-    formError: null,
+    formValues: {
+      ...getInitialBookingTypeFormState(defaultEditingItem),
+      ...(initialFormValues ?? {}),
+    },
+    formError: initialFormError,
     isSubmitting: false,
-    copiedSlug: null,
+    copiedSlug: initialCopiedSlug,
     notification: initialNotification,
   };
 }

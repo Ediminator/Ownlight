@@ -120,6 +120,16 @@ describe('TASK-0043: Availability Settings UI Components Static Render Tests', (
       createdAt: new Date(),
       updatedAt: new Date(),
     },
+    {
+      id: 'ov-3',
+      date: '2026-12-15',
+      isUnavailable: false,
+      startTime: null,
+      endTime: null,
+      reason: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
   ];
 
   const dummyBookingTypes: BookingType[] = [
@@ -187,6 +197,57 @@ describe('TASK-0043: Availability Settings UI Components Static Render Tests', (
       locationType: 'in_person',
       locationDetails: 'Customer venue',
       color: 'emerald',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 'bt-5',
+      title: 'Commercial Headshots',
+      slug: 'commercial-headshots',
+      description: null,
+      durationMinutes: 60,
+      bufferBeforeMinutes: 15,
+      bufferAfterMinutes: 15,
+      minNoticeHours: 24,
+      maxFutureDays: 60,
+      locationType: 'in_person',
+      locationDetails: null,
+      color: 'sky',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 'bt-6',
+      title: 'Studio Lighting Workshop',
+      slug: 'studio-workshop',
+      description: null,
+      durationMinutes: 120,
+      bufferBeforeMinutes: 30,
+      bufferAfterMinutes: 30,
+      minNoticeHours: 72,
+      maxFutureDays: 120,
+      locationType: 'in_person',
+      locationDetails: null,
+      color: 'violet',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 'bt-7',
+      title: 'Quick Followup',
+      slug: 'quick-followup',
+      description: null,
+      durationMinutes: 15,
+      bufferBeforeMinutes: 0,
+      bufferAfterMinutes: 10,
+      minNoticeHours: 12,
+      maxFutureDays: 14,
+      locationType: 'google_meet',
+      locationDetails: null,
+      color: 'indigo',
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -351,6 +412,33 @@ describe('TASK-0043: Availability Settings UI Components Static Render Tests', (
       );
       expect(notifHtml).toContain('availability-notification');
       expect(notifHtml).toContain('Override created successfully');
+
+      const errorNotifHtml = renderToStaticMarkup(
+        <DateOverridesManager
+          initialOverrides={dummyOverrides}
+          locale="en"
+          initialNotification={{ type: 'error', message: 'Override deletion failed' }}
+        />,
+      );
+      expect(errorNotifHtml).toContain('availability-notification');
+      expect(errorNotifHtml).toContain('Override deletion failed');
+    });
+
+    it('renders Add Date Override dialog with custom hours inputs and form error', () => {
+      const html = renderToStaticMarkup(
+        <DateOverridesManager
+          initialOverrides={dummyOverrides}
+          locale="en"
+          defaultAddOpen={true}
+          initialFormError="Invalid date range"
+          initialFormValues={{ isUnavailable: false, startTime: '10:00', endTime: '15:00' }}
+        />,
+      );
+
+      expect(html).toContain('override-form-error');
+      expect(html).toContain('Invalid date range');
+      expect(html).toContain('override-start-time-input');
+      expect(html).toContain('override-end-time-input');
     });
   });
 
@@ -444,6 +532,61 @@ describe('TASK-0043: Availability Settings UI Components Static Render Tests', (
       );
       expect(notifHtml).toContain('availability-notification');
       expect(notifHtml).toContain('Booking type saved');
+
+      const errorNotifHtml = renderToStaticMarkup(
+        <BookingTypesManager
+          initialBookingTypes={dummyBookingTypes}
+          locale="en"
+          initialNotification={{ type: 'error', message: 'Failed to delete booking type' }}
+        />,
+      );
+      expect(errorNotifHtml).toContain('availability-notification');
+      expect(errorNotifHtml).toContain('Failed to delete booking type');
+    });
+
+    it('renders BookingTypesManager dialog with form error, manually edited slug, and phone location', () => {
+      const html = renderToStaticMarkup(
+        <BookingTypesManager
+          initialBookingTypes={dummyBookingTypes}
+          locale="en"
+          defaultDialogOpen={true}
+          initialFormError="Slug is required"
+          initialFormValues={{
+            slugManuallyEdited: true,
+            slug: 'custom-slug',
+            locationType: 'phone',
+            color: 'sky',
+          }}
+        />,
+      );
+
+      expect(html).toContain('booking-type-form-error');
+      expect(html).toContain('Slug is required');
+      expect(html).toContain('value="custom-slug"');
+    });
+
+    it('renders BookingTypesManager dialog with in_person location and colors', () => {
+      const inPersonHtml = renderToStaticMarkup(
+        <BookingTypesManager
+          initialBookingTypes={dummyBookingTypes}
+          locale="en"
+          defaultDialogOpen={true}
+          initialFormValues={{
+            locationType: 'in_person',
+            color: 'rose',
+          }}
+        />,
+      );
+      expect(inPersonHtml).toContain('booking-type-dialog');
+
+      const copiedHtml = renderToStaticMarkup(
+        <BookingTypesManager
+          initialBookingTypes={dummyBookingTypes}
+          locale="en"
+          initialCopiedSlug="portrait-consultation"
+        />,
+      );
+      expect(copiedHtml).toContain('copy-booking-type-link-portrait-consultation');
     });
 
     it('BookingLocationIcon renders correct icons for all location types', () => {

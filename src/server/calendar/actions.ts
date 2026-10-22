@@ -48,29 +48,6 @@ function formatValidationIssues(error: {
   };
 }
 
-async function verifyOwnerAuth(
-  client: DbClient,
-): Promise<
-  | { authorized: true; auth: AuthContext }
-  | { authorized: false; result: CalendarActionResult<never> }
-> {
-  try {
-    const auth = await requireOwner({ client });
-    return { authorized: true, auth };
-  } catch (err) {
-    if (err instanceof ForbiddenError) {
-      return {
-        authorized: false,
-        result: { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' },
-      };
-    }
-    return {
-      authorized: false,
-      result: { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' },
-    };
-  }
-}
-
 // ==========================================
 // Appointment Actions (AC-5, AC-6, AC-9)
 // ==========================================
@@ -79,8 +56,15 @@ export async function createAppointmentAction(
   rawInput: unknown,
   client: DbClient = defaultDb,
 ): Promise<CalendarActionResult<Appointment>> {
-  const authCheck = await verifyOwnerAuth(client);
-  if (!authCheck.authorized) return authCheck.result;
+  let auth: AuthContext;
+  try {
+    auth = await requireOwner({ client });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
+    }
+    return { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' };
+  }
 
   const parsed = createAppointmentSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -93,7 +77,7 @@ export async function createAppointmentAction(
     };
   }
 
-  const result = await service.createAppointment(parsed.data, authCheck.auth.user.id, client);
+  const result = await service.createAppointment(parsed.data, auth.user.id, client);
   if (result.success) {
     safeRevalidate('/calendar');
   }
@@ -127,8 +111,15 @@ export async function updateAppointmentAction(
     };
   }
 
-  const authCheck = await verifyOwnerAuth(client);
-  if (!authCheck.authorized) return authCheck.result;
+  let auth: AuthContext;
+  try {
+    auth = await requireOwner({ client });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
+    }
+    return { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' };
+  }
 
   const parsed = updateAppointmentSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -141,7 +132,7 @@ export async function updateAppointmentAction(
     };
   }
 
-  const result = await service.updateAppointment(id, parsed.data, authCheck.auth.user.id, client);
+  const result = await service.updateAppointment(id, parsed.data, auth.user.id, client);
   if (result.success) {
     safeRevalidate('/calendar');
   }
@@ -175,8 +166,15 @@ export async function cancelAppointmentAction(
     };
   }
 
-  const authCheck = await verifyOwnerAuth(client);
-  if (!authCheck.authorized) return authCheck.result;
+  let auth: AuthContext;
+  try {
+    auth = await requireOwner({ client });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
+    }
+    return { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' };
+  }
 
   const parsed = cancelAppointmentSchema.safeParse(rawInput ?? {});
   if (!parsed.success) {
@@ -189,7 +187,7 @@ export async function cancelAppointmentAction(
     };
   }
 
-  const result = await service.cancelAppointment(id, parsed.data, authCheck.auth.user.id, client);
+  const result = await service.cancelAppointment(id, parsed.data, auth.user.id, client);
   if (result.success) {
     safeRevalidate('/calendar');
   }
@@ -204,8 +202,15 @@ export async function createBlockedTimeAction(
   rawInput: unknown,
   client: DbClient = defaultDb,
 ): Promise<CalendarActionResult<BlockedTime>> {
-  const authCheck = await verifyOwnerAuth(client);
-  if (!authCheck.authorized) return authCheck.result;
+  let auth: AuthContext;
+  try {
+    auth = await requireOwner({ client });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
+    }
+    return { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' };
+  }
 
   const parsed = createBlockedTimeSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -218,7 +223,7 @@ export async function createBlockedTimeAction(
     };
   }
 
-  const result = await service.createBlockedTime(parsed.data, authCheck.auth.user.id, client);
+  const result = await service.createBlockedTime(parsed.data, auth.user.id, client);
   if (result.success) {
     safeRevalidate('/calendar');
   }
@@ -252,8 +257,15 @@ export async function updateBlockedTimeAction(
     };
   }
 
-  const authCheck = await verifyOwnerAuth(client);
-  if (!authCheck.authorized) return authCheck.result;
+  let auth: AuthContext;
+  try {
+    auth = await requireOwner({ client });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
+    }
+    return { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' };
+  }
 
   const parsed = updateBlockedTimeSchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -266,7 +278,7 @@ export async function updateBlockedTimeAction(
     };
   }
 
-  const result = await service.updateBlockedTime(id, parsed.data, authCheck.auth.user.id, client);
+  const result = await service.updateBlockedTime(id, parsed.data, auth.user.id, client);
   if (result.success) {
     safeRevalidate('/calendar');
   }
@@ -295,10 +307,17 @@ export async function deleteBlockedTimeAction(
     };
   }
 
-  const authCheck = await verifyOwnerAuth(client);
-  if (!authCheck.authorized) return authCheck.result;
+  let auth: AuthContext;
+  try {
+    auth = await requireOwner({ client });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
+    }
+    return { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' };
+  }
 
-  const result = await service.deleteBlockedTime(id, authCheck.auth.user.id, client);
+  const result = await service.deleteBlockedTime(id, auth.user.id, client);
   if (result.success) {
     safeRevalidate('/calendar');
   }
@@ -321,8 +340,14 @@ export async function getCalendarEventsAction(
   rawInput: unknown,
   client: DbClient = defaultDb,
 ): Promise<CalendarActionResult<UnifiedCalendarEvent[]>> {
-  const authCheck = await verifyOwnerAuth(client);
-  if (!authCheck.authorized) return authCheck.result;
+  try {
+    await requireOwner({ client });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
+    }
+    return { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' };
+  }
 
   const parsed = getCalendarEventsInputSchema.safeParse(rawInput);
   if (!parsed.success) {

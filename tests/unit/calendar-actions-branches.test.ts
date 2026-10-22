@@ -97,6 +97,35 @@ describe('TASK-0042: Calendar Server Actions Branch Coverage', () => {
       expect(res.code).toBe('UNAUTHENTICATED');
     });
 
+    it('returns FORBIDDEN and UNAUTHENTICATED on updateBlockedTimeAction, deleteBlockedTimeAction, and getCalendarEventsAction', async () => {
+      vi.spyOn(guards, 'requireOwner').mockRejectedValueOnce(
+        new guards.ForbiddenError('Owner role required'),
+      );
+      const resUpdateFb = await updateBlockedTimeAction('bt-1', {}, dummyClient);
+      expect(resUpdateFb.code).toBe('FORBIDDEN');
+
+      vi.spyOn(guards, 'requireOwner').mockRejectedValueOnce(
+        new guards.UnauthorizedError('No session'),
+      );
+      const resUpdateUnauth = await updateBlockedTimeAction('bt-1', {}, dummyClient);
+      expect(resUpdateUnauth.code).toBe('UNAUTHENTICATED');
+
+      vi.spyOn(guards, 'requireOwner').mockRejectedValueOnce(
+        new guards.ForbiddenError('Owner role required'),
+      );
+      const resDelFb = await deleteBlockedTimeAction('bt-1', dummyClient);
+      expect(resDelFb.code).toBe('FORBIDDEN');
+
+      vi.spyOn(guards, 'requireOwner').mockRejectedValueOnce(
+        new guards.ForbiddenError('Owner role required'),
+      );
+      const resGetFb = await getCalendarEventsAction(
+        { startDate: '2026-10-01T00:00:00Z', endDate: '2026-10-31T23:59:59Z' },
+        dummyClient,
+      );
+      expect(resGetFb.code).toBe('FORBIDDEN');
+    });
+
     it('creates appointment successfully via mock service', async () => {
       vi.spyOn(guards, 'requireOwner').mockResolvedValue(mockOwnerAuth);
       vi.spyOn(service, 'createAppointment').mockResolvedValueOnce({

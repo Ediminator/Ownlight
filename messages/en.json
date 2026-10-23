@@ -629,6 +629,73 @@
         "errorDeleteFailed": "Failed to delete booking type.",
         "dismissNotification": "Dismiss notification"
       }
+    },
+    "calendarFeed": {
+      "title": "Calendar Feed Subscription",
+      "navLabel": "Calendar Feed",
+      "description": "Subscribe to your studio bookings, shoots, and blackout periods on your mobile devices and desktop calendars via secure RFC 5545 iCal.",
+      "breadcrumbs": {
+        "settings": "Studio Settings",
+        "calendar": "Calendar",
+        "feed": "Calendar Feed"
+      },
+      "tabs": {
+        "availability": "Availability & Booking Types",
+        "feed": "Calendar Feed"
+      },
+      "urlSection": {
+        "title": "Private Feed Subscription URL",
+        "description": "Use this secret URL to subscribe in Apple Calendar, Google Calendar, or Microsoft Outlook. Keep it confidential.",
+        "feedUrlLabel": "Subscription Feed URL",
+        "copyUrl": "Copy Feed URL",
+        "copied": "Copied to clipboard",
+        "copyError": "Failed to copy URL",
+        "tokenHiddenNotice": "For security, the full URL is only displayed when generated. If you did not save it, click Revoke & Regenerate.",
+        "lastAccessed": "Last accessed: {date}",
+        "neverAccessed": "Never accessed yet",
+        "statusActive": "Active",
+        "statusRevoked": "Revoked"
+      },
+      "summaryLevelSection": {
+        "title": "Privacy & Summary Level",
+        "description": "Control how much client detail is exposed in external calendar synchronizations.",
+        "fieldLabel": "Feed Summary Level",
+        "minimalLabel": "Minimal (Busy only)",
+        "minimalDesc": "Displays all calendar entries as 'Busy'. Omits all client names, session titles, locations, and descriptions.",
+        "standardLabel": "Standard (Privacy-safe)",
+        "standardDesc": "Displays event type and masks client surnames (e.g. 'Consultation: Clara S.'). Strictly excludes private notes and phone numbers.",
+        "fullLabel": "Full Details",
+        "fullDesc": "Displays complete event titles and locations. Recommended only for private, personal calendar devices.",
+        "saveSuccess": "Privacy summary level updated successfully.",
+        "saveError": "Failed to update summary level."
+      },
+      "revokeSection": {
+        "title": "Revoke & Regenerate Feed URL",
+        "description": "If you suspect your feed link was shared or compromised, revoke it immediately. All existing subscriptions will stop working.",
+        "revokeBtn": "Revoke & Regenerate URL",
+        "dialogTitle": "Revoke Calendar Feed URL?",
+        "dialogDesc": "Revoking this feed will immediately deactivate synchronization on all devices currently subscribed. A new secret URL will be generated, which you must configure on each device.",
+        "cancelBtn": "Cancel",
+        "confirmBtn": "Revoke & Regenerate",
+        "revoking": "Regenerating...",
+        "revokeSuccess": "Feed URL revoked and regenerated successfully.",
+        "revokeError": "Failed to revoke feed URL."
+      },
+      "instructions": {
+        "title": "Device Setup Instructions",
+        "appleTitle": "Apple Calendar (iOS / macOS)",
+        "appleStep1": "iOS: Settings > Calendar > Accounts > Add Account > Other > Add Subscribed Calendar.",
+        "appleStep2": "macOS: Calendar app > File > New Calendar Subscription.",
+        "appleStep3": "Paste the feed URL and choose hourly refresh for optimal schedule awareness.",
+        "googleTitle": "Google Calendar",
+        "googleStep1": "Open Google Calendar in a browser.",
+        "googleStep2": "In the left sidebar, click + next to 'Other calendars' and select 'From URL'.",
+        "googleStep3": "Paste the feed URL and click 'Add calendar'.",
+        "outlookTitle": "Microsoft Outlook",
+        "outlookStep1": "Open Outlook on web or desktop.",
+        "outlookStep2": "Go to Calendar > Add calendar > Subscribe from web.",
+        "outlookStep3": "Paste the feed URL and click 'Import'."
+      }
     }
   },
   "clients": {

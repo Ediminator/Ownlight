@@ -6,6 +6,7 @@ import type {
   BlockedTime,
   AvailabilitySchedule,
   AvailabilityOverride,
+  CalendarFeed,
 } from '@/server/db/schema/calendar';
 import * as repo from './repo';
 import {
@@ -18,6 +19,9 @@ import {
   updateBlockedTimeSchema,
   updateAvailabilitySchedulesSchema,
   createAvailabilityOverrideSchema,
+  generateFeedTokenSchema,
+  revokeFeedTokenSchema,
+  updateFeedSummaryLevelSchema,
   type CreateBookingTypeInput,
   type UpdateBookingTypeInput,
   type CreateAppointmentInput,
@@ -27,7 +31,20 @@ import {
   type UpdateBlockedTimeInput,
   type UpdateAvailabilitySchedulesInput,
   type CreateAvailabilityOverrideInput,
+  type GenerateFeedTokenInput,
+  type RevokeFeedTokenInput,
+  type UpdateFeedSummaryLevelInput,
 } from './schema';
+import {
+  generateFeedToken,
+  hashFeedToken,
+  getCalendarFeedDateWindow,
+  buildShootEvent,
+  buildAppointmentEvent,
+  buildBlockedTimeEvent,
+  formatVCalendar,
+  type IcalEvent,
+} from './ical';
 import { recordTimelineEvent } from '@/server/timeline/service';
 import { audit } from '@/server/audit';
 
@@ -914,4 +931,262 @@ export async function getUnifiedCalendarEvents(
   events.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 
   return events;
+}
+
+// ==========================================
+// Calendar Feeds Service (TASK-0045)
+// ==========================================
+
+export async function getCalendarFeed(tx: DbClient = defaultDb): Promise<CalendarFeed | null> {
+  return repo.findActiveCalendarFeed(tx);
+}
+
+export async function getOrCreateActiveFeed(
+  actorId = 'system',
+  tx: DbClient = defaultDb,
+): Promise<{ feed: CalendarFeed; token?: string }> {
+  const existing = await repo.findActiveCalendarFeed(tx);
+  if (existing) {
+    return { feed: existing, token: undefined };
+  }
+
+  const result = await generateFeedTokenService({ summaryLevel: 'standard' }, actorId, tx);
+  if (!result.success) {
+    throw new Error(`Failed to initialize default calendar feed: ${result.error}`);
+  }
+  return { feed: result.data.feed, token: result.data.token };
+}
+
+export async function generateFeedTokenService(
+  rawInput: GenerateFeedTokenInput,
+  actorId = 'system',
+  tx: DbClient = defaultDb,
+): Promise<CalendarServiceResult<{ feed: CalendarFeed; token: string }>> {
+  const parsed = generateFeedTokenSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      success: false,
+      code: 'VALIDATION_FAILED',
+      error: parsed.error.issues[0]?.message ?? 'Invalid feed configuration',
+      fields: parsed.error.issues.map((i) => i.path.join('.')),
+    };
+  }
+
+  const rawToken = generateFeedToken();
+  const tokenHash = hashFeedToken(rawToken);
+  const id = generateUuidV7();
+  const now = new Date();
+
+  const feed = await repo.insertCalendarFeed(
+    {
+      id,
+      tokenHash,
+      name: parsed.data.name,
+      summaryLevel: parsed.data.summaryLevel,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+    tx,
+  );
+
+  await audit(
+    {
+      action: 'calendar_feed.created',
+      actorType: 'owner',
+      actorId,
+      targetType: 'calendar_feed',
+      targetId: feed.id,
+      outcome: 'success',
+      metadata: {
+        feed_id: feed.id,
+        summary_level: feed.summaryLevel,
+      },
+    },
+    tx,
+  );
+
+  return {
+    success: true,
+    data: {
+      feed,
+      token: rawToken,
+    },
+  };
+}
+
+export async function revokeFeedTokenService(
+  rawInput: RevokeFeedTokenInput,
+  actorId = 'system',
+  tx: DbClient = defaultDb,
+): Promise<CalendarServiceResult<{ feed: CalendarFeed; token: string; previousFeedId: string }>> {
+  const parsed = revokeFeedTokenSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      success: false,
+      code: 'VALIDATION_FAILED',
+      error: parsed.error.issues[0]?.message ?? 'Invalid feed ID',
+      fields: parsed.error.issues.map((i) => i.path.join('.')),
+    };
+  }
+
+  const existing = await repo.findCalendarFeedById(parsed.data.feedId, tx);
+  if (!existing) {
+    return {
+      success: false,
+      code: 'NOT_FOUND',
+      error: 'Calendar feed not found',
+      fields: ['feedId'],
+    };
+  }
+
+  // 1. Mark existing feed as revoked
+  await repo.revokeCalendarFeedRecord(existing.id, tx);
+
+  // 2. Audit revocation
+  await audit(
+    {
+      action: 'calendar_feed.revoked',
+      actorType: 'owner',
+      actorId,
+      targetType: 'calendar_feed',
+      targetId: existing.id,
+      outcome: 'success',
+      metadata: {
+        feed_id: existing.id,
+      },
+    },
+    tx,
+  );
+
+  // 3. Immediately generate a fresh feed carrying over the summary level
+  const generateResult = await generateFeedTokenService(
+    {
+      name: existing.name,
+      summaryLevel: existing.summaryLevel,
+    },
+    actorId,
+    tx,
+  );
+
+  if (!generateResult.success) {
+    return generateResult;
+  }
+
+  return {
+    success: true,
+    data: {
+      feed: generateResult.data.feed,
+      token: generateResult.data.token,
+      previousFeedId: existing.id,
+    },
+  };
+}
+
+export async function updateFeedSummaryLevelService(
+  rawInput: UpdateFeedSummaryLevelInput,
+  tx: DbClient = defaultDb,
+): Promise<CalendarServiceResult<CalendarFeed>> {
+  const parsed = updateFeedSummaryLevelSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      success: false,
+      code: 'VALIDATION_FAILED',
+      error: parsed.error.issues[0]?.message ?? 'Invalid summary level',
+      fields: parsed.error.issues.map((i) => i.path.join('.')),
+    };
+  }
+
+  let feedId = parsed.data.feedId;
+  if (!feedId) {
+    const active = await repo.findActiveCalendarFeed(tx);
+    if (!active) {
+      return {
+        success: false,
+        code: 'NOT_FOUND',
+        error: 'No active calendar feed found',
+        fields: ['feedId'],
+      };
+    }
+    feedId = active.id;
+  }
+
+  const updated = await repo.updateCalendarFeedRecord(
+    feedId,
+    { summaryLevel: parsed.data.summaryLevel },
+    tx,
+  );
+
+  if (!updated) {
+    return {
+      success: false,
+      code: 'NOT_FOUND',
+      error: 'Calendar feed not found',
+      fields: ['feedId'],
+    };
+  }
+
+  return {
+    success: true,
+    data: updated,
+  };
+}
+
+export async function renderIcalFeedForToken(
+  token: string,
+  tx: DbClient = defaultDb,
+): Promise<{ found: boolean; ical?: string; feedId?: string }> {
+  if (!token || typeof token !== 'string') {
+    return { found: false };
+  }
+
+  const tokenHash = hashFeedToken(token);
+  const feed = await repo.findCalendarFeedByTokenHash(tokenHash, tx);
+  if (!feed) {
+    return { found: false };
+  }
+
+  // Update last accessed timestamp
+  await repo.touchCalendarFeedLastAccessed(feed.id, tx);
+
+  // Compute feed window [-30 days, +180 days]
+  const now = new Date();
+  const { startDate, endDate } = getCalendarFeedDateWindow(now);
+
+  const [shootsList, apptsList, blockedList] = await Promise.all([
+    repo.listShootsWithDetailsInRange({ startDate, endDate }, tx),
+    repo.listAppointmentsInRange({ startDate, endDate }, tx),
+    repo.listBlockedTimeInRange({ startDate, endDate }, tx),
+  ]);
+
+  const events: IcalEvent[] = [];
+
+  for (const s of shootsList) {
+    events.push(buildShootEvent(s, feed.summaryLevel, now));
+  }
+
+  for (const a of apptsList) {
+    if (a.status !== 'cancelled') {
+      events.push(buildAppointmentEvent(a, feed.summaryLevel, now));
+    }
+  }
+
+  for (const b of blockedList) {
+    events.push(buildBlockedTimeEvent(b, feed.summaryLevel, now));
+  }
+
+  // Sort events chronologically
+  events.sort((e1, e2) => e1.startsAt.getTime() - e2.startsAt.getTime());
+
+  const ical = formatVCalendar({
+    feedName: feed.name,
+    timezone: 'Europe/Berlin',
+    events,
+  });
+
+  return {
+    found: true,
+    ical,
+    feedId: feed.id,
+  };
 }

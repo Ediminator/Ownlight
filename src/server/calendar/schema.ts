@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { BOOKING_LOCATION_TYPES, APPOINTMENT_STATUSES } from '@/server/db/schema/calendar';
+import {
+  BOOKING_LOCATION_TYPES,
+  APPOINTMENT_STATUSES,
+  CALENDAR_FEED_SUMMARY_LEVELS,
+} from '@/server/db/schema/calendar';
 
 export const bookingLocationTypeEnum = z.enum(BOOKING_LOCATION_TYPES);
 export const appointmentStatusEnum = z.enum(APPOINTMENT_STATUSES);
@@ -278,3 +282,33 @@ export const publicBookingSubmissionSchema = z
   });
 
 export type PublicBookingSubmissionInput = z.infer<typeof publicBookingSubmissionSchema>;
+
+// ==========================================
+// Calendar Feeds Schemas (TASK-0045)
+// ==========================================
+
+export const calendarFeedSummaryLevelEnum = z.enum(CALENDAR_FEED_SUMMARY_LEVELS);
+
+export const generateFeedTokenSchema = z
+  .object({
+    summaryLevel: calendarFeedSummaryLevelEnum.optional().default('standard'),
+    name: z.string().min(1).max(100).optional().default('Main Studio Feed'),
+  })
+  .strict();
+
+export const revokeFeedTokenSchema = z
+  .object({
+    feedId: z.string().uuid(),
+  })
+  .strict();
+
+export const updateFeedSummaryLevelSchema = z
+  .object({
+    feedId: z.string().uuid().optional(),
+    summaryLevel: calendarFeedSummaryLevelEnum,
+  })
+  .strict();
+
+export type GenerateFeedTokenInput = z.input<typeof generateFeedTokenSchema>;
+export type RevokeFeedTokenInput = z.infer<typeof revokeFeedTokenSchema>;
+export type UpdateFeedSummaryLevelInput = z.input<typeof updateFeedSummaryLevelSchema>;

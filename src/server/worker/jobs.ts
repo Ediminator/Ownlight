@@ -3,6 +3,7 @@ import { logger } from '@/server/log';
 import { executeRetentionSweep } from '@/server/retention/runner';
 import { processOutboxBatch } from '@/server/integrations/google/sync-worker';
 import { processEmailOutboxBatch } from '@/server/email/outbox-processor';
+import { runCalendarSyncWorker } from './calendar-sync-worker';
 
 export interface JobContext {
   db: DbClient;
@@ -107,6 +108,18 @@ export function registerDefaultJobs(registry: JobRegistry): void {
         return processEmailOutboxBatch({
           dbClient: ctx.db,
           signal: ctx.signal,
+        });
+      },
+    });
+  }
+
+  if (!registry.has('calendar-sync-worker')) {
+    registry.register({
+      id: 'calendar-sync-worker',
+      intervalMs: 15_000,
+      run: async (ctx: JobContext) => {
+        return runCalendarSyncWorker({
+          dbClient: ctx.db,
         });
       },
     });

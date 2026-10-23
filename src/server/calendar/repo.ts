@@ -7,6 +7,7 @@ import {
   availabilitySchedules,
   availabilityOverrides,
   calendarFeeds,
+  externalCalendarBusyIntervals,
   type BookingType,
   type NewBookingType,
   type Appointment,
@@ -20,6 +21,8 @@ import {
   type AppointmentStatus,
   type CalendarFeed,
   type NewCalendarFeed,
+  type ExternalCalendarBusyInterval,
+  type CalendarSyncProvider,
 } from '@/server/db/schema/calendar';
 import { shoots, projects, shootLocations } from '@/server/db/schema/projects';
 
@@ -516,4 +519,71 @@ export async function revokeCalendarFeedRecord(
     .where(eq(calendarFeeds.id, id))
     .returning();
   return row ?? null;
+}
+
+// ==========================================
+// External Calendar Busy Intervals (AC-5)
+// ==========================================
+
+export async function listExternalBusyIntervalsInRange(
+  params: {
+    startDate: Date;
+    endDate: Date;
+    provider?: CalendarSyncProvider;
+  },
+  tx: DbClient = defaultDb,
+): Promise<ExternalCalendarBusyInterval[]> {
+  const conditions = [
+    lt(externalCalendarBusyIntervals.startsAt, params.endDate),
+    gt(externalCalendarBusyIntervals.endsAt, params.startDate),
+  ];
+
+  if (params.provider) {
+    conditions.push(eq(externalCalendarBusyIntervals.provider, params.provider));
+  }
+
+  return tx
+    .select()
+    .from(externalCalendarBusyIntervals)
+    .where(and(...conditions));
+}
+
+export async function replaceExternalBusyIntervals(
+  provider: CalendarSyncProvider,
+  intervals: { startsAt: Date; endsAt: Date; externalId?: string }[],
+  tx: DbClient = defaultDb,
+): Promise<ExternalCalendarBusyInterval[]> {
+  // Clear existing intervals for this provider
+  await tx
+    .delete(externalCalendarBusyIntervals)
+    .where(eq(externalCalendarBusyIntervals.provider, provider));
+
+  if (intervals.length === 0) {
+    return [];
+  }
+
+  return tx
+    .insert(externalCalendarBusyIntervals)
+    .values(
+      intervals.map((inv) => ({
+        provider,
+        startsAt: inv.startsAt,
+        endsAt: inv.endsAt,
+        externalId: inv.externalId ?? null,
+      })),
+    )
+    .returning();
+}
+
+export async function clearExternalBusyIntervals(
+  provider?: CalendarSyncProvider,
+  tx: DbClient = defaultDb,
+): Promise<void> {
+  if (provider) {
+    await tx
+      .delete(externalCalendarBusyIntervals)
+      .where(eq(externalCalendarBusyIntervals.provider, provider));
+  } else {
+    await tx.delete(externalCalendarBusyIntervals);
+  }
 }

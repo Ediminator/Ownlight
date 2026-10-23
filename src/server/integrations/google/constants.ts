@@ -26,3 +26,14 @@ export function getGooglePeopleApiBase(): string {
     DEFAULT_GOOGLE_PEOPLE_API_BASE
   );
 }
+
+export const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events' as const;
+export const DEFAULT_GOOGLE_CALENDAR_API_BASE = 'https://www.googleapis.com/calendar/v3' as const;
+
+export function getGoogleCalendarApiBase(): string {
+  return (
+    process.env.GOOGLE_CALENDAR_API_BASE_OVERRIDE ??
+    process.env.GOOGLE_CALENDAR_API_BASE_URL ??
+    DEFAULT_GOOGLE_CALENDAR_API_BASE
+  );
+}

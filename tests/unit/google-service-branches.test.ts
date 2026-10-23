@@ -60,6 +60,10 @@ describe('Google Integration Service Branch Coverage (service.ts)', () => {
         encryptedRefreshToken: 'enc-token',
         accessToken: null,
         accessTokenExpiresAt: null,
+        calendarSyncEnabled: false,
+        selectedCalendarId: 'primary',
+        lastCalendarSyncAt: null,
+        lastCalendarSyncError: null,
         updatedAt: createdAt,
       });
 

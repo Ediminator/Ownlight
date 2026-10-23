@@ -2,6 +2,7 @@ import { randomBytes, createHash } from 'node:crypto';
 
 export const CODE_CHALLENGE_METHOD = 'S256' as const;
 export const GOOGLE_CONTACTS_SCOPE = 'https://www.googleapis.com/auth/contacts' as const;
+export { GOOGLE_CALENDAR_SCOPE } from './constants';
 
 /**
  * Generates an RFC 7636 compliant high-entropy code verifier.

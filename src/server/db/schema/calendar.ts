@@ -364,6 +364,33 @@ export const calendar_sync_links = calendarSyncLinks;
 export type CalendarSyncLink = typeof calendarSyncLinks.$inferSelect;
 export type NewCalendarSyncLink = typeof calendarSyncLinks.$inferInsert;
 
+/**
+ * External calendar busy intervals cache table (TASK-0046 / ADR-0017 §5.4).
+ * Stores imported busy time ranges from external calendar free/busy queries.
+ */
+export const externalCalendarBusyIntervals = pgTable(
+  'external_calendar_busy_intervals',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .$defaultFn(() => generateUuidV7()),
+    provider: varchar('provider', { length: 20 }).notNull().$type<CalendarSyncProvider>(),
+    startsAt: timestamp('starts_at', { withTimezone: true, mode: 'date' }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true, mode: 'date' }).notNull(),
+    externalId: varchar('external_id', { length: 500 }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    check('external_calendar_busy_intervals_provider_check', sql`provider IN ('google', 'caldav')`),
+    index('external_calendar_busy_intervals_starts_at_idx').on(table.startsAt, table.endsAt),
+  ],
+);
+
+export const external_calendar_busy_intervals = externalCalendarBusyIntervals;
+export type ExternalCalendarBusyInterval = typeof externalCalendarBusyIntervals.$inferSelect;
+export type NewExternalCalendarBusyInterval = typeof externalCalendarBusyIntervals.$inferInsert;
+
 // Relations
 export const bookingTypesRelations = relations(bookingTypes, ({ many }) => ({
   appointments: many(appointments),

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, boolean } from 'drizzle-orm/pg-core';
 import { generateUuidV7 } from '@/lib/id';
 
 /**
@@ -20,6 +20,10 @@ export const googleOAuthTokens = pgTable('google_oauth_tokens', {
     mode: 'date',
   }),
   scope: text('scope').notNull(),
+  calendarSyncEnabled: boolean('calendar_sync_enabled').notNull().default(false),
+  selectedCalendarId: varchar('selected_calendar_id', { length: 255 }).default('primary'),
+  lastCalendarSyncAt: timestamp('last_calendar_sync_at', { withTimezone: true, mode: 'date' }),
+  lastCalendarSyncError: text('last_calendar_sync_error'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 });

@@ -33,6 +33,10 @@ export async function upsertGoogleOAuthToken(
     accessToken?: string | null;
     accessTokenExpiresAt?: Date | null;
     scope: string;
+    calendarSyncEnabled?: boolean;
+    selectedCalendarId?: string | null;
+    lastCalendarSyncAt?: Date | null;
+    lastCalendarSyncError?: string | null;
   },
   client: DbClient = defaultDb,
 ): Promise<GoogleOAuthToken> {
@@ -46,6 +50,10 @@ export async function upsertGoogleOAuthToken(
       accessToken: data.accessToken ?? null,
       accessTokenExpiresAt: data.accessTokenExpiresAt ?? null,
       scope: data.scope,
+      calendarSyncEnabled: data.calendarSyncEnabled ?? false,
+      selectedCalendarId: data.selectedCalendarId ?? 'primary',
+      lastCalendarSyncAt: data.lastCalendarSyncAt ?? null,
+      lastCalendarSyncError: data.lastCalendarSyncError ?? null,
       createdAt: now,
       updatedAt: now,
     })
@@ -56,6 +64,18 @@ export async function upsertGoogleOAuthToken(
         accessToken: data.accessToken ?? null,
         accessTokenExpiresAt: data.accessTokenExpiresAt ?? null,
         scope: data.scope,
+        ...(data.calendarSyncEnabled !== undefined
+          ? { calendarSyncEnabled: data.calendarSyncEnabled }
+          : {}),
+        ...(data.selectedCalendarId !== undefined
+          ? { selectedCalendarId: data.selectedCalendarId }
+          : {}),
+        ...(data.lastCalendarSyncAt !== undefined
+          ? { lastCalendarSyncAt: data.lastCalendarSyncAt }
+          : {}),
+        ...(data.lastCalendarSyncError !== undefined
+          ? { lastCalendarSyncError: data.lastCalendarSyncError }
+          : {}),
         updatedAt: now,
       },
     })
@@ -66,6 +86,30 @@ export async function upsertGoogleOAuthToken(
   }
 
   return record;
+}
+
+/**
+ * Updates Google Calendar sync settings on the token record.
+ */
+export async function updateGoogleCalendarSettings(
+  data: {
+    calendarSyncEnabled?: boolean;
+    selectedCalendarId?: string | null;
+    lastCalendarSyncAt?: Date | null;
+    lastCalendarSyncError?: string | null;
+  },
+  client: DbClient = defaultDb,
+): Promise<GoogleOAuthToken | null> {
+  const [record] = await client
+    .update(googleOAuthTokens)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(eq(googleOAuthTokens.provider, 'google'))
+    .returning();
+
+  return record ?? null;
 }
 
 /**

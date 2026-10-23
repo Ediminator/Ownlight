@@ -906,6 +906,32 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
       expect(html).toContain('Berlin');
     });
 
+    it('I3-C01: slot buttons omit aria-label so accessible name matches visible text per WCAG 2.5.3 (Label in Name)', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialVisitorTimezone="America/New_York"
+          initialSelectedDate="2026-11-20"
+          initialSlots={[
+            createMockSlot({
+              date: '2026-11-20',
+              starts_at: '2026-11-20T14:00:00Z',
+              ends_at: '2026-11-20T15:00:00Z',
+              startsAtUtc: '2026-11-20T14:00:00Z',
+              endsAtUtc: '2026-11-20T15:00:00Z',
+            }),
+          ]}
+        />,
+      );
+      // Button must not define aria-label prefix or mismatching text
+      expect(html).not.toContain('aria-label="Select time');
+      expect(html).toContain('data-testid="slot-2026-11-20T14:00:00Z"');
+      expect(html).toContain('Berlin');
+    });
+
     it('renders phone location details when locationType is phone with custom details', () => {
       const html = renderToStaticMarkup(
         <PublicBookingScheduler

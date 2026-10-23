@@ -619,9 +619,6 @@ export function PublicBookingScheduler({
                             onClick={() => {
                               setSelectedSlot(slot);
                             }}
-                            aria-label={t('slotPicker.selectSlotAria', {
-                              time: formatted.combinedLabel,
-                            })}
                             className="flex flex-col items-start px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
                           >
                             <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">

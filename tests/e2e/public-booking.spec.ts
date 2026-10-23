@@ -104,6 +104,13 @@ test.describe('TASK-0044: Public Booking Scheduler E2E', () => {
     // 5. Run WCAG 2.2 AA accessibility scan
     const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
     expect(accessibilityScanResults.violations).toEqual([]);
+
+    // I3-C01: Select different timezone (America/New_York) to render dual-timezone slot labels
+    // and verify WCAG 2.5.3 (Label in Name / label-content-name-mismatch) passes with 0 violations
+    await tzSelect.selectOption('America/New_York');
+    await expect(page.locator('[data-testid="slots-list"]')).toBeVisible();
+    const dualTzAxe = await new AxeBuilder({ page }).analyze();
+    expect(dualTzAxe.violations).toEqual([]);
   });
 
   test('AC-3, AC-7, AC-11: full reservation flow with honeypot, ALTCHA PoW, confirmation view, and Add to Calendar', async ({
@@ -232,8 +239,10 @@ test.describe('TASK-0044: Public Booking Scheduler E2E', () => {
     const slotsList = page.locator('[data-testid="slots-list"]');
     await expect(slotsList).toBeVisible({ timeout: 10000 });
 
-    // I2-U01: Dark mode Axe audit on slot picker view (verifies slot header and loading state contrast)
+    // I2-U01, I3-C01: Dark mode Axe audit on slot picker view with dual-timezone labels
     await page.emulateMedia({ colorScheme: 'dark' });
+    const tzSelect = page.locator('[data-testid="timezone-select"]');
+    await tzSelect.selectOption('America/New_York');
     const darkSlotPickerAxe = await new AxeBuilder({ page }).analyze();
     expect(darkSlotPickerAxe.violations).toEqual([]);
 

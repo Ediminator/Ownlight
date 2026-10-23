@@ -495,5 +495,21 @@ describe('TASK-0045: RFC 5545 iCal Generator Unit Tests', () => {
       expect(enKeys).toEqual(deKeys);
       expect(enKeys.length).toBeGreaterThan(5);
     });
+
+    it('I1-U02 regression: urlSection.copyError translation exists in en.json and de.json', () => {
+      const enUrlSection = (
+        enMessages as {
+          settings?: { calendarFeed?: { urlSection?: { copyError?: string } } };
+        }
+      ).settings?.calendarFeed?.urlSection;
+      const deUrlSection = (
+        deMessages as {
+          settings?: { calendarFeed?: { urlSection?: { copyError?: string } } };
+        }
+      ).settings?.calendarFeed?.urlSection;
+
+      expect(enUrlSection?.copyError).toBe('Failed to copy URL');
+      expect(deUrlSection?.copyError).toBe('Fehler beim Kopieren der URL');
+    });
   });
 });

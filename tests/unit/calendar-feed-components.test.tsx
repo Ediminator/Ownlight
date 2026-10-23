@@ -194,6 +194,15 @@ describe('TASK-0045: Calendar Feed Settings Helpers & Components', () => {
 
       expect(html).toContain('settings.calendarFeed.urlSection.neverAccessed');
     });
+
+    it('I1-U01 regression: renders revoke-feed-button and revocation confirmation dialog markup', () => {
+      const html = renderToStaticMarkup(
+        <CalendarFeedView initialFeed={dummyFeed} initialToken="some-token" locale="de" />,
+      );
+
+      expect(html).toContain('data-testid="revoke-feed-button"');
+      expect(html).toContain('settings.calendarFeed.revokeSection.revokeBtn');
+    });
   });
 
   describe('CalendarSettingsRootPage (app/[locale]/settings/calendar/page.tsx)', () => {

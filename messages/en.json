@@ -649,6 +649,7 @@
         "feedUrlLabel": "Subscription Feed URL",
         "copyUrl": "Copy Feed URL",
         "copied": "Copied to clipboard",
+        "copyError": "Failed to copy URL",
         "tokenHiddenNotice": "For security, the full URL is only displayed when generated. If you did not save it, click Revoke & Regenerate.",
         "lastAccessed": "Last accessed: {date}",
         "neverAccessed": "Never accessed yet",

@@ -649,6 +649,7 @@
         "feedUrlLabel": "Abonnement-Feed-URL",
         "copyUrl": "Feed-URL kopieren",
         "copied": "In Zwischenablage kopiert",
+        "copyError": "Fehler beim Kopieren der URL",
         "tokenHiddenNotice": "Aus Sicherheitsgründen wird die vollständige URL nur bei der Neuerstellung angezeigt. Wenn Sie die URL verloren haben, klicken Sie auf Widerrufen & Neu generieren.",
         "lastAccessed": "Zuletzt abgerufen: {date}",
         "neverAccessed": "Noch nie abgerufen",

@@ -66,6 +66,7 @@ export function CalendarFeedView({ initialFeed, initialToken, locale }: Calendar
     text: string;
     error?: boolean;
   } | null>(null);
+  const revokeTriggerRef = React.useRef<HTMLButtonElement>(null);
 
   const origin = React.useSyncExternalStore(
     NOOP_SUBSCRIBE,
@@ -86,7 +87,7 @@ export function CalendarFeedView({ initialFeed, initialToken, locale }: Calendar
         setCopyFeedback(null);
       }, 3000);
     } catch {
-      setCopyFeedback('Failed to copy');
+      setCopyFeedback(t('urlSection.copyError'));
     }
   };
 
@@ -380,6 +381,7 @@ export function CalendarFeedView({ initialFeed, initialToken, locale }: Calendar
 
         <div className="pt-1 flex flex-col sm:flex-row sm:items-center gap-3">
           <Button
+            ref={revokeTriggerRef}
             type="button"
             variant="destructive"
             data-testid="revoke-feed-button"
@@ -465,6 +467,10 @@ export function CalendarFeedView({ initialFeed, initialToken, locale }: Calendar
         <DialogContent
           data-testid="revoke-confirmation-dialog"
           closeAriaLabel={locale === 'de' ? 'Schließen' : 'Close'}
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            revokeTriggerRef.current?.focus();
+          }}
         >
           <DialogHeader>
             <DialogTitle>{t('revokeSection.dialogTitle')}</DialogTitle>

@@ -222,6 +222,42 @@ test.describe('TASK-0045: Calendar Feed Settings & iCal Endpoint E2E Tests', () 
     expect(newFeedBody).toContain('BEGIN:VCALENDAR');
   });
 
+  test('I1-U01 regression: Focus is restored to revoke-feed-button upon dismissing the revocation dialog', async ({
+    page,
+  }) => {
+    await page.goto('/en/settings/calendar/feed');
+    await expect(page.locator('[data-testid="calendar-feed-settings-page"]')).toBeVisible();
+
+    const revokeButton = page.locator('[data-testid="revoke-feed-button"]');
+    await revokeButton.focus();
+    await expect(revokeButton).toBeFocused();
+
+    // 1. Dismiss via Cancel button restores focus
+    await revokeButton.click();
+    const dialog = page.locator('[data-testid="revoke-confirmation-dialog"]');
+    await expect(dialog).toBeVisible();
+
+    const cancelButton = dialog.getByRole('button', { name: 'Cancel' });
+    await cancelButton.click();
+    await expect(dialog).not.toBeVisible();
+    await expect(revokeButton).toBeFocused();
+
+    // 2. Dismiss via Escape key restores focus
+    await revokeButton.click();
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(revokeButton).toBeFocused();
+
+    // 3. Dismiss via close X icon restores focus
+    await revokeButton.click();
+    await expect(dialog).toBeVisible();
+    const closeX = dialog.locator('button:has(svg)');
+    await closeX.click();
+    await expect(dialog).not.toBeVisible();
+    await expect(revokeButton).toBeFocused();
+  });
+
   test('AC-9: German localization renders all UI, tabs, guides, and dialogs without raw translation keys', async ({
     page,
   }) => {

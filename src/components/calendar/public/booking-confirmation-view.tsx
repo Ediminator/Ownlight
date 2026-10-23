@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { generateSingleEventIcs } from '@/lib/calendar/ics';
+import { buildBookingIcsParams } from './booking-helpers';
 import type { ConfirmedBookingSummary } from '@/server/calendar/public-actions';
 
 export interface BookingConfirmationViewProps {
@@ -11,6 +12,37 @@ export interface BookingConfirmationViewProps {
   studioName: string;
   studioEmail?: string | null;
   onBookAnother?: () => void;
+  onDownload?: () => void;
+}
+
+/**
+ * Generates and downloads the RFC 5545 .ics file for a confirmed booking.
+ */
+export function downloadBookingIcs(
+  slug: string,
+  summary: ConfirmedBookingSummary,
+  studioName: string,
+  studioEmail?: string | null,
+  onDownload?: () => void,
+) {
+  const icsParams = buildBookingIcsParams(summary, studioName, studioEmail);
+  const icsContent = generateSingleEventIcs(icsParams);
+
+  if (onDownload) {
+    onDownload();
+  }
+
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `booking-${slug}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
 }
 
 /**
@@ -23,6 +55,7 @@ export function BookingConfirmationView({
   studioName,
   studioEmail,
   onBookAnother,
+  onDownload,
 }: BookingConfirmationViewProps) {
   const t = useTranslations('publicBooking.confirmation');
   const [downloading, setDownloading] = useState(false);
@@ -57,54 +90,7 @@ export function BookingConfirmationView({
   const handleDownloadIcs = () => {
     try {
       setDownloading(true);
-
-      const locationStr =
-        summary.locationType === 'google_meet'
-          ? (summary.meetUrl ?? 'Google Meet')
-          : (summary.locationDetails ??
-            (summary.locationType === 'phone' ? 'Phone Call' : studioName));
-
-      const descriptionLines = [
-        `Appointment: ${summary.bookingTypeTitle}`,
-        `Attendee: ${summary.attendeeName} (${summary.attendeeEmail})`,
-        `Studio: ${studioName}`,
-      ];
-
-      if (summary.locationType === 'google_meet') {
-        descriptionLines.push(
-          summary.meetUrl
-            ? `Google Meet Link: ${summary.meetUrl}`
-            : 'Google Meet video link will be sent prior to the session.',
-        );
-      } else if (summary.locationDetails) {
-        descriptionLines.push(`Location Details: ${summary.locationDetails}`);
-      }
-
-      if (studioEmail) {
-        descriptionLines.push(`Studio Contact: ${studioEmail}`);
-      }
-
-      const icsContent = generateSingleEventIcs({
-        uid: summary.appointmentId,
-        title: `${summary.bookingTypeTitle}: ${studioName} & ${summary.attendeeName}`,
-        description: descriptionLines.join('\n'),
-        startsAt: startDate,
-        endsAt: endDate,
-        location: locationStr,
-        attendeeName: summary.attendeeName,
-        attendeeEmail: summary.attendeeEmail,
-        studioName,
-      });
-
-      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `booking-${slug}.ics`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      downloadBookingIcs(slug, summary, studioName, studioEmail, onDownload);
     } finally {
       setDownloading(false);
     }

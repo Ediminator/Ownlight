@@ -11,6 +11,7 @@ import {
   getPrevMonth,
   formatMonthYear,
   fetchBookingChallenge,
+  validateBookingAttendeeForm,
   COMMON_TIMEZONES,
 } from './booking-helpers';
 import { BookingConfirmationView } from './booking-confirmation-view';
@@ -41,6 +42,22 @@ export interface PublicBookingSchedulerProps {
   studioEmail?: string | null;
   studioTimezone: string;
   locale: 'en' | 'de';
+  initialVisitorTimezone?: string;
+  initialSlots?: AvailableSlot[];
+  initialLoadingSlots?: boolean;
+  initialSelectedDate?: string;
+  initialSelectedSlot?: AvailableSlot | null;
+  initialAttendeeName?: string;
+  initialAttendeeEmail?: string;
+  initialAttendeePhone?: string;
+  initialAttendeeNotes?: string;
+  initialHoneypot?: string;
+  initialSubmitting?: boolean;
+  initialErrorBanner?: string | null;
+  initialFieldErrors?: Record<string, string>;
+  initialConfirmedBooking?: ConfirmedBookingSummary | null;
+  initialPowStatus?: PowSolverStatus;
+  initialPowPayload?: string;
 }
 
 /**
@@ -54,12 +71,28 @@ export function PublicBookingScheduler({
   studioEmail,
   studioTimezone,
   locale,
+  initialVisitorTimezone,
+  initialSlots,
+  initialLoadingSlots,
+  initialSelectedDate,
+  initialSelectedSlot,
+  initialAttendeeName,
+  initialAttendeeEmail,
+  initialAttendeePhone,
+  initialAttendeeNotes,
+  initialHoneypot,
+  initialSubmitting,
+  initialErrorBanner,
+  initialFieldErrors,
+  initialConfirmedBooking,
+  initialPowStatus,
+  initialPowPayload,
 }: PublicBookingSchedulerProps) {
   const t = useTranslations('publicBooking');
 
   // 1. Timezone detection & state (AC-1)
-  const [visitorTimezone, setVisitorTimezone] = useState<string>(() =>
-    detectVisitorTimezone(studioTimezone),
+  const [visitorTimezone, setVisitorTimezone] = useState<string>(
+    () => initialVisitorTimezone ?? detectVisitorTimezone(studioTimezone),
   );
 
   // 2. Calendar view state
@@ -69,25 +102,31 @@ export function PublicBookingScheduler({
   const todayStr = today.toISOString().slice(0, 10);
 
   // 3. Available slots state
-  const [slots, setSlots] = useState<AvailableSlot[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState<boolean>(true);
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
-  const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
+  const [slots, setSlots] = useState<AvailableSlot[]>(initialSlots ?? []);
+  const [loadingSlots, setLoadingSlots] = useState<boolean>(
+    initialLoadingSlots ?? (initialSlots ? false : true),
+  );
+  const [selectedDate, setSelectedDate] = useState<string>(initialSelectedDate ?? todayStr);
+  const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(
+    initialSelectedSlot ?? null,
+  );
 
   // 4. Form state
-  const [attendeeName, setAttendeeName] = useState('');
-  const [attendeeEmail, setAttendeeEmail] = useState('');
-  const [attendeePhone, setAttendeePhone] = useState('');
-  const [attendeeNotes, setAttendeeNotes] = useState('');
-  const [honeypot, setHoneypot] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [errorBanner, setErrorBanner] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [confirmedBooking, setConfirmedBooking] = useState<ConfirmedBookingSummary | null>(null);
+  const [attendeeName, setAttendeeName] = useState(initialAttendeeName ?? '');
+  const [attendeeEmail, setAttendeeEmail] = useState(initialAttendeeEmail ?? '');
+  const [attendeePhone, setAttendeePhone] = useState(initialAttendeePhone ?? '');
+  const [attendeeNotes, setAttendeeNotes] = useState(initialAttendeeNotes ?? '');
+  const [honeypot, setHoneypot] = useState(initialHoneypot ?? '');
+  const [submitting, setSubmitting] = useState(initialSubmitting ?? false);
+  const [errorBanner, setErrorBanner] = useState<string | null>(initialErrorBanner ?? null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>(initialFieldErrors ?? {});
+  const [confirmedBooking, setConfirmedBooking] = useState<ConfirmedBookingSummary | null>(
+    initialConfirmedBooking ?? null,
+  );
 
   // 5. ALTCHA PoW solver state (AC-7)
-  const [powStatus, setPowStatus] = useState<PowSolverStatus>('idle');
-  const [powPayload, setPowPayload] = useState<string>('');
+  const [powStatus, setPowStatus] = useState<PowSolverStatus>(initialPowStatus ?? 'idle');
+  const [powPayload, setPowPayload] = useState<string>(initialPowPayload ?? '');
   const solverControllerRef = useRef<ReturnType<typeof createAltchaSolverController> | null>(null);
 
   // Initialize and run ALTCHA solver
@@ -186,20 +225,9 @@ export function PublicBookingScheduler({
     setFieldErrors({});
 
     // Client-side quick validation
-    const errors: Record<string, string> = {};
-    if (!attendeeName.trim()) {
-      errors.attendeeName =
-        locale === 'de' ? 'Bitte geben Sie Ihren Namen ein' : 'Name is required';
-    }
-    if (!attendeeEmail.trim() || !attendeeEmail.includes('@')) {
-      errors.attendeeEmail =
-        locale === 'de'
-          ? 'Bitte geben Sie eine gültige E-Mail-Adresse ein'
-          : 'Valid email is required';
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
+    const validation = validateBookingAttendeeForm(attendeeName, attendeeEmail, locale);
+    if (!validation.isValid) {
+      setFieldErrors(validation.errors);
       return;
     }
 
@@ -269,6 +297,12 @@ export function PublicBookingScheduler({
     }
   };
 
+  const handleBookAnother = () => {
+    setConfirmedBooking(null);
+    setSelectedSlot(null);
+    void loadSlots(viewYear, viewMonth, visitorTimezone);
+  };
+
   // If already confirmed, render confirmation view (AC-3, AC-11)
   if (confirmedBooking) {
     return (
@@ -277,11 +311,7 @@ export function PublicBookingScheduler({
         slug={bookingType.slug}
         studioName={studioName}
         studioEmail={studioEmail}
-        onBookAnother={() => {
-          setConfirmedBooking(null);
-          setSelectedSlot(null);
-          void loadSlots(viewYear, viewMonth, visitorTimezone);
-        }}
+        onBookAnother={handleBookAnother}
       />
     );
   }

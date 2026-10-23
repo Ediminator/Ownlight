@@ -433,13 +433,15 @@ describe('TASK-0044: Public Booking Schema & Pure Helpers Unit Tests', () => {
         deObj: Record<string, unknown>,
         path = '',
       ) {
-        for (const key of Object.keys(enObj)) {
+        const deMap = new Map(Object.entries(deObj));
+        for (const [key, enVal] of Object.entries(enObj)) {
           const currentPath = path ? `${path}.${key}` : key;
-          expect(deObj[key], `Missing German translation for key: ${currentPath}`).toBeDefined();
-          if (typeof enObj[key] === 'object' && enObj[key] !== null && !Array.isArray(enObj[key])) {
+          expect(deMap.has(key), `Missing German translation for key: ${currentPath}`).toBe(true);
+          const deVal = deMap.get(key);
+          if (typeof enVal === 'object' && enVal !== null && !Array.isArray(enVal)) {
             compareKeys(
-              enObj[key] as Record<string, unknown>,
-              deObj[key] as Record<string, unknown>,
+              enVal as Record<string, unknown>,
+              (deVal ?? {}) as Record<string, unknown>,
               currentPath,
             );
           }

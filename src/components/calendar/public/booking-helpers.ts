@@ -268,3 +268,86 @@ export async function fetchBookingChallenge(
     return null;
   }
 }
+
+/**
+ * Quick validation for the public booking attendee form.
+ */
+export function validateBookingAttendeeForm(
+  name: string,
+  email: string,
+  locale: 'en' | 'de',
+): { isValid: boolean; errors: Record<string, string> } {
+  const errors: Record<string, string> = {};
+  if (!name.trim()) {
+    errors.attendeeName = locale === 'de' ? 'Bitte geben Sie Ihren Namen ein' : 'Name is required';
+  }
+  if (!email.trim() || !email.includes('@')) {
+    errors.attendeeEmail =
+      locale === 'de'
+        ? 'Bitte geben Sie eine gültige E-Mail-Adresse ein'
+        : 'Valid email is required';
+  }
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+  };
+}
+
+/**
+ * Builds the RFC 5545 ICS generation parameters from confirmed booking summary.
+ */
+export function buildBookingIcsParams(
+  summary: {
+    appointmentId: string;
+    bookingTypeTitle: string;
+    startsAt: string;
+    endsAt: string;
+    locationType: string;
+    meetUrl?: string | null;
+    locationDetails?: string | null;
+    attendeeName: string;
+    attendeeEmail: string;
+  },
+  studioName: string,
+  studioEmail?: string | null,
+) {
+  const startDate = new Date(summary.startsAt);
+  const endDate = new Date(summary.endsAt);
+
+  const locationStr =
+    summary.locationType === 'google_meet'
+      ? (summary.meetUrl ?? 'Google Meet')
+      : (summary.locationDetails ?? (summary.locationType === 'phone' ? 'Phone Call' : studioName));
+
+  const descriptionLines = [
+    `Appointment: ${summary.bookingTypeTitle}`,
+    `Attendee: ${summary.attendeeName} (${summary.attendeeEmail})`,
+    `Studio: ${studioName}`,
+  ];
+
+  if (summary.locationType === 'google_meet') {
+    descriptionLines.push(
+      summary.meetUrl
+        ? `Google Meet Link: ${summary.meetUrl}`
+        : 'Google Meet video link will be sent prior to the session.',
+    );
+  } else if (summary.locationDetails) {
+    descriptionLines.push(`Location Details: ${summary.locationDetails}`);
+  }
+
+  if (studioEmail) {
+    descriptionLines.push(`Studio Contact: ${studioEmail}`);
+  }
+
+  return {
+    uid: summary.appointmentId,
+    title: `${summary.bookingTypeTitle}: ${studioName} & ${summary.attendeeName}`,
+    description: descriptionLines.join('\n'),
+    startsAt: startDate,
+    endsAt: endDate,
+    location: locationStr,
+    attendeeName: summary.attendeeName,
+    attendeeEmail: summary.attendeeEmail,
+    studioName,
+  };
+}

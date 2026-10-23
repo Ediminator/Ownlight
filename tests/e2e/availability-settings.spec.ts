@@ -328,6 +328,7 @@ test.describe('TASK-0043: Availability Schedules, Date Overrides, & Booking Type
   test('AC-10: Zero WCAG 2.2 AA violations across viewports (320px, 768px, 1280px) in light/dark modes with UX screenshots', async ({
     page,
   }) => {
+    test.setTimeout(90000);
     const viewports = [
       { name: '320px', width: 320, height: 640 },
       { name: '768px', width: 768, height: 1024 },

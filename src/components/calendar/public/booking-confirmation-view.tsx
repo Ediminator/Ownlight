@@ -118,7 +118,7 @@ export function BookingConfirmationView({
       <div className="sm:mx-auto sm:w-full sm:max-w-xl px-4">
         {/* Studio Branding */}
         <header className="text-center mb-6">
-          <p className="text-sm font-semibold tracking-wide uppercase text-neutral-500 dark:text-neutral-400">
+          <p className="text-sm font-semibold tracking-wide uppercase text-neutral-600 dark:text-neutral-400">
             {studioName}
           </p>
         </header>
@@ -158,7 +158,7 @@ export function BookingConfirmationView({
 
           {/* Session Details Box */}
           <div className="mt-8 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl p-5 border border-neutral-200/80 dark:border-neutral-700/60 space-y-4">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
               {t('sessionSummary')}
             </h2>
 
@@ -175,7 +175,7 @@ export function BookingConfirmationView({
                 </svg>
               </span>
               <div>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('session')}</p>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400">{t('session')}</p>
                 <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                   {summary.bookingTypeTitle} ({summary.durationMinutes} min)
                 </p>
@@ -195,7 +195,7 @@ export function BookingConfirmationView({
                 </svg>
               </span>
               <div>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('when')}</p>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400">{t('when')}</p>
                 <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                   {formattedDate}
                 </p>
@@ -224,11 +224,11 @@ export function BookingConfirmationView({
                 </svg>
               </span>
               <div>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('location')}</p>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400">{t('location')}</p>
                 {summary.locationType === 'google_meet' ? (
                   <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                     Google Meet
-                    <span className="block text-xs font-normal text-neutral-500 mt-0.5">
+                    <span className="block text-xs font-normal text-neutral-600 dark:text-neutral-400 mt-0.5">
                       {t('googleMeetNotice')}
                     </span>
                   </p>

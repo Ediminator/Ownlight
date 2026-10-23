@@ -160,9 +160,14 @@ test.describe('TASK-0044: Public Booking Scheduler E2E', () => {
     const addToCalendarBtn = page.locator('[data-testid="add-to-calendar-btn"]');
     await expect(addToCalendarBtn).toBeVisible();
 
-    // 10. Run a11y scan on confirmation view
+    // 10. Run a11y scan on confirmation view in light mode
     const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
     expect(accessibilityScanResults.violations).toEqual([]);
+
+    // I2-U01: Run a11y scan on confirmation view in dark mode
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const darkConfirmationAxe = await new AxeBuilder({ page }).analyze();
+    expect(darkConfirmationAxe.violations).toEqual([]);
   });
 
   test('AC-9: inactive or unknown booking type displays closed notice without slot picker', async ({
@@ -219,13 +224,21 @@ test.describe('TASK-0044: Public Booking Scheduler E2E', () => {
     );
   });
 
-  test('I1-U01, I1-U02, I1-U03: dark and light mode contrast and error accessibility', async ({
+  test('I1-U01, I1-U02, I1-U03, I2-U01: dark and light mode contrast and error accessibility', async ({
     page,
   }) => {
     // 1. Light mode error validation accessibility
     await page.goto('/en/book/discovery-call');
     const slotsList = page.locator('[data-testid="slots-list"]');
     await expect(slotsList).toBeVisible({ timeout: 10000 });
+
+    // I2-U01: Dark mode Axe audit on slot picker view (verifies slot header and loading state contrast)
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const darkSlotPickerAxe = await new AxeBuilder({ page }).analyze();
+    expect(darkSlotPickerAxe.violations).toEqual([]);
+
+    // Switch back to light mode to test form validation errors
+    await page.emulateMedia({ colorScheme: 'light' });
     await slotsList.locator('button').first().click();
 
     // Trigger validation errors

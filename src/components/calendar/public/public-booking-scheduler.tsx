@@ -331,7 +331,7 @@ export function PublicBookingScheduler({
           <div className="p-6 sm:p-8 md:col-span-5 flex flex-col justify-between bg-neutral-50/50 dark:bg-neutral-900/50">
             <div>
               <header className="mb-6">
-                <p className="text-xs font-semibold tracking-wider uppercase text-neutral-500 dark:text-neutral-400">
+                <p className="text-xs font-semibold tracking-wider uppercase text-neutral-600 dark:text-neutral-400">
                   {studioName}
                 </p>
                 <h1
@@ -402,7 +402,7 @@ export function PublicBookingScheduler({
             <div className="mt-8 pt-6 border-t border-neutral-200/60 dark:border-neutral-800">
               <label
                 htmlFor="timezone-select"
-                className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5"
+                className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5"
               >
                 {t('slotPicker.timezoneLabel')}
               </label>
@@ -586,17 +586,17 @@ export function PublicBookingScheduler({
 
                 {/* Available Slots List for Selected Date */}
                 <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
-                  <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+                  <h3 className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider mb-3">
                     {t('slotPicker.availableSlots', { date: selectedDate })}
                   </h3>
 
                   {loadingSlots ? (
-                    <div className="py-8 text-center text-xs text-neutral-500">
+                    <div className="py-8 text-center text-xs text-neutral-600 dark:text-neutral-400">
                       <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent mb-2" />
                       <p>{t('slotPicker.loadingSlots')}</p>
                     </div>
                   ) : slotsForSelectedDate.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-neutral-500 dark:text-neutral-400">
+                    <div className="py-8 text-center text-xs text-neutral-600 dark:text-neutral-400">
                       {t('slotPicker.noSlotsOnDate')}
                     </div>
                   ) : (
@@ -628,7 +628,7 @@ export function PublicBookingScheduler({
                               {formatted.visitorTime}
                             </span>
                             {visitorTimezone !== studioTimezone && (
-                              <span className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                              <span className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
                                 {formatted.studioTime}
                               </span>
                             )}

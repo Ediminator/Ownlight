@@ -45,7 +45,7 @@ export function BookingClosedView({
               />
             </svg>
           </div>
-          <p className="text-sm font-semibold tracking-wide uppercase text-neutral-500 dark:text-neutral-400">
+          <p className="text-sm font-semibold tracking-wide uppercase text-neutral-600 dark:text-neutral-400">
             {studioName}
           </p>
           {bookingTypeTitle && (

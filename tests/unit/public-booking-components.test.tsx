@@ -273,6 +273,22 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
       expect(html).toContain('publicBooking.confirmation.addToCalendar');
       // I1-U01: Add to Calendar button uses text-primary-foreground
       expect(html).toContain('text-primary-foreground');
+      // I2-U01: Google Meet notice uses text-neutral-600 dark:text-neutral-400
+      expect(html).toContain('text-neutral-600 dark:text-neutral-400 mt-0.5');
+    });
+
+    it('I2-U01: renders Google Meet notice and section headings with WCAG 1.4.3 compliant dark mode contrast', () => {
+      const html = renderToStaticMarkup(
+        <BookingConfirmationView
+          summary={baseSummary}
+          slug="editorial-portrait"
+          studioName="Lumiere Studio"
+          studioEmail="hello@lumiere.com"
+        />,
+      );
+      expect(html).toContain('text-neutral-600 dark:text-neutral-400 mt-0.5');
+      expect(html).toContain('publicBooking.confirmation.googleMeetNotice');
+      expect(html).not.toContain('text-neutral-500');
     });
 
     it('renders in-person location details and handles custom location text', () => {
@@ -475,6 +491,22 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
       expect(html).toContain('45'); // duration
       expect(html).toContain('publicBooking.slotPicker.timezoneLabel');
       expect(html).toContain('publicBooking.slotPicker.selectDate');
+    });
+
+    it('I2-U01: renders slot picker available slots header with text-neutral-600 dark:text-neutral-400 for >= 4.5:1 contrast', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioEmail="info@lumiere.com"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+        />,
+      );
+      expect(html).toContain(
+        'text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider mb-3',
+      );
+      expect(html).not.toContain('text-neutral-500');
     });
 
     it('renders scheduler in German with in-person location', () => {

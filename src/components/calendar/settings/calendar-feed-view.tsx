@@ -30,6 +30,8 @@ import {
   buildFeedSubscriptionUrl,
   formatLastAccessedDate,
   SUMMARY_LEVEL_OPTIONS,
+  NOOP_SUBSCRIBE,
+  getClientWindowOrigin,
 } from './feed-settings-helpers';
 import {
   revokeFeedTokenAction,
@@ -40,39 +42,55 @@ interface CalendarFeedViewProps {
   initialFeed: CalendarFeed;
   initialToken?: string | null;
   locale: string;
+  initialCopied?: boolean;
+  initialCopyFeedback?: string | null;
+  initialIsUpdatingLevel?: boolean;
+  initialLevelFeedback?: { text: string; error?: boolean } | null;
+  initialRevokeDialogOpen?: boolean;
+  initialIsRevoking?: boolean;
+  initialRevokeFeedback?: { text: string; error?: boolean } | null;
 }
 
-const NOOP_SUBSCRIBE = () => () => {
-  // Static origin has no external store subscription events
-};
-
-export function CalendarFeedView({ initialFeed, initialToken, locale }: CalendarFeedViewProps) {
+export function CalendarFeedView({
+  initialFeed,
+  initialToken,
+  locale,
+  initialCopied,
+  initialCopyFeedback,
+  initialIsUpdatingLevel,
+  initialLevelFeedback,
+  initialRevokeDialogOpen,
+  initialIsRevoking,
+  initialRevokeFeedback,
+}: CalendarFeedViewProps) {
   const t = useTranslations('settings.calendarFeed');
   const [feed, setFeed] = React.useState<CalendarFeed>(initialFeed);
   const [currentToken, setCurrentToken] = React.useState<string | null>(initialToken ?? null);
-  const [copied, setCopied] = React.useState<boolean>(false);
-  const [copyFeedback, setCopyFeedback] = React.useState<string | null>(null);
+  const [copied, setCopied] = React.useState<boolean>(initialCopied ?? false);
+  const [copyFeedback, setCopyFeedback] = React.useState<string | null>(
+    initialCopyFeedback ?? null,
+  );
   const [summaryLevel, setSummaryLevel] = React.useState<CalendarFeedSummaryLevel>(
     initialFeed.summaryLevel,
   );
-  const [isUpdatingLevel, setIsUpdatingLevel] = React.useState<boolean>(false);
+  const [isUpdatingLevel, setIsUpdatingLevel] = React.useState<boolean>(
+    initialIsUpdatingLevel ?? false,
+  );
   const [levelFeedback, setLevelFeedback] = React.useState<{
     text: string;
     error?: boolean;
-  } | null>(null);
-  const [revokeDialogOpen, setRevokeDialogOpen] = React.useState<boolean>(false);
-  const [isRevoking, setIsRevoking] = React.useState<boolean>(false);
+  } | null>(initialLevelFeedback ?? null);
+  const [revokeDialogOpen, setRevokeDialogOpen] = React.useState<boolean>(
+    initialRevokeDialogOpen ?? false,
+  );
+  const [isRevoking, setIsRevoking] = React.useState<boolean>(initialIsRevoking ?? false);
   const [revokeFeedback, setRevokeFeedback] = React.useState<{
     text: string;
     error?: boolean;
-  } | null>(null);
+  } | null>(initialRevokeFeedback ?? null);
   const revokeTriggerRef = React.useRef<HTMLButtonElement>(null);
 
-  const origin = React.useSyncExternalStore(
-    NOOP_SUBSCRIBE,
-    () => (typeof window !== 'undefined' ? window.location.origin : ''),
-    () => '',
-  );
+  const origin = React.useSyncExternalStore(NOOP_SUBSCRIBE, getClientWindowOrigin, () => '');
 
   const feedUrl = buildFeedSubscriptionUrl(origin, currentToken);
   const isMasked = !currentToken;

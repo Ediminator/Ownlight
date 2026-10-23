@@ -7,6 +7,8 @@ import {
   isTokenMasked,
   formatLastAccessedDate,
   SUMMARY_LEVEL_OPTIONS,
+  NOOP_SUBSCRIBE,
+  getClientWindowOrigin,
 } from '@/components/calendar/settings/feed-settings-helpers';
 
 vi.mock('server-only', () => ({}));
@@ -63,6 +65,11 @@ vi.mock('@/server/calendar/feed-actions', () => ({
   revokeFeedTokenAction: vi.fn().mockResolvedValue({ success: true }),
   updateFeedSummaryLevelAction: vi.fn().mockResolvedValue({ success: true }),
 }));
+
+import {
+  revokeFeedTokenAction,
+  updateFeedSummaryLevelAction,
+} from '@/server/calendar/feed-actions';
 
 import { CalendarFeedView } from '@/components/calendar/settings/calendar-feed-view';
 import CalendarSettingsRootPage from '@/app/[locale]/settings/calendar/page';
@@ -140,6 +147,27 @@ describe('TASK-0045: Calendar Feed Settings Helpers & Components', () => {
         'full',
       ]);
     });
+
+    it('NOOP_SUBSCRIBE and getClientWindowOrigin provide external store helpers', () => {
+      const unsub = NOOP_SUBSCRIBE();
+      expect(typeof unsub).toBe('function');
+      unsub();
+
+      expect(getClientWindowOrigin()).toBe('');
+
+      const originalWindow = globalThis.window;
+      Object.defineProperty(globalThis, 'window', {
+        value: { location: { origin: 'https://custom.origin' } },
+        configurable: true,
+        writable: true,
+      });
+      expect(getClientWindowOrigin()).toBe('https://custom.origin');
+      Object.defineProperty(globalThis, 'window', {
+        value: originalWindow,
+        configurable: true,
+        writable: true,
+      });
+    });
   });
 
   describe('CalendarFeedView (Static Render)', () => {
@@ -202,6 +230,309 @@ describe('TASK-0045: Calendar Feed Settings Helpers & Components', () => {
 
       expect(html).toContain('data-testid="revoke-feed-button"');
       expect(html).toContain('settings.calendarFeed.revokeSection.revokeBtn');
+    });
+
+    it('renders copied state and feedback when initialCopied is true', () => {
+      const html = renderToStaticMarkup(
+        <CalendarFeedView
+          initialFeed={dummyFeed}
+          initialToken="some-token"
+          locale="en"
+          initialCopied={true}
+          initialCopyFeedback="Copied to clipboard"
+        />,
+      );
+
+      expect(html).toContain('Copied to clipboard');
+    });
+
+    it('renders level feedback in both success and error styles', () => {
+      const htmlSuccess = renderToStaticMarkup(
+        <CalendarFeedView
+          initialFeed={dummyFeed}
+          initialToken="some-token"
+          locale="en"
+          initialLevelFeedback={{ text: 'Saved successfully', error: false }}
+          initialIsUpdatingLevel={true}
+        />,
+      );
+      expect(htmlSuccess).toContain('Saved successfully');
+      expect(htmlSuccess).toContain('text-emerald-700');
+
+      const htmlError = renderToStaticMarkup(
+        <CalendarFeedView
+          initialFeed={dummyFeed}
+          initialToken="some-token"
+          locale="en"
+          initialLevelFeedback={{ text: 'Failed to update', error: true }}
+        />,
+      );
+      expect(htmlError).toContain('Failed to update');
+      expect(htmlError).toContain('text-destructive');
+    });
+
+    it('renders revoke feedback in both success and error styles', () => {
+      const htmlSuccess = renderToStaticMarkup(
+        <CalendarFeedView
+          initialFeed={dummyFeed}
+          initialToken="some-token"
+          locale="en"
+          initialRevokeFeedback={{ text: 'Revoked successfully', error: false }}
+          initialRevokeDialogOpen={true}
+          initialIsRevoking={true}
+        />,
+      );
+      expect(htmlSuccess).toContain('Revoked successfully');
+      expect(htmlSuccess).toContain('settings.calendarFeed.revokeSection.revoking');
+
+      const htmlError = renderToStaticMarkup(
+        <CalendarFeedView
+          initialFeed={dummyFeed}
+          initialToken="some-token"
+          locale="en"
+          initialRevokeFeedback={{ text: 'Revocation failed', error: true }}
+        />,
+      );
+      expect(htmlError).toContain('Revocation failed');
+      expect(htmlError).toContain('text-destructive');
+    });
+  });
+
+  describe('CalendarFeedView (Interactive Handlers & Branches)', () => {
+    let capturedViewTree: React.ReactElement | null = null;
+    function CaptureCalendarFeedView(props: React.ComponentProps<typeof CalendarFeedView>) {
+      const res = CalendarFeedView(props);
+      capturedViewTree = res;
+      return res;
+    }
+
+    function findNodeByTestId(node: unknown, testId: string): Record<string, unknown> | undefined {
+      if (!node || typeof node !== 'object') return undefined;
+      if (React.isValidElement(node)) {
+        const props = node.props as Record<string, unknown>;
+        if (props['data-testid'] === testId) return props;
+        if (props.children) {
+          const res = findNodeByTestId(props.children, testId);
+          if (res) return res;
+        }
+      } else if (Array.isArray(node)) {
+        for (const item of node) {
+          const res = findNodeByTestId(item, testId);
+          if (res) return res;
+        }
+      }
+      return undefined;
+    }
+
+    function findInputInNode(node: unknown): Record<string, unknown> | undefined {
+      if (!node || typeof node !== 'object') return undefined;
+      if (React.isValidElement(node)) {
+        if (node.type === 'input') return node.props as Record<string, unknown>;
+        const props = node.props as Record<string, unknown>;
+        if (props.children) {
+          const res = findInputInNode(props.children);
+          if (res) return res;
+        }
+      } else if (Array.isArray(node)) {
+        for (const item of node) {
+          const res = findInputInNode(item);
+          if (res) return res;
+        }
+      } else {
+        const obj = node as Record<string, unknown>;
+        if (obj.children) {
+          return findInputInNode(obj.children);
+        }
+      }
+      return undefined;
+    }
+
+    function findButtonsInNode(node: unknown): Record<string, unknown>[] {
+      const buttons: Record<string, unknown>[] = [];
+      function traverse(n: unknown): void {
+        if (!n || typeof n !== 'object') return;
+        if (React.isValidElement(n)) {
+          const props = n.props as Record<string, unknown>;
+          if (typeof props.onClick === 'function') {
+            buttons.push(props);
+          }
+          if (props.children) traverse(props.children);
+        } else if (Array.isArray(n)) {
+          for (const item of n) traverse(item);
+        } else {
+          const obj = n as Record<string, unknown>;
+          if (obj.children) traverse(obj.children);
+        }
+      }
+      traverse(node);
+      return buttons;
+    }
+
+    it('handles copy button click when clipboard succeeds', async () => {
+      vi.useFakeTimers();
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, {
+        clipboard: {
+          writeText: writeTextMock,
+        },
+      });
+
+      renderToStaticMarkup(
+        <CaptureCalendarFeedView initialFeed={dummyFeed} initialToken="test-token" locale="en" />,
+      );
+
+      const copyBtn = findNodeByTestId(capturedViewTree, 'copy-feed-url-button');
+      expect(copyBtn).toBeDefined();
+      const onClick = copyBtn?.onClick as (() => Promise<void>) | undefined;
+      await onClick?.();
+
+      expect(writeTextMock).toHaveBeenCalled();
+
+      vi.advanceTimersByTime(3500);
+      vi.useRealTimers();
+    });
+
+    it('handles copy button click when clipboard fails (I1-U02 error path)', async () => {
+      const writeTextMock = vi.fn().mockRejectedValue(new Error('Clipboard denied'));
+      Object.assign(navigator, {
+        clipboard: {
+          writeText: writeTextMock,
+        },
+      });
+
+      renderToStaticMarkup(
+        <CaptureCalendarFeedView initialFeed={dummyFeed} initialToken="test-token" locale="de" />,
+      );
+
+      const copyBtn = findNodeByTestId(capturedViewTree, 'copy-feed-url-button');
+      const onClick = copyBtn?.onClick as (() => Promise<void>) | undefined;
+      await onClick?.();
+
+      expect(writeTextMock).toHaveBeenCalled();
+    });
+
+    it('handles summary level change successfully', async () => {
+      vi.useFakeTimers();
+      const mockUpdate = vi.mocked(updateFeedSummaryLevelAction);
+      mockUpdate.mockResolvedValueOnce({
+        success: true,
+        data: { ...dummyFeed, summaryLevel: 'minimal' },
+      });
+
+      renderToStaticMarkup(
+        <CaptureCalendarFeedView initialFeed={dummyFeed} initialToken="test-token" locale="en" />,
+      );
+
+      const minimalOption = findNodeByTestId(capturedViewTree, 'summary-level-option-minimal');
+      expect(minimalOption).toBeDefined();
+      const radioInput = findInputInNode(minimalOption);
+      expect(radioInput).toBeDefined();
+      const onChange = radioInput?.onChange as (() => Promise<void>) | undefined;
+      await onChange?.();
+
+      expect(mockUpdate).toHaveBeenCalledWith({
+        feedId: dummyFeed.id,
+        summaryLevel: 'minimal',
+      });
+
+      vi.advanceTimersByTime(4500);
+      vi.useRealTimers();
+    });
+
+    it('handles summary level change failure and exception', async () => {
+      const mockUpdate = vi.mocked(updateFeedSummaryLevelAction);
+      mockUpdate.mockResolvedValueOnce({
+        success: false,
+        code: 'INTERNAL_ERROR',
+        error: 'UPDATE_FAILED',
+      });
+
+      renderToStaticMarkup(
+        <CaptureCalendarFeedView initialFeed={dummyFeed} initialToken="test-token" locale="en" />,
+      );
+
+      const fullOption = findNodeByTestId(capturedViewTree, 'summary-level-option-full');
+      const radioInput = findInputInNode(fullOption);
+      const onChange = radioInput?.onChange as (() => Promise<void>) | undefined;
+      await onChange?.();
+
+      expect(mockUpdate).toHaveBeenCalledWith({
+        feedId: dummyFeed.id,
+        summaryLevel: 'full',
+      });
+
+      mockUpdate.mockRejectedValueOnce(new Error('Network error'));
+      await onChange?.();
+    });
+
+    it('handles revoke confirmation, dialog open/close, and focus restoration', async () => {
+      vi.useFakeTimers();
+      const mockRevoke = vi.mocked(revokeFeedTokenAction);
+      const syntheticRegeneratedToken = 'new-regenerated-feed-token-32chars';
+      mockRevoke.mockResolvedValueOnce({
+        success: true,
+        data: {
+          feed: { ...dummyFeed, id: '01920000-0000-7000-8000-000000000002' },
+          token: syntheticRegeneratedToken,
+          previousFeedId: dummyFeed.id,
+        },
+      });
+
+      renderToStaticMarkup(
+        <CaptureCalendarFeedView initialFeed={dummyFeed} initialToken="test-token" locale="en" />,
+      );
+
+      // 1. Open dialog via revoke-feed-button
+      const revokeBtn = findNodeByTestId(capturedViewTree, 'revoke-feed-button');
+      expect(revokeBtn).toBeDefined();
+      const onRevokeClick = revokeBtn?.onClick as (() => void) | undefined;
+      onRevokeClick?.();
+
+      // 2. Test dialog onCloseAutoFocus
+      const dialogContent = findNodeByTestId(capturedViewTree, 'revoke-confirmation-dialog');
+      expect(dialogContent).toBeDefined();
+      const onCloseAutoFocus = dialogContent?.onCloseAutoFocus as
+        ((e: { preventDefault: () => void }) => void) | undefined;
+      const preventDefault = vi.fn();
+      onCloseAutoFocus?.({ preventDefault });
+      expect(preventDefault).toHaveBeenCalled();
+
+      // 3. Confirm revocation
+      const confirmBtn = findNodeByTestId(capturedViewTree, 'confirm-revoke-button');
+      expect(confirmBtn).toBeDefined();
+      const onConfirmClick = confirmBtn?.onClick as (() => Promise<void>) | undefined;
+      await onConfirmClick?.();
+
+      expect(mockRevoke).toHaveBeenCalledWith({ feedId: dummyFeed.id });
+
+      vi.advanceTimersByTime(5500);
+      vi.useRealTimers();
+    });
+
+    it('handles revoke error and cancel button dismissal', async () => {
+      const mockRevoke = vi.mocked(revokeFeedTokenAction);
+      mockRevoke.mockResolvedValueOnce({
+        success: false,
+        code: 'INTERNAL_ERROR',
+        error: 'REVOKE_FAILED',
+      });
+
+      renderToStaticMarkup(
+        <CaptureCalendarFeedView initialFeed={dummyFeed} initialToken="test-token" locale="de" />,
+      );
+
+      const confirmBtn = findNodeByTestId(capturedViewTree, 'confirm-revoke-button');
+      const onConfirmClick = confirmBtn?.onClick as (() => Promise<void>) | undefined;
+      await onConfirmClick?.();
+
+      mockRevoke.mockRejectedValueOnce(new Error('Revoke network crash'));
+      await onConfirmClick?.();
+
+      const dialogContent = findNodeByTestId(capturedViewTree, 'revoke-confirmation-dialog');
+      const buttons = findButtonsInNode(dialogContent);
+      const cancelBtn = buttons.find((b) => b['data-testid'] !== 'confirm-revoke-button');
+      const onCancelClick = cancelBtn?.onClick as (() => void) | undefined;
+      onCancelClick?.();
     });
   });
 

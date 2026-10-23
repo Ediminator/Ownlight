@@ -50,3 +50,11 @@ export function formatLastAccessedDate(
     timeStyle: 'short',
   }).format(d);
 }
+
+export const NOOP_SUBSCRIBE = () => () => {
+  // Static origin has no external store subscription events
+};
+
+export function getClientWindowOrigin(): string {
+  return typeof window !== 'undefined' ? window.location.origin : '';
+}

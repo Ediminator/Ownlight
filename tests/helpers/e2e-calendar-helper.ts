@@ -12,24 +12,6 @@ export const E2E_BOOKING_TYPE_CONSULTATION_SLUG = 'consultation';
 export async function seedAllE2eCalendar(pglite: PGlite): Promise<void> {
   const now = new Date().toISOString();
 
-  // 1. Seed Booking Types
-  await pglite.query(
-    `INSERT INTO booking_types (
-      id, slug, title, description, duration_minutes, buffer_before_minutes, buffer_after_minutes,
-      min_notice_hours, max_future_days, location_type, color, is_active, created_at, updated_at
-    ) VALUES
-      ($1, $2, 'Discovery Call', 'Initial 30-minute consultation to discuss your photography project and vision.', 30, 0, 15, 24, 60, 'google_meet', 'indigo', true, $3, $3),
-      ($4, $5, 'Consultation', 'In-depth 60-minute planning session to review concept, styling, and logistics.', 60, 0, 15, 24, 60, 'google_meet', 'indigo', true, $3, $3)
-    ON CONFLICT (id) DO UPDATE SET is_active = true, updated_at = $3`,
-    [
-      E2E_BOOKING_TYPE_DISCOVERY_ID,
-      E2E_BOOKING_TYPE_DISCOVERY_SLUG,
-      now,
-      E2E_BOOKING_TYPE_CONSULTATION_ID,
-      E2E_BOOKING_TYPE_CONSULTATION_SLUG,
-    ],
-  );
-
   // 2. Seed Availability Schedules (Mon-Fri 09:00-17:00, Sat/Sun inactive)
   const schedules = [
     { day: 0, active: false, id: '01920000-0000-7000-8000-000000000020' },

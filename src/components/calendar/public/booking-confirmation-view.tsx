@@ -151,7 +151,7 @@ export function BookingConfirmationView({
               {t('title')}
             </h1>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{t('subtitle')}</p>
-            <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-500">
+            <p className="mt-3 text-xs text-neutral-600 dark:text-neutral-400">
               {t('emailNotice', { email: summary.attendeeEmail })}
             </p>
           </div>
@@ -249,7 +249,7 @@ export function BookingConfirmationView({
               data-testid="add-to-calendar-btn"
               onClick={handleDownloadIcs}
               disabled={downloading}
-              className="w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-sm font-medium rounded-xl text-white bg-primary hover:bg-primary/90 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors cursor-pointer"
+              className="w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-sm font-medium rounded-xl text-primary-foreground bg-primary hover:bg-primary/90 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors cursor-pointer"
             >
               <svg
                 className="w-5 h-5 mr-2"

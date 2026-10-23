@@ -982,6 +982,40 @@ describe('TASK-0044: Public Booking Scheduler Integration Tests', () => {
     expect(result.success).toBe(true);
   });
 
+  it('I1-S01: maps unresolved clientIp (null) to shared unknown bucket and rate limits after 5 attempts', async () => {
+    mockHeadersStore.clear();
+
+    // The previous test already used 1 attempt with null clientIp (bucket 'unknown')
+    // Attempt additional submissions until limit of 5 is exceeded
+    let rateLimitedResult: Awaited<ReturnType<typeof submitPublicBookingAction>> | null = null;
+    for (let i = 0; i < 6; i++) {
+      const pow = await generateValidPowPayload();
+      const res = await submitPublicBookingAction(
+        {
+          slug: discoveryCallSlug,
+          startsAt: `2026-10-27T${String(10 + i).padStart(2, '0')}:00:00Z`,
+          endsAt: `2026-10-27T${String(10 + i).padStart(2, '0')}:30:00Z`,
+          timezone: 'Europe/Berlin',
+          attendeeName: `No IP Attendee ${String(i)}`,
+          attendeeEmail: `noip${String(i)}@example.com`,
+          website_url: '',
+          altcha_payload: pow,
+          locale: 'en',
+        },
+        dbClient,
+      );
+      if (!res.success && res.code === 'RATE_LIMITED') {
+        rateLimitedResult = res;
+        break;
+      }
+    }
+
+    expect(rateLimitedResult).not.toBeNull();
+    expect(rateLimitedResult?.success).toBe(false);
+    expect(rateLimitedResult?.code).toBe('RATE_LIMITED');
+    expect(rateLimitedResult?.error).toContain('Too many booking attempts');
+  });
+
   it('AC-7: returns localized German error on invalid PoW when locale is de', async () => {
     const result = await submitPublicBookingAction(
       {

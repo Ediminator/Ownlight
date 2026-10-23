@@ -193,6 +193,16 @@ test.describe('TASK-0044: Public Booking Scheduler E2E', () => {
     // 1. Verify German title / date picker heading
     await expect(page.locator('text=Datum & Uhrzeit wählen')).toBeVisible();
 
+    // I1-U04: Verify German weekday abbreviations in calendar header (Mo, Di, Mi, Do, Fr, Sa, So)
+    const columnHeaders = page.locator('[role="columnheader"]');
+    await expect(columnHeaders.nth(0)).toHaveText('Mo');
+    await expect(columnHeaders.nth(1)).toHaveText('Di');
+    await expect(columnHeaders.nth(2)).toHaveText('Mi');
+    await expect(columnHeaders.nth(3)).toHaveText('Do');
+    await expect(columnHeaders.nth(4)).toHaveText('Fr');
+    await expect(columnHeaders.nth(5)).toHaveText('Sa');
+    await expect(columnHeaders.nth(6)).toHaveText('So');
+
     // 2. Verify German slot list
     const slotsList = page.locator('[data-testid="slots-list"]');
     await expect(slotsList).toBeVisible({ timeout: 10000 });
@@ -207,5 +217,33 @@ test.describe('TASK-0044: Public Booking Scheduler E2E', () => {
     await expect(page.locator('[data-testid="confirm-booking-btn"]')).toContainText(
       'Termin verbindlich buchen',
     );
+  });
+
+  test('I1-U01, I1-U02, I1-U03: dark and light mode contrast and error accessibility', async ({
+    page,
+  }) => {
+    // 1. Light mode error validation accessibility
+    await page.goto('/en/book/discovery-call');
+    const slotsList = page.locator('[data-testid="slots-list"]');
+    await expect(slotsList).toBeVisible({ timeout: 10000 });
+    await slotsList.locator('button').first().click();
+
+    // Trigger validation errors
+    await page.click('[data-testid="confirm-booking-btn"]');
+    await expect(page.locator('#attendee-name-error')).toBeVisible();
+    await expect(page.locator('#attendee-email-error')).toBeVisible();
+
+    const nameInput = page.locator('[data-testid="attendee-name-input"]');
+    await expect(nameInput).toHaveAttribute('aria-invalid', 'true');
+    await expect(nameInput).toHaveAttribute('aria-describedby', 'attendee-name-error');
+
+    // Axe audit in light mode with errors displayed
+    const lightAxe = await new AxeBuilder({ page }).analyze();
+    expect(lightAxe.violations).toEqual([]);
+
+    // 2. Dark mode contrast audit
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const darkAxe = await new AxeBuilder({ page }).analyze();
+    expect(darkAxe.violations).toEqual([]);
   });
 });

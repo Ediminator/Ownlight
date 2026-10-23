@@ -309,18 +309,16 @@ export async function submitPublicBookingAction(
     clientIp = null;
   }
 
-  if (clientIp) {
-    const rateLimit = await consumeBookingRateLimit(clientIp, client);
-    if (!rateLimit.allowed) {
-      const isGerman = rawInput.locale === 'de';
-      return {
-        success: false,
-        code: 'RATE_LIMITED',
-        error: isGerman
-          ? 'Zu viele Buchungsversuche. Bitte versuchen Sie es in 15 Minuten erneut.'
-          : 'Too many booking attempts. Please try again in 15 minutes.',
-      };
-    }
+  const rateLimit = await consumeBookingRateLimit(clientIp ?? 'unknown', client);
+  if (!rateLimit.allowed) {
+    const isGerman = rawInput.locale === 'de';
+    return {
+      success: false,
+      code: 'RATE_LIMITED',
+      error: isGerman
+        ? 'Zu viele Buchungsversuche. Bitte versuchen Sie es in 15 Minuten erneut.'
+        : 'Too many booking attempts. Please try again in 15 minutes.',
+    };
   }
 
   // 2. Honeypot check (AC-7)

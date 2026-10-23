@@ -271,6 +271,8 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
       expect(html).toContain('Google Meet');
       expect(html).toContain('publicBooking.confirmation.googleMeetNotice');
       expect(html).toContain('publicBooking.confirmation.addToCalendar');
+      // I1-U01: Add to Calendar button uses text-primary-foreground
+      expect(html).toContain('text-primary-foreground');
     });
 
     it('renders in-person location details and handles custom location text', () => {
@@ -536,7 +538,7 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
       expect(html).toContain('website_url'); // honeypot
     });
 
-    it('renders field errors and error alert banner in attendee form', () => {
+    it('renders field errors and error alert banner in attendee form (I1-U02, I1-U03)', () => {
       const mockSlot = createMockSlot();
 
       const html = renderToStaticMarkup(
@@ -559,6 +561,60 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
       expect(html).toContain('Name is required');
       expect(html).toContain('Valid email is required');
       expect(html).toContain('publicBooking.form.submitting');
+
+      // I1-U03: aria-invalid and aria-describedby linked to role="alert" error elements
+      expect(html).toContain('aria-invalid="true"');
+      expect(html).toContain('aria-describedby="attendee-name-error"');
+      expect(html).toContain('id="attendee-name-error"');
+      expect(html).toContain('aria-describedby="attendee-email-error"');
+      expect(html).toContain('id="attendee-email-error"');
+
+      // I1-U02: WCAG 2.2 AA compliant contrast colors (text-red-600 dark:text-red-400)
+      expect(html).toContain('text-red-600');
+    });
+
+    it('I1-U01: uses text-primary-foreground on selected date button, submit button, and Add to Calendar button', () => {
+      const mockSlot = createMockSlot();
+      const htmlPicker = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+        />,
+      );
+      // Calendar day button selected state uses text-primary-foreground
+      expect(htmlPicker).toContain('text-primary-foreground');
+
+      const htmlForm = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialSelectedSlot={mockSlot}
+        />,
+      );
+      // Submit button uses text-primary-foreground
+      expect(htmlForm).toContain('text-primary-foreground');
+    });
+
+    it('I1-U04: renders localized weekday column headers via i18n keys', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="de"
+        />,
+      );
+      expect(html).toContain('publicBooking.calendar.days.mon');
+      expect(html).toContain('publicBooking.calendar.days.tue');
+      expect(html).toContain('publicBooking.calendar.days.wed');
+      expect(html).toContain('publicBooking.calendar.days.thu');
+      expect(html).toContain('publicBooking.calendar.days.fri');
+      expect(html).toContain('publicBooking.calendar.days.sat');
+      expect(html).toContain('publicBooking.calendar.days.sun');
     });
 
     it('renders confirmation view when initialConfirmedBooking is set', () => {

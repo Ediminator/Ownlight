@@ -1704,6 +1704,17 @@
       "phone": "Phone Call",
       "inPerson": "In Person"
     },
+    "calendar": {
+      "days": {
+        "mon": "Mo",
+        "tue": "Tu",
+        "wed": "We",
+        "thu": "Th",
+        "fri": "Fr",
+        "sat": "Sa",
+        "sun": "Su"
+      }
+    },
     "slotPicker": {
       "selectDate": "Select a Date & Time",
       "timezoneLabel": "Timezone",

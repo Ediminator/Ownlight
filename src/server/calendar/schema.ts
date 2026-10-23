@@ -227,3 +227,54 @@ export const calculateAvailableSlotsSchema = z
   .strict();
 
 export type CalculateAvailableSlotsInput = z.infer<typeof calculateAvailableSlotsSchema>;
+
+export const getPublicAvailableSlotsSchema = z
+  .object({
+    slug: z.string().min(1).max(64),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+    timezone: z.string().min(1).max(64),
+  })
+  .strict();
+
+export type GetPublicAvailableSlotsInput = z.infer<typeof getPublicAvailableSlotsSchema>;
+
+export const publicBookingSubmissionSchema = z
+  .object({
+    slug: z.string().min(1).max(64),
+    startsAt: z.coerce.date(),
+    endsAt: z.coerce.date(),
+    timezone: z.string().min(1).max(64),
+    attendeeName: z
+      .string()
+      .trim()
+      .min(1, 'Name is required')
+      .max(200, 'Name must not exceed 200 characters'),
+    attendeeEmail: z
+      .string()
+      .trim()
+      .email('Invalid email address')
+      .max(255, 'Email must not exceed 255 characters'),
+    attendeePhone: z
+      .string()
+      .trim()
+      .max(50, 'Phone must not exceed 50 characters')
+      .nullable()
+      .optional(),
+    attendeeNotes: z
+      .string()
+      .trim()
+      .max(2000, 'Notes must not exceed 2000 characters')
+      .nullable()
+      .optional(),
+    website_url: z.string().max(255).optional(),
+    altcha_payload: z.string().min(1, 'Proof of work verification is required'),
+    locale: z.enum(['en', 'de']).default('en'),
+  })
+  .strict()
+  .refine((data) => data.endsAt > data.startsAt, {
+    message: 'endsAt must be after startsAt',
+    path: ['endsAt'],
+  });
+
+export type PublicBookingSubmissionInput = z.infer<typeof publicBookingSubmissionSchema>;

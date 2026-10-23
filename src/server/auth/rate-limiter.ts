@@ -589,3 +589,22 @@ export async function recordMfaSuccess(
   const acctKey = getMfaAccountKey(identifier);
   await resetRateLimit(acctKey, client);
 }
+
+// ==========================================
+// Public Booking Scheduler Rate Limiting (TASK-0044 / AC-8)
+// ==========================================
+
+export const BOOKING_IP_MAX_ATTEMPTS = 5;
+export const BOOKING_IP_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+/**
+ * Consumes one booking submission attempt atomically per client IP.
+ * Enforces fail-closed max 5 attempts per 15 minutes window (AC-8).
+ */
+export async function consumeBookingRateLimit(
+  ip: string,
+  client: DbClient = defaultDb,
+): Promise<RateLimitCheckResult> {
+  const key = `booking:${anonymizeIp(ip)}`;
+  return await consumeRateLimit(key, BOOKING_IP_MAX_ATTEMPTS, BOOKING_IP_WINDOW_MS, client);
+}

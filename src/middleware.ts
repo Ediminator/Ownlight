@@ -18,6 +18,7 @@ const PUBLIC_PATH_SEGMENTS = [
   'reset-password',
   'verify-email',
   'f',
+  'book',
 ];
 
 /**
@@ -27,6 +28,22 @@ function isPublicFormRoute(pathname: string): boolean {
   const segments = pathname.split('/').filter(Boolean);
   if (segments[0] === 'f') return true;
   if (segments[0] && routing.locales.includes(segments[0] as 'en' | 'de') && segments[1] === 'f') {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks whether the request path is a public booking route (/{locale}/book/** or /book/**).
+ */
+function isPublicBookingRoute(pathname: string): boolean {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments[0] === 'book') return true;
+  if (
+    segments[0] &&
+    routing.locales.includes(segments[0] as 'en' | 'de') &&
+    segments[1] === 'book'
+  ) {
     return true;
   }
   return false;
@@ -273,8 +290,8 @@ export default function middleware(request: NextRequest): NextResponse {
     response.headers.set('x-middleware-request-x-is-auth-route', '1');
   }
 
-  // Strictly no Set-Cookie on public form routes and embed routes (AC-12 / TDDDG §25)
-  if (isPublicFormRoute(pathname) || isEmbed) {
+  // Strictly no Set-Cookie on public form routes, booking routes, and embed routes (AC-1 / AC-12 / TDDDG §25)
+  if (isPublicFormRoute(pathname) || isPublicBookingRoute(pathname) || isEmbed) {
     response.headers.delete('set-cookie');
   }
 

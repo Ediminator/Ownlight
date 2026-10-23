@@ -1,0 +1,270 @@
+import type { AvailableSlot } from '@/server/calendar/availability';
+
+export const COMMON_TIMEZONES = [
+  'Europe/Berlin',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Rome',
+  'Europe/Madrid',
+  'Europe/Amsterdam',
+  'Europe/Vienna',
+  'Europe/Zurich',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Toronto',
+  'America/Vancouver',
+  'America/Sao_Paulo',
+  'Asia/Tokyo',
+  'Asia/Shanghai',
+  'Asia/Singapore',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Pacific/Auckland',
+  'UTC',
+] as const;
+
+/**
+ * Detects visitor timezone in browser runtime using Intl.DateTimeFormat (AC-1).
+ * Falls back safely to 'Europe/Berlin' or 'UTC' if unavailable.
+ */
+export function detectVisitorTimezone(fallback = 'Europe/Berlin'): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz && typeof tz === 'string' && tz.trim().length > 0) {
+      return tz;
+    }
+  } catch {
+    // Intl not supported or errored
+  }
+  return fallback;
+}
+
+/**
+ * Formats time in HH:MM format for a specific timezone.
+ */
+export function formatLocalTime(date: Date, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(date);
+  } catch {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+  }
+}
+
+/**
+ * Formats a slot start and end time in visitor local time with side-by-side indicator
+ * of studio timezone (AC-2).
+ * Example: "10:00 - 10:30 (16:00 Berlin)"
+ */
+export function formatSlotWithStudioTime(
+  slot: { startsAtUtc: string; endsAtUtc: string },
+  visitorTimezone: string,
+  studioTimezone: string,
+): {
+  visitorTime: string;
+  studioTime: string;
+  combinedLabel: string;
+} {
+  const start = new Date(slot.startsAtUtc);
+  const end = new Date(slot.endsAtUtc);
+
+  const visitorStart = formatLocalTime(start, visitorTimezone);
+  const visitorEnd = formatLocalTime(end, visitorTimezone);
+  const visitorTime = `${visitorStart} – ${visitorEnd}`;
+
+  const studioStart = formatLocalTime(start, studioTimezone);
+  const studioEnd = formatLocalTime(end, studioTimezone);
+  const studioCity = studioTimezone.split('/').pop()?.replace(/_/g, ' ') ?? studioTimezone;
+  const studioTime = `${studioStart} – ${studioEnd} ${studioCity}`;
+
+  const isSameTz = visitorTimezone === studioTimezone;
+  const combinedLabel = isSameTz ? visitorTime : `${visitorTime} (${studioStart} ${studioCity})`;
+
+  return {
+    visitorTime,
+    studioTime,
+    combinedLabel,
+  };
+}
+
+/**
+ * Groups available slots by their local date string (YYYY-MM-DD).
+ */
+export function groupSlotsByDate(slots: AvailableSlot[]): Record<string, AvailableSlot[]> {
+  const grouped: Record<string, AvailableSlot[]> = {};
+  for (const slot of slots) {
+    const key = slot.date;
+    (grouped[key] ??= []).push(slot);
+  }
+  return grouped;
+}
+
+export interface CalendarDayCell {
+  dateStr: string; // 'YYYY-MM-DD'
+  dayNumber: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  isPast: boolean;
+  hasSlots: boolean;
+  slotsCount: number;
+}
+
+/**
+ * Generates an accessible calendar month grid of days for slot picking.
+ */
+export function generateMonthGrid(
+  year: number,
+  month: number, // 0-indexed (0 = Jan, 11 = Dec)
+  availableDates: Set<string>,
+  todayStr: string,
+): CalendarDayCell[][] {
+  const firstDay = new Date(Date.UTC(year, month, 1));
+  const lastDay = new Date(Date.UTC(year, month + 1, 0));
+
+  // Monday = 0, Sunday = 6
+  let firstDayOfWeek = firstDay.getUTCDay() - 1;
+  if (firstDayOfWeek === -1) firstDayOfWeek = 6;
+
+  const totalDays = lastDay.getUTCDate();
+  const cells: CalendarDayCell[] = [];
+
+  // Previous month padding
+  const prevMonthLastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+    const day = prevMonthLastDay - i;
+    const prevDate = new Date(Date.UTC(year, month - 1, day));
+    const dateStr = prevDate.toISOString().slice(0, 10);
+    cells.push({
+      dateStr,
+      dayNumber: day,
+      isCurrentMonth: false,
+      isToday: dateStr === todayStr,
+      isPast: dateStr < todayStr,
+      hasSlots: availableDates.has(dateStr),
+      slotsCount: 0,
+    });
+  }
+
+  // Current month days
+  for (let d = 1; d <= totalDays; d++) {
+    const curDate = new Date(Date.UTC(year, month, d));
+    const dateStr = curDate.toISOString().slice(0, 10);
+    cells.push({
+      dateStr,
+      dayNumber: d,
+      isCurrentMonth: true,
+      isToday: dateStr === todayStr,
+      isPast: dateStr < todayStr,
+      hasSlots: availableDates.has(dateStr),
+      slotsCount: 0,
+    });
+  }
+
+  // Next month padding to fill out 35 or 42 cells (5 or 6 weeks)
+  const remaining = (7 - (cells.length % 7)) % 7;
+  for (let d = 1; d <= remaining; d++) {
+    const nextDate = new Date(Date.UTC(year, month + 1, d));
+    const dateStr = nextDate.toISOString().slice(0, 10);
+    cells.push({
+      dateStr,
+      dayNumber: d,
+      isCurrentMonth: false,
+      isToday: dateStr === todayStr,
+      isPast: dateStr < todayStr,
+      hasSlots: availableDates.has(dateStr),
+      slotsCount: 0,
+    });
+  }
+
+  // Group into weeks
+  const weeks: CalendarDayCell[][] = [];
+  for (let i = 0; i < cells.length; i += 7) {
+    weeks.push(cells.slice(i, i + 7));
+  }
+
+  return weeks;
+}
+
+/**
+ * Returns next year/month pair.
+ */
+export function getNextMonth(year: number, month: number): { year: number; month: number } {
+  if (month === 11) {
+    return { year: year + 1, month: 0 };
+  }
+  return { year, month: month + 1 };
+}
+
+/**
+ * Returns previous year/month pair.
+ */
+export function getPrevMonth(year: number, month: number): { year: number; month: number } {
+  if (month === 0) {
+    return { year: year - 1, month: 11 };
+  }
+  return { year, month: month - 1 };
+}
+
+/**
+ * Formats Month and Year for header display (e.g. "October 2026").
+ */
+export function formatMonthYear(year: number, month: number, locale = 'en'): string {
+  const date = new Date(Date.UTC(year, month, 1));
+  try {
+    return new Intl.DateTimeFormat(locale === 'de' ? 'de-DE' : 'en-US', {
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(date);
+  } catch {
+    return `${String(year)}-${String(month + 1).padStart(2, '0')}`;
+  }
+}
+
+/**
+ * Fetches an ALTCHA challenge for public booking (AC-7).
+ */
+export async function fetchBookingChallenge(
+  slug: string,
+  signal?: AbortSignal,
+): Promise<import('@/app/[locale]/f/_components/pow-solver').AltchaChallenge | null> {
+  try {
+    const res = await fetch(`/api/public/book/${encodeURIComponent(slug)}/challenge`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+      cache: 'no-store',
+      signal,
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = (await res.json()) as Record<string, unknown> | null;
+    if (!data || typeof data !== 'object') {
+      return null;
+    }
+    if (
+      typeof data.challenge !== 'string' ||
+      typeof data.salt !== 'string' ||
+      typeof data.signature !== 'string'
+    ) {
+      return null;
+    }
+
+    return data as unknown as import('@/app/[locale]/f/_components/pow-solver').AltchaChallenge;
+  } catch {
+    return null;
+  }
+}

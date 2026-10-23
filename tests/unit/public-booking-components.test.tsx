@@ -135,6 +135,9 @@ import {
   formatSlotWithStudioTime,
   generateMonthGrid,
   groupSlotsByDate,
+  resolveBookingLocationLabel,
+  buildPublicBookingSubmission,
+  processBookingSubmissionResult,
 } from '@/components/calendar/public/booking-helpers';
 import BookingPage, { generateMetadata } from '@/app/[locale]/book/[slug]/page';
 import { GET as challengeRouteHandler } from '@/app/api/public/book/[slug]/challenge/route';
@@ -754,6 +757,67 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
       expect(html).toContain('publicBooking.form.powVerified');
     });
 
+    it('renders detected timezone option when visitor timezone is not in COMMON_TIMEZONES', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialVisitorTimezone="Atlantic/Reykjavik"
+        />,
+      );
+      expect(html).toContain('Atlantic/Reykjavik (detected)');
+    });
+
+    it('renders indicator dot on dates with slots that are not currently selected', () => {
+      const today = new Date();
+      const currentMonthStr = today.toISOString().slice(0, 7);
+      const unselectedDate = `${currentMonthStr}-28`;
+      const selectedDate = `${currentMonthStr}-25`;
+
+      const unselectedSlot = createMockSlot({
+        date: unselectedDate,
+        starts_at: `${unselectedDate}T10:00:00Z`,
+        ends_at: `${unselectedDate}T11:00:00Z`,
+      });
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialSlots={[unselectedSlot]}
+          initialSelectedDate={selectedDate}
+        />,
+      );
+      expect(html).toContain(`calendar-day-${unselectedDate}`);
+    });
+
+    it('renders studio time label under visitor time when timezones differ in slot list', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialVisitorTimezone="America/New_York"
+          initialSelectedDate="2026-11-20"
+          initialSlots={[
+            createMockSlot({
+              date: '2026-11-20',
+              starts_at: '2026-11-20T14:00:00Z',
+              ends_at: '2026-11-20T15:00:00Z',
+              startsAtUtc: '2026-11-20T14:00:00Z',
+              endsAtUtc: '2026-11-20T15:00:00Z',
+            }),
+          ]}
+        />,
+      );
+      expect(html).toContain('slot-2026-11-20T14:00:00Z');
+      expect(html).toContain('Berlin');
+    });
+
     it('renders phone location details when locationType is phone with custom details', () => {
       const html = renderToStaticMarkup(
         <PublicBookingScheduler
@@ -1051,6 +1115,148 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
       ] as unknown as import('@/server/calendar/availability').AvailableSlot[]);
       expect(grouped['2026-11-10']?.length).toBe(2);
       expect(grouped['2026-11-11']?.length).toBe(1);
+    });
+
+    it('resolveBookingLocationLabel maps google_meet, in_person, and phone', () => {
+      const tMock = (k: string) => `translated.${k}`;
+
+      // 1. google_meet
+      expect(
+        resolveBookingLocationLabel({ locationType: 'google_meet', locationDetails: null }, tMock),
+      ).toBe('translated.sessionDetails.googleMeet');
+
+      // 2. in_person with custom details
+      expect(
+        resolveBookingLocationLabel(
+          { locationType: 'in_person', locationDetails: 'Studio Room 4' },
+          tMock,
+        ),
+      ).toBe('Studio Room 4');
+
+      // 3. phone without details
+      expect(
+        resolveBookingLocationLabel({ locationType: 'phone', locationDetails: null }, tMock),
+      ).toBe('translated.sessionDetails.phone');
+
+      // 4. in_person without details
+      expect(
+        resolveBookingLocationLabel({ locationType: 'in_person', locationDetails: null }, tMock),
+      ).toBe('translated.sessionDetails.inPerson');
+    });
+
+    it('buildPublicBookingSubmission trims strings and handles optional phone and notes', () => {
+      const slot = createMockSlot({
+        startsAtUtc: '2026-11-10T10:00:00Z',
+        endsAtUtc: '2026-11-10T11:00:00Z',
+      });
+
+      // With phone and notes
+      const payloadWithOptional = buildPublicBookingSubmission({
+        slug: 'portrait-consult',
+        slot,
+        visitorTimezone: 'Europe/Berlin',
+        name: '  Elena Vance  ',
+        email: '  elena@example.com  ',
+        phone: '  +49 30 111222  ',
+        notes: '  Need headshots  ',
+        honeypot: '',
+        powPayload: 'valid-pow',
+        locale: 'en',
+      });
+
+      expect(payloadWithOptional.attendeeName).toBe('Elena Vance');
+      expect(payloadWithOptional.attendeeEmail).toBe('elena@example.com');
+      expect(payloadWithOptional.attendeePhone).toBe('+49 30 111222');
+      expect(payloadWithOptional.attendeeNotes).toBe('Need headshots');
+      expect(payloadWithOptional.website_url).toBe('');
+
+      // Without phone and notes
+      const payloadWithoutOptional = buildPublicBookingSubmission({
+        slug: 'portrait-consult',
+        slot,
+        visitorTimezone: 'Europe/Berlin',
+        name: 'Elena',
+        email: 'elena@example.com',
+        phone: '   ',
+        notes: '',
+        honeypot: undefined,
+        powPayload: 'valid-pow',
+        locale: 'de',
+      });
+
+      expect(payloadWithoutOptional.attendeePhone).toBeUndefined();
+      expect(payloadWithoutOptional.attendeeNotes).toBeUndefined();
+      expect(payloadWithoutOptional.website_url).toBe('');
+      expect(payloadWithoutOptional.locale).toBe('de');
+    });
+
+    it('processBookingSubmissionResult handles success, collision, rate-limit, and fieldErrors', () => {
+      const tMock = (k: string) => `translated.${k}`;
+
+      // 1. Success
+      const successResult = processBookingSubmissionResult(
+        {
+          success: true,
+          data: createMockSummary(),
+        },
+        tMock,
+      );
+      expect(successResult.confirmedBooking).toBeDefined();
+      expect(successResult.shouldResetSlot).toBe(false);
+
+      // 2. Collision
+      const collisionResult = processBookingSubmissionResult(
+        {
+          success: false,
+          collision: true,
+          error: 'Slot conflict',
+        },
+        tMock,
+      );
+      expect(collisionResult.errorBanner).toBe('Slot conflict');
+      expect(collisionResult.shouldResetSlot).toBe(true);
+      expect(collisionResult.shouldReloadSlots).toBe(true);
+
+      // 2b. Collision with default error
+      const collisionDefaultResult = processBookingSubmissionResult(
+        {
+          success: false,
+          collision: true,
+        },
+        tMock,
+      );
+      expect(collisionDefaultResult.errorBanner).toBe('translated.errors.collision');
+
+      // 3. Rate limited
+      const rateLimitedResult = processBookingSubmissionResult(
+        {
+          success: false,
+          code: 'RATE_LIMITED',
+        },
+        tMock,
+      );
+      expect(rateLimitedResult.errorBanner).toBe('translated.errors.rateLimited');
+      expect(rateLimitedResult.shouldResetSlot).toBe(false);
+
+      // 4. Field errors
+      const fieldErrorsResult = processBookingSubmissionResult(
+        {
+          success: false,
+          fieldErrors: { attendeeName: 'Required' },
+        },
+        tMock,
+      );
+      expect(fieldErrorsResult.fieldErrors.attendeeName).toBe('Required');
+      expect(fieldErrorsResult.errorBanner).toBe('translated.errors.general');
+
+      // 5. Generic error
+      const genericResult = processBookingSubmissionResult(
+        {
+          success: false,
+        },
+        tMock,
+      );
+      expect(genericResult.errorBanner).toBe('translated.errors.general');
     });
   });
 

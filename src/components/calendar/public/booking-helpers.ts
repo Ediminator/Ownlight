@@ -1,4 +1,8 @@
 import type { AvailableSlot } from '@/server/calendar/availability';
+import type {
+  PublicBookingActionResult,
+  ConfirmedBookingSummary,
+} from '@/server/calendar/public-actions';
 
 export const COMMON_TIMEZONES = [
   'Europe/Berlin',
@@ -349,5 +353,135 @@ export function buildBookingIcsParams(
     attendeeName: summary.attendeeName,
     attendeeEmail: summary.attendeeEmail,
     studioName,
+  };
+}
+
+/**
+ * Resolves localized human-readable location label for booking header.
+ */
+export function resolveBookingLocationLabel(
+  bookingType: {
+    locationType: string;
+    locationDetails?: string | null;
+  },
+  t: (key: string) => string,
+): string {
+  if (bookingType.locationType === 'google_meet') {
+    return t('sessionDetails.googleMeet');
+  }
+  if (bookingType.locationDetails) {
+    return bookingType.locationDetails;
+  }
+  if (bookingType.locationType === 'phone') {
+    return t('sessionDetails.phone');
+  }
+  return t('sessionDetails.inPerson');
+}
+
+export interface PublicBookingSubmissionPayload {
+  slug: string;
+  startsAt: string;
+  endsAt: string;
+  timezone: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  attendeePhone?: string;
+  attendeeNotes?: string;
+  website_url?: string;
+  altcha_payload: string;
+  locale: 'en' | 'de';
+}
+
+/**
+ * Normalizes attendee form inputs into a typed booking submission payload.
+ */
+export function buildPublicBookingSubmission(params: {
+  slug: string;
+  slot: AvailableSlot;
+  visitorTimezone: string;
+  name: string;
+  email: string;
+  phone?: string;
+  notes?: string;
+  honeypot?: string;
+  powPayload: string;
+  locale: 'en' | 'de';
+}): PublicBookingSubmissionPayload {
+  return {
+    slug: params.slug,
+    startsAt: params.slot.startsAtUtc,
+    endsAt: params.slot.endsAtUtc,
+    timezone: params.visitorTimezone,
+    attendeeName: params.name.trim(),
+    attendeeEmail: params.email.trim(),
+    attendeePhone: params.phone?.trim() ? params.phone.trim() : undefined,
+    attendeeNotes: params.notes?.trim() ? params.notes.trim() : undefined,
+    website_url: params.honeypot ?? '',
+    altcha_payload: params.powPayload,
+    locale: params.locale,
+  };
+}
+
+export interface ProcessBookingResultOutcome {
+  confirmedBooking: ConfirmedBookingSummary | null;
+  errorBanner: string | null;
+  fieldErrors: Record<string, string>;
+  shouldResetSlot: boolean;
+  shouldReloadSlots: boolean;
+}
+
+/**
+ * Evaluates the result of a booking submission action and derives pure UI state changes.
+ */
+export function processBookingSubmissionResult(
+  res: PublicBookingActionResult<ConfirmedBookingSummary>,
+  t: (key: string) => string,
+): ProcessBookingResultOutcome {
+  if (res.success && res.data) {
+    return {
+      confirmedBooking: res.data,
+      errorBanner: null,
+      fieldErrors: {},
+      shouldResetSlot: false,
+      shouldReloadSlots: false,
+    };
+  }
+
+  if (res.collision) {
+    return {
+      confirmedBooking: null,
+      errorBanner: res.error ?? t('errors.collision'),
+      fieldErrors: {},
+      shouldResetSlot: true,
+      shouldReloadSlots: true,
+    };
+  }
+
+  if (res.code === 'RATE_LIMITED') {
+    return {
+      confirmedBooking: null,
+      errorBanner: res.error ?? t('errors.rateLimited'),
+      fieldErrors: {},
+      shouldResetSlot: false,
+      shouldReloadSlots: false,
+    };
+  }
+
+  if (res.fieldErrors) {
+    return {
+      confirmedBooking: null,
+      errorBanner: res.error ?? t('errors.general'),
+      fieldErrors: res.fieldErrors,
+      shouldResetSlot: false,
+      shouldReloadSlots: false,
+    };
+  }
+
+  return {
+    confirmedBooking: null,
+    errorBanner: res.error ?? t('errors.general'),
+    fieldErrors: {},
+    shouldResetSlot: false,
+    shouldReloadSlots: false,
   };
 }

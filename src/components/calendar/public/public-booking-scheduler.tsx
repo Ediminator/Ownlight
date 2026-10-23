@@ -13,6 +13,9 @@ import {
   fetchBookingChallenge,
   validateBookingAttendeeForm,
   COMMON_TIMEZONES,
+  resolveBookingLocationLabel,
+  buildPublicBookingSubmission,
+  processBookingSubmissionResult,
 } from './booking-helpers';
 import { BookingConfirmationView } from './booking-confirmation-view';
 import {
@@ -255,40 +258,36 @@ export function PublicBookingScheduler({
       }
 
       // 2. Submit booking to server action
-      const submission = {
+      const submission = buildPublicBookingSubmission({
         slug: bookingType.slug,
-        startsAt: selectedSlot.startsAtUtc,
-        endsAt: selectedSlot.endsAtUtc,
-        timezone: visitorTimezone,
-        attendeeName: attendeeName.trim(),
-        attendeeEmail: attendeeEmail.trim(),
-        attendeePhone: attendeePhone.trim() || undefined,
-        attendeeNotes: attendeeNotes.trim() || undefined,
-        website_url: honeypot,
-        altcha_payload: altchaPayload,
+        slot: selectedSlot,
+        visitorTimezone,
+        name: attendeeName,
+        email: attendeeEmail,
+        phone: attendeePhone,
+        notes: attendeeNotes,
+        honeypot,
+        powPayload: altchaPayload,
         locale,
-      };
+      });
 
       const res = await submitPublicBookingAction(submission);
+      const outcome = processBookingSubmissionResult(res, t);
 
-      if (res.success && res.data) {
-        setConfirmedBooking(res.data);
-      } else {
-        if (res.collision) {
-          // Double-booking collision (AC-6)
-          setErrorBanner(res.error ?? t('errors.collision'));
-          // Deselect slot and refresh available slots
-          setSelectedSlot(null);
-          void loadSlots(viewYear, viewMonth, visitorTimezone);
-        } else if (res.code === 'RATE_LIMITED') {
-          // Rate limit exceeded (AC-8)
-          setErrorBanner(res.error ?? t('errors.rateLimited'));
-        } else if (res.fieldErrors) {
-          setFieldErrors(res.fieldErrors);
-          setErrorBanner(res.error ?? t('errors.general'));
-        } else {
-          setErrorBanner(res.error ?? t('errors.general'));
-        }
+      if (outcome.confirmedBooking) {
+        setConfirmedBooking(outcome.confirmedBooking);
+      }
+      if (outcome.errorBanner) {
+        setErrorBanner(outcome.errorBanner);
+      }
+      if (Object.keys(outcome.fieldErrors).length > 0) {
+        setFieldErrors(outcome.fieldErrors);
+      }
+      if (outcome.shouldResetSlot) {
+        setSelectedSlot(null);
+      }
+      if (outcome.shouldReloadSlots) {
+        void loadSlots(viewYear, viewMonth, visitorTimezone);
       }
     } catch {
       setErrorBanner(t('errors.general'));
@@ -317,13 +316,7 @@ export function PublicBookingScheduler({
   }
 
   // Location string mapping
-  const locationLabel =
-    bookingType.locationType === 'google_meet'
-      ? t('sessionDetails.googleMeet')
-      : (bookingType.locationDetails ??
-        (bookingType.locationType === 'phone'
-          ? t('sessionDetails.phone')
-          : t('sessionDetails.inPerson')));
+  const locationLabel = resolveBookingLocationLabel(bookingType, t);
 
   return (
     <div

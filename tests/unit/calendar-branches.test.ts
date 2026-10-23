@@ -912,6 +912,41 @@ describe('TASK-0040: Calendar Domain Branch Coverage', () => {
       expect(parsed.toISOString()).toBe('2026-10-26T08:00:00.000Z');
     });
 
+    it('covers defensive fallback branches in formatIsoWithTimezone and formatTimeInTimezone', () => {
+      const d = new Date('2026-10-26T08:00:00.000Z');
+
+      // 1. hour === '24' normalization
+      const spyHour24 = vi
+        .spyOn(Intl.DateTimeFormat.prototype, 'formatToParts')
+        .mockReturnValueOnce([
+          { type: 'year', value: '2026' },
+          { type: 'month', value: '10' },
+          { type: 'day', value: '26' },
+          { type: 'hour', value: '24' },
+          { type: 'minute', value: '00' },
+          { type: 'second', value: '00' },
+        ]);
+      const res24 = formatIsoWithTimezone(d, 'UTC');
+      expect(res24).toContain('T00:00:00');
+      spyHour24.mockRestore();
+
+      // 2. empty parts fallback for formatIsoWithTimezone
+      const spyEmptyIso = vi
+        .spyOn(Intl.DateTimeFormat.prototype, 'formatToParts')
+        .mockReturnValueOnce([]);
+      const resEmpty = formatIsoWithTimezone(d, 'UTC');
+      expect(resEmpty).toContain('1970-01-01');
+      spyEmptyIso.mockRestore();
+
+      // 3. empty parts fallback for formatTimeInTimezone
+      const spyEmptyTime = vi
+        .spyOn(Intl.DateTimeFormat.prototype, 'formatToParts')
+        .mockReturnValueOnce([]);
+      const resTime = formatTimeInTimezone(d, 'UTC');
+      expect(resTime).toBe('00:00');
+      spyEmptyTime.mockRestore();
+    });
+
     it('handles DST transition hour in parseStudioLocalDateTime', () => {
       // Europe/Berlin switches to DST on 2026-03-29 at 02:00 -> jumps to 03:00
       const parsed = parseStudioLocalDateTime('2026-03-29', '02:30', 'Europe/Berlin');

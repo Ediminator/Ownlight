@@ -24,6 +24,12 @@ export const PUBLIC_AUTH_ACTIONS = [
   'completePasskeyAuthenticationAction',
   // Compensating control: Public inquiry submission; honeypot, per-IP and per-form rate limits, dynamic schema validation, PoW challenge from TASK-0029.
   'submitInquiryAction',
+  // Compensating control: Public booking availability lookup; read-only against active booking types and availability schedules; no PII touched.
+  'getPublicAvailableSlotsAction',
+  // Compensating control: Public booking PoW challenge generation; rate-limited per IP (30 per 10 min), signed with studio HMAC secret.
+  'getPublicBookingChallengeAction',
+  // Compensating control: Public appointment reservation; strict Zod validation, ALTCHA PoW verification, honeypot field, per-IP rate limiting (5 per 15 min), and serializable double-booking collision rollback.
+  'submitPublicBookingAction',
 ] as const;
 
 export type PublicAuthAction = (typeof PUBLIC_AUTH_ACTIONS)[number];

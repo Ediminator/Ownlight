@@ -29,6 +29,7 @@ const AUTH_PATH_SEGMENTS = [
   'reset-password',
   'verify-email',
   'f',
+  'book',
 ];
 
 export default async function LocaleLayout({ children, params }: LocaleLayoutProps) {

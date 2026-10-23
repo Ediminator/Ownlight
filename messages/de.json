@@ -1690,5 +1690,75 @@
       "openInspector": "Details für {date} anzeigen",
       "eventsSummary": "{count, plural, =0 {keine Termine} one {# Termin} other {# Termine}}"
     }
+  },
+  "publicBooking": {
+    "closed": {
+      "title": "Buchungen derzeit geschlossen",
+      "description": "Für diesen Termin werden derzeit keine neuen Buchungen angenommen. Bitte versuchen Sie es später noch einmal oder kontaktieren Sie uns direkt.",
+      "backHome": "Zurück zur Startseite"
+    },
+    "sessionDetails": {
+      "duration": "{duration} Min.",
+      "location": "Ort",
+      "googleMeet": "Google Meet (Videolink nach Buchung bereitgestellt)",
+      "phone": "Telefonat",
+      "inPerson": "Vor Ort"
+    },
+    "calendar": {
+      "days": {
+        "mon": "Mo",
+        "tue": "Di",
+        "wed": "Mi",
+        "thu": "Do",
+        "fri": "Fr",
+        "sat": "Sa",
+        "sun": "So"
+      }
+    },
+    "slotPicker": {
+      "selectDate": "Datum & Uhrzeit wählen",
+      "timezoneLabel": "Zeitzone",
+      "studioTimeIndicator": "Studiozeit: {time} ({timezone})",
+      "noSlotsOnDate": "Keine freien Termine an diesem Tag. Bitte wählen Sie ein anderes Datum.",
+      "loadingSlots": "Freie Termine werden geladen...",
+      "availableSlots": "Freie Termine für {date}",
+      "selectSlotAria": "Uhrzeit {time} auswählen"
+    },
+    "form": {
+      "title": "Ihre Angaben",
+      "selectedSlot": "Ausgewählter Termin",
+      "changeSlot": "Ändern",
+      "nameLabel": "Ihr Name",
+      "namePlaceholder": "z. B. Sarah Connor",
+      "emailLabel": "E-Mail-Adresse",
+      "emailPlaceholder": "sarah@beispiel.de",
+      "phoneLabel": "Telefonnummer (optional)",
+      "phonePlaceholder": "+49 30 12345678",
+      "notesLabel": "Notizen / Wünsche (optional)",
+      "notesPlaceholder": "Erzählen Sie uns ein wenig über Ihre Wünsche...",
+      "submit": "Termin verbindlich buchen",
+      "submitting": "Termin wird reserviert...",
+      "honeypotLabel": "Dieses Feld nicht ausfüllen",
+      "powVerifying": "Wird überprüft...",
+      "powVerified": "Geschützt durch ALTCHA"
+    },
+    "confirmation": {
+      "title": "Termin bestätigt!",
+      "subtitle": "Wir freuen uns auf das Gespräch mit Ihnen.",
+      "emailNotice": "Eine Bestätigung mit Termindetails wurde an {email} gesendet.",
+      "sessionSummary": "Terminübersicht",
+      "session": "Terminart",
+      "when": "Wann",
+      "location": "Ort",
+      "googleMeetNotice": "Der Google Meet-Link wird zur geplanten Zeit aktiv sein.",
+      "addToCalendar": "Zum Kalender hinzufügen",
+      "bookAnother": "Weitere Buchung vornehmen"
+    },
+    "errors": {
+      "collision": "Dieser Termin wurde gerade von einem anderen Kunden gebucht. Bitte wählen Sie einen anderen Termin.",
+      "rateLimited": "Zu viele Buchungsversuche. Bitte versuchen Sie es in 15 Minuten erneut.",
+      "powFailed": "Sicherheitsüberprüfung fehlgeschlagen. Bitte aktualisieren und erneut versuchen.",
+      "general": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+    }
   }
 }

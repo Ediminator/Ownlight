@@ -3,7 +3,7 @@ import { db, type DbClient } from '@/server/db/client';
 import { requireOwnerSession, extractBearerToken, ForbiddenError } from '@/server/auth/guards';
 import { logger } from '@/server/log';
 import { audit } from '@/server/audit/service';
-import { encryptSecret } from '@/server/crypto/vault';
+import { encryptSecret, decryptSecret } from '@/server/crypto/vault';
 import {
   validateOAuthStateCookie,
   GOOGLE_OAUTH_STATE_COOKIE,
@@ -11,7 +11,7 @@ import {
   OAuthStateError,
 } from '@/server/integrations/google/state';
 import { exchangeGoogleAuthorizationCode } from '@/server/integrations/google/service';
-import { upsertGoogleOAuthToken } from '@/server/integrations/google/repo';
+import { getGoogleOAuthToken, upsertGoogleOAuthToken } from '@/server/integrations/google/repo';
 import { GOOGLE_OAUTH_PURPOSE } from '@/server/integrations/google/constants';
 
 export const dynamic = 'force-dynamic';
@@ -96,12 +96,27 @@ export async function GET(request: NextRequest, context?: CallbackRouteContext):
   // 4. Exchange code + verifier with Google token endpoint
   const redirectUri = `${request.nextUrl.origin}/api/integrations/google/callback`;
 
+  // Look up existing token for incremental authorization support (AC-1)
+  const existingToken = await getGoogleOAuthToken(dbClient);
+  let existingRefreshToken: string | undefined;
+  if (existingToken) {
+    try {
+      existingRefreshToken = await decryptSecret(
+        existingToken.encryptedRefreshToken,
+        GOOGLE_OAUTH_PURPOSE,
+      );
+    } catch {
+      // Continue if decryption fails
+    }
+  }
+
   let tokenData;
   try {
     tokenData = await exchangeGoogleAuthorizationCode({
       code,
       codeVerifier,
       redirectUri,
+      existingRefreshToken,
       fetchFn: context?.fetchFn,
     });
   } catch (err) {
@@ -121,12 +136,21 @@ export async function GET(request: NextRequest, context?: CallbackRouteContext):
     ? new Date(Date.now() + tokenData.expires_in * 1000)
     : null;
 
+  // Merge scopes if incremental consent was granted
+  const existingScopes = existingToken?.scope ? existingToken.scope.split(' ') : [];
+  const newScopes = tokenData.scope ? tokenData.scope.split(' ') : [];
+  const mergedScope = Array.from(new Set([...existingScopes, ...newScopes])).join(' ');
+
   await upsertGoogleOAuthToken(
     {
       encryptedRefreshToken,
       accessToken: tokenData.access_token ?? null,
       accessTokenExpiresAt: expiresAt,
-      scope: tokenData.scope,
+      scope: mergedScope || tokenData.scope,
+      calendarSyncEnabled: existingToken?.calendarSyncEnabled ?? false,
+      selectedCalendarId: existingToken?.selectedCalendarId ?? 'primary',
+      lastCalendarSyncAt: existingToken?.lastCalendarSyncAt ?? null,
+      lastCalendarSyncError: existingToken?.lastCalendarSyncError ?? null,
     },
     dbClient,
   );

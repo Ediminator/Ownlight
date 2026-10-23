@@ -5,6 +5,7 @@ vi.mock('server-only', () => ({}));
 const mockExecuteRetentionSweep = vi.fn();
 const mockProcessOutboxBatch = vi.fn();
 const mockProcessEmailOutboxBatch = vi.fn();
+const mockRunCalendarSyncWorker = vi.fn();
 
 vi.mock('@/server/retention/runner', () => ({
   executeRetentionSweep: (...args: unknown[]): unknown =>
@@ -18,6 +19,11 @@ vi.mock('@/server/integrations/google/sync-worker', () => ({
 vi.mock('@/server/email/outbox-processor', () => ({
   processEmailOutboxBatch: (...args: unknown[]): unknown =>
     mockProcessEmailOutboxBatch(...args) as unknown,
+}));
+
+vi.mock('@/server/worker/calendar-sync-worker', () => ({
+  runCalendarSyncWorker: (...args: unknown[]): unknown =>
+    mockRunCalendarSyncWorker(...args) as unknown,
 }));
 
 import { JobRegistry, registerDefaultJobs, type JobContext } from '@/server/worker/jobs';
@@ -129,14 +135,15 @@ describe('Worker Jobs & Registry Branch Coverage Tests', () => {
       const registry = new JobRegistry();
       registerDefaultJobs(registry);
 
-      expect(registry.size).toBe(3);
+      expect(registry.size).toBe(4);
       expect(registry.has('retention-sweep')).toBe(true);
       expect(registry.has('google-contacts-outbox')).toBe(true);
       expect(registry.has('email-outbox-processor')).toBe(true);
+      expect(registry.has('calendar-sync-worker')).toBe(true);
 
       // Calling registerDefaultJobs again triggers the negative (!has) branches
       registerDefaultJobs(registry);
-      expect(registry.size).toBe(3);
+      expect(registry.size).toBe(4);
     });
 
     it('executes run() handlers for all default registered jobs', async () => {
@@ -194,6 +201,27 @@ describe('Worker Jobs & Registry Branch Coverage Tests', () => {
       expect(mockProcessEmailOutboxBatch).toHaveBeenCalledWith({
         dbClient: mockDb,
         signal: mockSignal,
+      });
+
+      // 4. calendar-sync-worker (TASK-0046 / AC-3)
+      mockRunCalendarSyncWorker.mockResolvedValueOnce({
+        batchSize: 10,
+        syncedCount: 1,
+        failedCount: 0,
+        durationMs: 42,
+      });
+      const calJob = registry.get('calendar-sync-worker');
+      expect(calJob).toBeDefined();
+      if (!calJob) throw new Error('Missing calendar-sync-worker job');
+      const calResult = await calJob.run(ctx);
+      expect(calResult).toEqual({
+        batchSize: 10,
+        syncedCount: 1,
+        failedCount: 0,
+        durationMs: 42,
+      });
+      expect(mockRunCalendarSyncWorker).toHaveBeenCalledWith({
+        dbClient: mockDb,
       });
     });
   });

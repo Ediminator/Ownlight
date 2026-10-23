@@ -25,6 +25,7 @@ import {
   disconnectGoogleAction,
 } from '@/server/integrations/google/actions';
 import type { GoogleIntegrationDetails } from '@/server/integrations/google/service';
+import { GoogleCalendarSyncCard } from './google-calendar-sync-card';
 
 interface GoogleIntegrationViewProps {
   initialStatus: GoogleIntegrationDetails;
@@ -394,6 +395,18 @@ export function GoogleIntegrationView({
           </div>
         </div>
       )}
+
+      {/* Google Calendar & Meet Sync Card (AC-7) */}
+      <GoogleCalendarSyncCard
+        configured={status.configured}
+        connected={status.connected}
+        hasCalendarScope={status.hasCalendarScope}
+        calendarSyncEnabled={status.calendarSyncEnabled}
+        selectedCalendarId={status.selectedCalendarId}
+        lastCalendarSyncAt={status.lastCalendarSyncAt}
+        lastCalendarSyncError={status.lastCalendarSyncError}
+        locale={locale}
+      />
 
       {/* Feature & Privacy Highlights */}
       <div className="grid gap-6 md:grid-cols-2 pt-2">

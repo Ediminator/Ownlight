@@ -6,6 +6,7 @@ import {
   listAppointmentsInRange,
   listBlockedTimeInRange,
   listShootsInRange,
+  listExternalBusyIntervalsInRange,
 } from './repo';
 
 export interface CalculateAvailableSlotsParams {
@@ -249,7 +250,7 @@ export async function calculateAvailableSlots(
   rangeEndUtc.setHours(rangeEndUtc.getHours() + 24);
 
   // 4. Fetch colliding events (AC-5, AC-6)
-  const [activeAppointments, activeBlockedTimes, activeShoots] = await Promise.all([
+  const [activeAppointments, activeBlockedTimes, activeShoots, externalBusy] = await Promise.all([
     listAppointmentsInRange(
       {
         startDate: rangeStartUtc,
@@ -260,6 +261,7 @@ export async function calculateAvailableSlots(
     ),
     listBlockedTimeInRange({ startDate: rangeStartUtc, endDate: rangeEndUtc }, db),
     listShootsInRange({ startDate: rangeStartUtc, endDate: rangeEndUtc }, db),
+    listExternalBusyIntervalsInRange({ startDate: rangeStartUtc, endDate: rangeEndUtc }, db),
   ]);
 
   // Construct busy intervals list
@@ -294,6 +296,14 @@ export async function calculateAvailableSlots(
     busyIntervals.push({
       startMs: shootStart,
       endMs: shootEnd,
+    });
+  }
+
+  // External calendar busy intervals (Google Calendar / CalDAV sync - AC-5)
+  for (const ext of externalBusy) {
+    busyIntervals.push({
+      startMs: ext.startsAt.getTime(),
+      endMs: ext.endsAt.getTime(),
     });
   }
 

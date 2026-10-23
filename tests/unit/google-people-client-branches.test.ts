@@ -19,6 +19,24 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
     phone: '+49 30 123456',
   };
 
+  const mockToken = (
+    overrides: Partial<googleRepo.GoogleOAuthToken> = {},
+  ): googleRepo.GoogleOAuthToken => ({
+    id: 'token-1',
+    provider: 'google',
+    accessToken: 'valid-tok',
+    accessTokenExpiresAt: new Date(Date.now() + 300_000),
+    encryptedRefreshToken: 'enc',
+    scope: 'scope',
+    calendarSyncEnabled: false,
+    selectedCalendarId: 'primary',
+    lastCalendarSyncAt: null,
+    lastCalendarSyncError: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  });
+
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -40,16 +58,13 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
     });
 
     it('returns cached access token when valid and not expiring within 60s', async () => {
-      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue({
-        id: 'token-1',
-        provider: 'google',
-        accessToken: 'cached-access-token',
-        accessTokenExpiresAt: new Date(Date.now() + 300_000),
-        encryptedRefreshToken: 'enc-refresh',
-        scope: 'scope',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue(
+        mockToken({
+          accessToken: 'cached-access-token',
+          accessTokenExpiresAt: new Date(Date.now() + 300_000),
+          encryptedRefreshToken: 'enc-refresh',
+        }),
+      );
 
       const client = new GooglePeopleClient();
       const token = await client.getValidAccessToken();
@@ -57,16 +72,13 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
     });
 
     it('throws 500 when refresh token decryption fails', async () => {
-      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue({
-        id: 'token-1',
-        provider: 'google',
-        accessToken: 'expired-token',
-        accessTokenExpiresAt: new Date(Date.now() - 1000),
-        encryptedRefreshToken: 'invalid-encrypted-payload',
-        scope: 'scope',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue(
+        mockToken({
+          accessToken: 'expired-token',
+          accessTokenExpiresAt: new Date(Date.now() - 1000),
+          encryptedRefreshToken: 'invalid-encrypted-payload',
+        }),
+      );
 
       const client = new GooglePeopleClient();
       await expect(client.getValidAccessToken()).rejects.toMatchObject({
@@ -82,16 +94,13 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
         masterKey,
       );
 
-      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue({
-        id: 'token-1',
-        provider: 'google',
-        accessToken: 'expired-token',
-        accessTokenExpiresAt: new Date(Date.now() - 1000),
-        encryptedRefreshToken: encRefreshToken,
-        scope: 'scope',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue(
+        mockToken({
+          accessToken: 'expired-token',
+          accessTokenExpiresAt: new Date(Date.now() - 1000),
+          encryptedRefreshToken: encRefreshToken,
+        }),
+      );
 
       const origId = process.env.GOOGLE_OAUTH_CLIENT_ID;
       const origSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
@@ -121,16 +130,13 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
         masterKey,
       );
 
-      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue({
-        id: 'token-1',
-        provider: 'google',
-        accessToken: 'expired-token',
-        accessTokenExpiresAt: new Date(Date.now() - 1000),
-        encryptedRefreshToken: encRefreshToken,
-        scope: 'scope',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue(
+        mockToken({
+          accessToken: 'expired-token',
+          accessTokenExpiresAt: new Date(Date.now() - 1000),
+          encryptedRefreshToken: encRefreshToken,
+        }),
+      );
 
       // 1. TimeoutError
       const timeoutFetch = vi
@@ -164,16 +170,13 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
         masterKey,
       );
 
-      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue({
-        id: 'token-1',
-        provider: 'google',
-        accessToken: 'expired-token',
-        accessTokenExpiresAt: new Date(Date.now() - 1000),
-        encryptedRefreshToken: encRefreshToken,
-        scope: 'scope',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue(
+        mockToken({
+          accessToken: 'expired-token',
+          accessTokenExpiresAt: new Date(Date.now() - 1000),
+          encryptedRefreshToken: encRefreshToken,
+        }),
+      );
 
       // 1. 429 Rate Limit (isRetryable = true)
       const fetch429 = vi.fn().mockResolvedValue({
@@ -209,27 +212,21 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
         masterKey,
       );
 
-      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue({
-        id: 'token-1',
-        provider: 'google',
-        accessToken: 'expired-token',
-        accessTokenExpiresAt: new Date(Date.now() - 1000),
-        encryptedRefreshToken: encRefreshToken,
-        scope: 'scope',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue(
+        mockToken({
+          accessToken: 'expired-token',
+          accessTokenExpiresAt: new Date(Date.now() - 1000),
+          encryptedRefreshToken: encRefreshToken,
+        }),
+      );
 
-      vi.spyOn(googleRepo, 'upsertGoogleOAuthToken').mockResolvedValue({
-        id: 'token-1',
-        provider: 'google',
-        accessToken: 'refreshed-tok',
-        accessTokenExpiresAt: new Date(Date.now() + 3600_000),
-        encryptedRefreshToken: encRefreshToken,
-        scope: 'scope',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      vi.spyOn(googleRepo, 'upsertGoogleOAuthToken').mockResolvedValue(
+        mockToken({
+          accessToken: 'refreshed-tok',
+          accessTokenExpiresAt: new Date(Date.now() + 3600_000),
+          encryptedRefreshToken: encRefreshToken,
+        }),
+      );
 
       // Missing access token
       const fetchMissingToken = vi.fn().mockResolvedValue({
@@ -257,16 +254,7 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
 
   describe('createContact branches', () => {
     beforeEach(() => {
-      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue({
-        id: 'token-1',
-        provider: 'google',
-        accessToken: 'valid-tok',
-        accessTokenExpiresAt: new Date(Date.now() + 300_000),
-        encryptedRefreshToken: 'enc',
-        scope: 'scope',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue(mockToken());
     });
 
     it('handles createContact network timeout and generic error', async () => {
@@ -338,16 +326,7 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
 
   describe('updateContact branches', () => {
     beforeEach(() => {
-      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue({
-        id: 'token-1',
-        provider: 'google',
-        accessToken: 'valid-tok',
-        accessTokenExpiresAt: new Date(Date.now() + 300_000),
-        encryptedRefreshToken: 'enc',
-        scope: 'scope',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue(mockToken());
     });
 
     it('handles updateContact network timeout and generic error', async () => {
@@ -429,16 +408,7 @@ describe('GooglePeopleClient Unit Branch Coverage', () => {
 
   describe('deleteContact branches', () => {
     beforeEach(() => {
-      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue({
-        id: 'token-1',
-        provider: 'google',
-        accessToken: 'valid-tok',
-        accessTokenExpiresAt: new Date(Date.now() + 300_000),
-        encryptedRefreshToken: 'enc',
-        scope: 'scope',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      vi.spyOn(googleRepo, 'getGoogleOAuthToken').mockResolvedValue(mockToken());
     });
 
     it('handles deleteContact network timeout, generic error, 404 idempotent, non-ok, and success', async () => {

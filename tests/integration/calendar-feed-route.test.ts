@@ -557,6 +557,35 @@ describe('TASK-0045: Calendar Feed Route and Server Actions Integration Tests', 
       expect(result.code).toBe('NOT_FOUND');
     });
 
+    it('generateFeedTokenAction creates a new feed token successfully for owner', async () => {
+      mockCookiesStore.set(SESSION_COOKIE_NAME, sessionToken);
+      const result = await generateFeedTokenAction({ summaryLevel: 'full' }, dbClient);
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+      expect(result.data.feed.summaryLevel).toBe('full');
+      expect(result.data.token).toBeTruthy();
+    });
+
+    it('revokeFeedTokenAction accepts string feedId and revokes successfully', async () => {
+      mockCookiesStore.set(SESSION_COOKIE_NAME, sessionToken);
+      const [feed] = await dbClient
+        .insert(calendarFeeds)
+        .values({
+          id: '01920000-feed-7000-8000-000000000099',
+          tokenHash: hashFeedToken(generateFeedToken()),
+          summaryLevel: 'standard',
+          isActive: true,
+        })
+        .returning();
+
+      if (!feed) throw new Error('Feed insert failed');
+      const result = await revokeFeedTokenAction(feed.id, dbClient);
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+      expect(result.data.previousFeedId).toBe(feed.id);
+      expect(result.data.feed.isActive).toBe(true);
+    });
+
     it('route handler returns 404 for empty token or just .ics suffix', async () => {
       const reqEmpty = new NextRequest('https://studio.example.com/api/calendar/feed/.ics');
       const resEmpty = await GET(reqEmpty, {

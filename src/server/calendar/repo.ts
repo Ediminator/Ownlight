@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, lt, gt, or, isNull, inArray } from 'drizzle-orm';
+import { eq, and, gte, lte, lt, gt, or, isNull, inArray, desc } from 'drizzle-orm';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
 import {
   bookingTypes,
@@ -6,6 +6,7 @@ import {
   blockedTime,
   availabilitySchedules,
   availabilityOverrides,
+  calendarFeeds,
   type BookingType,
   type NewBookingType,
   type Appointment,
@@ -17,6 +18,8 @@ import {
   type AvailabilityOverride,
   type NewAvailabilityOverride,
   type AppointmentStatus,
+  type CalendarFeed,
+  type NewCalendarFeed,
 } from '@/server/db/schema/calendar';
 import { shoots, projects, shootLocations } from '@/server/db/schema/projects';
 
@@ -421,4 +424,96 @@ export async function listShootsWithDetailsInRange(
     ...r,
     locationName: locationMap.get(r.id) ?? null,
   }));
+}
+
+// ==========================================
+// Calendar Feeds (TASK-0045)
+// ==========================================
+
+export async function findCalendarFeedByTokenHash(
+  tokenHash: string,
+  tx: DbClient = defaultDb,
+): Promise<CalendarFeed | null> {
+  const [row] = await tx
+    .select()
+    .from(calendarFeeds)
+    .where(
+      and(
+        eq(calendarFeeds.tokenHash, tokenHash),
+        isNull(calendarFeeds.revokedAt),
+        eq(calendarFeeds.isActive, true),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+export async function findCalendarFeedById(
+  id: string,
+  tx: DbClient = defaultDb,
+): Promise<CalendarFeed | null> {
+  const [row] = await tx.select().from(calendarFeeds).where(eq(calendarFeeds.id, id)).limit(1);
+  return row ?? null;
+}
+
+export async function findActiveCalendarFeed(
+  tx: DbClient = defaultDb,
+): Promise<CalendarFeed | null> {
+  const [row] = await tx
+    .select()
+    .from(calendarFeeds)
+    .where(and(isNull(calendarFeeds.revokedAt), eq(calendarFeeds.isActive, true)))
+    .orderBy(desc(calendarFeeds.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function insertCalendarFeed(
+  data: NewCalendarFeed,
+  tx: DbClient = defaultDb,
+): Promise<CalendarFeed> {
+  const [row] = await tx.insert(calendarFeeds).values(data).returning();
+  if (!row) {
+    throw new Error('Failed to insert calendar feed');
+  }
+  return row;
+}
+
+export async function updateCalendarFeedRecord(
+  id: string,
+  data: Partial<NewCalendarFeed>,
+  tx: DbClient = defaultDb,
+): Promise<CalendarFeed | null> {
+  const [row] = await tx
+    .update(calendarFeeds)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(calendarFeeds.id, id))
+    .returning();
+  return row ?? null;
+}
+
+export async function touchCalendarFeedLastAccessed(
+  id: string,
+  tx: DbClient = defaultDb,
+): Promise<void> {
+  await tx
+    .update(calendarFeeds)
+    .set({ lastAccessedAt: new Date() })
+    .where(eq(calendarFeeds.id, id));
+}
+
+export async function revokeCalendarFeedRecord(
+  id: string,
+  tx: DbClient = defaultDb,
+): Promise<CalendarFeed | null> {
+  const [row] = await tx
+    .update(calendarFeeds)
+    .set({
+      revokedAt: new Date(),
+      isActive: false,
+      updatedAt: new Date(),
+    })
+    .where(eq(calendarFeeds.id, id))
+    .returning();
+  return row ?? null;
 }

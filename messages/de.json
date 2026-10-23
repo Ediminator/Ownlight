@@ -629,6 +629,72 @@
         "errorDeleteFailed": "Buchungsart konnte nicht gelöscht werden.",
         "dismissNotification": "Benachrichtigung schließen"
       }
+    },
+    "calendarFeed": {
+      "title": "Kalender-Feed-Abonnement",
+      "navLabel": "Kalender-Feed",
+      "description": "Abonnieren Sie Ihre Studiobuchungen, Shootings und Sperrzeiten auf Mobilgeräten und Desktop-Kalendern über sicheres RFC 5545 iCal.",
+      "breadcrumbs": {
+        "settings": "Studio-Einstellungen",
+        "calendar": "Kalender",
+        "feed": "Kalender-Feed"
+      },
+      "tabs": {
+        "availability": "Verfügbarkeit & Buchungsarten",
+        "feed": "Kalender-Feed"
+      },
+      "urlSection": {
+        "title": "Private Feed-Abonnement-URL",
+        "description": "Verwenden Sie diese geheime URL zum Abonnieren in Apple Kalender, Google Kalender oder Microsoft Outlook. Halten Sie diese URL vertraulich.",
+        "feedUrlLabel": "Abonnement-Feed-URL",
+        "copyUrl": "Feed-URL kopieren",
+        "copied": "In Zwischenablage kopiert",
+        "tokenHiddenNotice": "Aus Sicherheitsgründen wird die vollständige URL nur bei der Neuerstellung angezeigt. Wenn Sie die URL verloren haben, klicken Sie auf Widerrufen & Neu generieren.",
+        "lastAccessed": "Zuletzt abgerufen: {date}",
+        "neverAccessed": "Noch nie abgerufen",
+        "statusActive": "Aktiv",
+        "statusRevoked": "Widerrufen"
+      },
+      "summaryLevelSection": {
+        "title": "Datenschutz & Detailgrad",
+        "description": "Steuern Sie, wie viele Kundendetails bei externen Kalendersynchronisierungen offengelegt werden.",
+        "fieldLabel": "Feed-Detailgrad",
+        "minimalLabel": "Minimal (Nur gebucht)",
+        "minimalDesc": "Zeigt alle Kalendereinträge als 'Gebucht' an. Blendet alle Kundennamen, Sitzungstitel, Orte und Beschreibungen aus.",
+        "standardLabel": "Standard (Datenschutzfreundlich)",
+        "standardDesc": "Zeigt die Sitzungsart und kürzt den Nachnamen (z. B. 'Consultation: Clara S.'). Schließt interne Notizen und Telefonnummern strikt aus.",
+        "fullLabel": "Vollständige Details",
+        "fullDesc": "Zeigt vollständige Termintitel und Orte an. Nur für private, persönliche Kalenderkonten empfohlen.",
+        "saveSuccess": "Datenschutz-Detailgrad erfolgreich aktualisiert.",
+        "saveError": "Fehler beim Aktualisieren des Detailgrads."
+      },
+      "revokeSection": {
+        "title": "Feed-URL widerrufen & neu generieren",
+        "description": "Wenn Sie vermuten, dass Ihr Feed-Link weitergegeben oder kompromittiert wurde, widerrufen Sie ihn sofort. Alle bestehenden Abonnements werden gestoppt.",
+        "revokeBtn": "URL widerrufen & neu generieren",
+        "dialogTitle": "Kalender-Feed-URL widerrufen?",
+        "dialogDesc": "Das Widerrufen dieses Feeds beendet sofort die Kalendersynchronisierung auf allen aktuell abonnierten Geräten. Es wird eine neue geheime URL generiert, die Sie auf jedem Gerät neu einrichten müssen.",
+        "cancelBtn": "Abbrechen",
+        "confirmBtn": "Widerrufen & Neu generieren",
+        "revoking": "Wird erneuert...",
+        "revokeSuccess": "Feed-URL erfolgreich widerrufen und neu generiert.",
+        "revokeError": "Fehler beim Widerrufen der Feed-URL."
+      },
+      "instructions": {
+        "title": "Anleitungen zur Geräteeinrichtung",
+        "appleTitle": "Apple Kalender (iOS / macOS)",
+        "appleStep1": "iOS: Einstellungen > Kalender > Accounts > Account hinzufügen > Andere > Kalenderabonnement hinzufügen.",
+        "appleStep2": "macOS: Kalender-App > Ablage > Neues Kalenderabonnement.",
+        "appleStep3": "Fügen Sie die Feed-URL ein und wählen Sie stündliche Aktualisierung für beste Termingenauigkeit.",
+        "googleTitle": "Google Kalender",
+        "googleStep1": "Öffnen Sie Google Kalender im Browser.",
+        "googleStep2": "Klicken Sie in der linken Seitenleiste neben 'Weitere Kalender' auf das Pluszeichen und wählen Sie 'Per URL'.",
+        "googleStep3": "Fügen Sie die Feed-URL ein und klicken Sie auf 'Kalender hinzufügen'.",
+        "outlookTitle": "Microsoft Outlook",
+        "outlookStep1": "Öffnen Sie Outlook im Web oder auf dem Desktop.",
+        "outlookStep2": "Navigieren Sie zu Kalender > Kalender hinzufügen > Aus dem Web abonnieren.",
+        "outlookStep3": "Fügen Sie die Feed-URL ein und klicken Sie auf 'Importieren'."
+      }
     }
   },
   "clients": {

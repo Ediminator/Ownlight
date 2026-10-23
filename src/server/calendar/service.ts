@@ -7,7 +7,6 @@ import type {
   AvailabilitySchedule,
   AvailabilityOverride,
   CalendarFeed,
-  CalendarFeedSummaryLevel,
 } from '@/server/db/schema/calendar';
 import * as repo from './repo';
 import {
@@ -982,8 +981,8 @@ export async function generateFeedTokenService(
     {
       id,
       tokenHash,
-      name: parsed.data.name ?? 'Main Studio Feed',
-      summaryLevel: parsed.data.summaryLevel ?? 'standard',
+      name: parsed.data.name,
+      summaryLevel: parsed.data.summaryLevel,
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -1086,7 +1085,6 @@ export async function revokeFeedTokenService(
 
 export async function updateFeedSummaryLevelService(
   rawInput: UpdateFeedSummaryLevelInput,
-  actorId = 'system',
   tx: DbClient = defaultDb,
 ): Promise<CalendarServiceResult<CalendarFeed>> {
   const parsed = updateFeedSummaryLevelSchema.safeParse(rawInput);

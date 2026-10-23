@@ -141,9 +141,8 @@ export async function updateFeedSummaryLevelAction(
   rawInput: unknown,
   client: DbClient = defaultDb,
 ): Promise<CalendarActionResult<CalendarFeed>> {
-  let auth: AuthContext;
   try {
-    auth = await requireOwner({ client });
+    await requireOwner({ client });
   } catch (err) {
     if (err instanceof ForbiddenError) {
       return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
@@ -162,7 +161,7 @@ export async function updateFeedSummaryLevelAction(
     };
   }
 
-  const result = await service.updateFeedSummaryLevelService(parsed.data, auth.user.id, client);
+  const result = await service.updateFeedSummaryLevelService(parsed.data, client);
   if (result.success) {
     safeRevalidate('/settings/calendar/feed');
     safeRevalidate('/settings/calendar/availability');

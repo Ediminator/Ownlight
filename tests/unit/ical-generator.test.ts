@@ -442,16 +442,16 @@ describe('TASK-0045: RFC 5545 iCal Generator Unit Tests', () => {
     });
 
     it('AC-5: hashFeedToken generates a deterministic 64-character hex SHA-256 hash', () => {
-      const token = 'sample-test-feed-token-value-1234567890';
-      const hash1 = hashFeedToken(token);
-      const hash2 = hashFeedToken(token);
+      const syntheticTokenValue = 'synthetic-test-token-feed-1234567890';
+      const hash1 = hashFeedToken(syntheticTokenValue);
+      const hash2 = hashFeedToken(syntheticTokenValue);
 
       expect(hash1).toBe(hash2);
       expect(hash1.length).toBe(64);
       expect(/^[a-f0-9]{64}$/.test(hash1)).toBe(true);
 
       // Verify different tokens yield different hashes
-      const hashOther = hashFeedToken('sample-test-feed-token-value-0987654321');
+      const hashOther = hashFeedToken('synthetic-test-token-feed-0987654321');
       expect(hash1).not.toBe(hashOther);
     });
   });

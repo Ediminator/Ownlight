@@ -15,7 +15,7 @@ import {
 } from './state';
 import { getGoogleIntegrationStatus, buildGoogleAuthorizationUrl } from './service';
 import { getGoogleOAuthToken, updateGoogleCalendarSettings } from './repo';
-import { GOOGLE_CALENDAR_SCOPE } from './constants';
+import { GOOGLE_CALENDAR_SCOPE, hasGoogleCalendarScope } from './constants';
 import { GoogleCalendarClient, type GoogleCalendarItem } from './calendar-client';
 import {
   runCalendarSyncWorker,
@@ -156,10 +156,7 @@ export async function toggleGoogleCalendarSyncAction(
     };
   }
 
-  const hasCalendarScope =
-    Boolean(tokenRecord.scope) &&
-    (tokenRecord.scope.includes(GOOGLE_CALENDAR_SCOPE) ||
-      tokenRecord.scope.includes('https://www.googleapis.com/auth/calendar'));
+  const hasCalendarScope = hasGoogleCalendarScope(tokenRecord.scope);
 
   if (parsed.data.enabled && !hasCalendarScope) {
     return {

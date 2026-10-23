@@ -22,7 +22,7 @@ import {
   formatCalendarEventSummary,
   type GoogleCalendarEventPayload,
 } from '@/server/integrations/google/calendar-client';
-import { GOOGLE_CALENDAR_SCOPE } from '@/server/integrations/google/constants';
+import { hasGoogleCalendarScope } from '@/server/integrations/google/constants';
 import {
   calculateNextAttemptDate,
   calculateBackoffDelayMs,
@@ -184,10 +184,7 @@ export async function processCalendarSyncBatch(
     };
   }
 
-  const hasCalendarScope =
-    Boolean(tokenRecord.scope) &&
-    (tokenRecord.scope.includes(GOOGLE_CALENDAR_SCOPE) ||
-      tokenRecord.scope.includes('https://www.googleapis.com/auth/calendar'));
+  const hasCalendarScope = hasGoogleCalendarScope(tokenRecord.scope);
 
   if (!hasCalendarScope) {
     logger.warn('Google Calendar sync is enabled but calendar.events scope is not granted');

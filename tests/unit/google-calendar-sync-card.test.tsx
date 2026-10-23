@@ -121,6 +121,24 @@ describe('GoogleCalendarSyncCard Component (AC-7, AC-9)', () => {
     expect(html).not.toContain('bg-primary text-white');
   });
 
+  it('I1-U01 & I1-U02: renders 24x24 checkbox toggle and flex-wrap status container', () => {
+    const html = renderToStaticMarkup(
+      <GoogleCalendarSyncCard
+        configured={true}
+        connected={true}
+        hasCalendarScope={true}
+        calendarSyncEnabled={true}
+        locale="en"
+      />,
+    );
+
+    // I1-U01: WCAG 2.5.8 target size minimum (24x24 CSS pixels)
+    expect(html).toContain('h-6 w-6');
+
+    // I1-U02: Responsive flex-wrap on narrow viewports
+    expect(html).toContain('flex flex-wrap items-center gap-2');
+  });
+
   describe('google-calendar-sync-helper pure unit tests', () => {
     it('formats sync dates correctly and handles null or invalid inputs', async () => {
       const { formatCalendarSyncDate } =

@@ -9,7 +9,7 @@ import {
   getGoogleTokenUrl,
   getGoogleRevokeUrl,
   GOOGLE_OAUTH_PURPOSE,
-  GOOGLE_CALENDAR_SCOPE,
+  hasGoogleCalendarScope,
 } from './constants';
 import { getGoogleOAuthToken, upsertGoogleOAuthToken } from './repo';
 
@@ -70,11 +70,7 @@ export async function getGoogleIntegrationStatus(
     };
   }
 
-  const hasCalendarScope = Boolean(
-    tokenRecord.scope &&
-    (tokenRecord.scope.includes(GOOGLE_CALENDAR_SCOPE) ||
-      tokenRecord.scope.includes('https://www.googleapis.com/auth/calendar')),
-  );
+  const hasCalendarScope = hasGoogleCalendarScope(tokenRecord.scope);
 
   return {
     status: 'connected',

@@ -321,7 +321,7 @@ export function GoogleCalendarSyncCard({
               onChange={(e) => {
                 void handleToggleSync(e.target.checked);
               }}
-              className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-6 w-6 rounded border-border text-primary focus:ring-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
@@ -359,7 +359,7 @@ export function GoogleCalendarSyncCard({
       {/* Status & Manual Sync Section */}
       <div className="rounded-lg border p-4 bg-muted/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1.5 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               {t('syncStatusTitle')}:
             </span>

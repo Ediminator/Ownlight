@@ -37,3 +37,29 @@ export function getGoogleCalendarApiBase(): string {
     DEFAULT_GOOGLE_CALENDAR_API_BASE
   );
 }
+
+/**
+ * Safely parses space-delimited OAuth 2.0 scopes and checks whether Google Calendar scope is granted.
+ * Uses exact token matching instead of URL substring matching to prevent CodeQL
+ * js/incomplete-url-substring-sanitization alerts.
+ */
+export function hasGoogleCalendarScope(scope: string | null | undefined): boolean {
+  if (!scope) return false;
+  const grantedScopes = new Set(scope.split(/\s+/).filter(Boolean));
+  return (
+    grantedScopes.has(GOOGLE_CALENDAR_SCOPE) ||
+    grantedScopes.has('https://www.googleapis.com/auth/calendar')
+  );
+}
+
+/**
+ * Safely parses space-delimited OAuth 2.0 scopes and checks whether Google Contacts scope is granted.
+ */
+export function hasGoogleContactsScope(scope: string | null | undefined): boolean {
+  if (!scope) return false;
+  const grantedScopes = new Set(scope.split(/\s+/).filter(Boolean));
+  return (
+    grantedScopes.has(GOOGLE_CONTACTS_SCOPE) ||
+    grantedScopes.has('https://www.googleapis.com/auth/contacts.readonly')
+  );
+}

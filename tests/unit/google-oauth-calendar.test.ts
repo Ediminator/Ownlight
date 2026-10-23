@@ -7,6 +7,8 @@ import { buildGoogleAuthorizationUrl } from '@/server/integrations/google/servic
 import {
   GOOGLE_CALENDAR_SCOPE,
   GOOGLE_CONTACTS_SCOPE,
+  hasGoogleCalendarScope,
+  hasGoogleContactsScope,
 } from '@/server/integrations/google/constants';
 import {
   formatCalendarEventSummary,
@@ -55,6 +57,51 @@ describe('Google Calendar OAuth & Sync Unit Tests (TASK-0046)', () => {
       const url = new URL(urlString);
       expect(url.searchParams.get('scope')).toBe(combinedScope);
       expect(url.searchParams.get('include_granted_scopes')).toBe('true');
+    });
+
+    it('I1-SEC01/02/03: hasGoogleCalendarScope parses space-delimited scopes and rejects spoofed URL substrings', () => {
+      // Valid exact scopes
+      expect(hasGoogleCalendarScope(GOOGLE_CALENDAR_SCOPE)).toBe(true);
+      expect(hasGoogleCalendarScope('https://www.googleapis.com/auth/calendar')).toBe(true);
+      expect(hasGoogleCalendarScope(`${GOOGLE_CONTACTS_SCOPE} ${GOOGLE_CALENDAR_SCOPE}`)).toBe(
+        true,
+      );
+      expect(
+        hasGoogleCalendarScope(
+          `https://www.googleapis.com/auth/userinfo.profile ${GOOGLE_CALENDAR_SCOPE} https://www.googleapis.com/auth/contacts`,
+        ),
+      ).toBe(true);
+
+      // Null, empty, or whitespace
+      expect(hasGoogleCalendarScope(null)).toBe(false);
+      expect(hasGoogleCalendarScope(undefined)).toBe(false);
+      expect(hasGoogleCalendarScope('')).toBe(false);
+      expect(hasGoogleCalendarScope('   ')).toBe(false);
+
+      // Only contacts scope
+      expect(hasGoogleCalendarScope(GOOGLE_CONTACTS_SCOPE)).toBe(false);
+
+      // Spoofed URL substrings (regression test for CodeQL js/incomplete-url-substring-sanitization)
+      expect(
+        hasGoogleCalendarScope('https://www.googleapis.com/auth/calendar.events.attacker.com'),
+      ).toBe(false);
+      expect(
+        hasGoogleCalendarScope(
+          'https://attacker.com/https://www.googleapis.com/auth/calendar.events',
+        ),
+      ).toBe(false);
+      expect(hasGoogleCalendarScope('https://www.googleapis.com/auth/calendars')).toBe(false);
+      expect(hasGoogleCalendarScope('https://not-google.com/auth/calendar')).toBe(false);
+    });
+
+    it('hasGoogleContactsScope parses space-delimited scopes correctly', () => {
+      expect(hasGoogleContactsScope(GOOGLE_CONTACTS_SCOPE)).toBe(true);
+      expect(hasGoogleContactsScope('https://www.googleapis.com/auth/contacts.readonly')).toBe(
+        true,
+      );
+      expect(hasGoogleContactsScope(GOOGLE_CALENDAR_SCOPE)).toBe(false);
+      expect(hasGoogleContactsScope(null)).toBe(false);
+      expect(hasGoogleContactsScope('https://attacker.com/auth/contacts')).toBe(false);
     });
   });
 

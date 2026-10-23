@@ -284,9 +284,10 @@ describe('TASK-0045: Calendar Feed Settings Helpers & Components', () => {
       mockRequireOwner.mockResolvedValueOnce({
         user: { id: 'owner-user-1', role: 'owner' },
       });
+      const testTokenValue = 'synthetic-feed-token-value';
       mockGetOrCreateActiveFeed.mockResolvedValueOnce({
         feed: dummyFeed,
-        token: 'new-token-string',
+        token: testTokenValue,
       });
 
       const element = await CalendarFeedPage({

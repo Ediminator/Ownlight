@@ -46,6 +46,25 @@ export function downloadBookingIcs(
 }
 
 /**
+ * Executes RFC 5545 ICS download workflow with progress state management.
+ */
+export function executeBookingIcsDownload(
+  slug: string,
+  summary: ConfirmedBookingSummary,
+  studioName: string,
+  studioEmail?: string | null,
+  onDownload?: () => void,
+  setDownloading?: (v: boolean) => void,
+) {
+  try {
+    setDownloading?.(true);
+    downloadBookingIcs(slug, summary, studioName, studioEmail, onDownload);
+  } finally {
+    setDownloading?.(false);
+  }
+}
+
+/**
  * Confirmation view rendered after a successful booking reservation (AC-3, AC-11).
  * Displays session details and provides instant in-browser RFC 5545 .ics file download.
  */
@@ -88,12 +107,7 @@ export function BookingConfirmationView({
   }
 
   const handleDownloadIcs = () => {
-    try {
-      setDownloading(true);
-      downloadBookingIcs(slug, summary, studioName, studioEmail, onDownload);
-    } finally {
-      setDownloading(false);
-    }
+    executeBookingIcsDownload(slug, summary, studioName, studioEmail, onDownload, setDownloading);
   };
 
   return (

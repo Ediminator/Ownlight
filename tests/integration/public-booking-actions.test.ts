@@ -4,12 +4,17 @@ import { eq } from 'drizzle-orm';
 vi.mock('server-only', () => ({}));
 
 const mockHeadersStore = new Map<string, string>();
+let mockHeadersThrow = false;
 
 vi.mock('next/headers', () => ({
-  headers: () =>
-    Promise.resolve({
+  headers: () => {
+    if (mockHeadersThrow) {
+      return Promise.reject(new Error('Headers unavailable in this environment'));
+    }
+    return Promise.resolve({
       get: (name: string) => mockHeadersStore.get(name.toLowerCase()) ?? null,
-    }),
+    });
+  },
 }));
 
 import { createIsolatedTestDatabase, type TestDatabaseInstance } from '../helpers/db-test-helper';
@@ -41,6 +46,7 @@ import { solveAltchaWebCrypto } from '@/app/[locale]/f/_components/pow-solver';
 import { generateSingleEventIcs } from '@/lib/calendar/ics';
 import { generateUuidV7 } from '@/lib/id';
 import { projects, shoots, pipelineStages } from '@/server/db/schema/projects';
+import * as settingsRepo from '@/server/settings/repo';
 import type { DbClient } from '@/server/db/client';
 
 describe('TASK-0044: Public Booking Scheduler Integration Tests', () => {
@@ -51,6 +57,7 @@ describe('TASK-0044: Public Booking Scheduler Integration Tests', () => {
   const activeBookingTypeId = '01920000-0000-7000-8000-000000000031';
 
   beforeEach(async () => {
+    mockHeadersThrow = false;
     mockHeadersStore.clear();
     mockHeadersStore.set('x-forwarded-for', '198.51.100.25');
 
@@ -1000,5 +1007,107 @@ describe('TASK-0044: Public Booking Scheduler Integration Tests', () => {
     const result = await submitPublicBookingAction(null, dbClient);
     expect(result.success).toBe(false);
     expect(result.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('getPublicBookingChallengeAction falls back to unknown IP when headers() throws', async () => {
+    mockHeadersThrow = true;
+    const res = await getPublicBookingChallengeAction(discoveryCallSlug, dbClient);
+    expect(res.success).toBe(true);
+    expect(res.data?.algorithm).toBe('SHA-256');
+  });
+
+  it('submitPublicBookingAction falls back to null IP when headers() throws', async () => {
+    mockHeadersThrow = true;
+    const pow = await generateValidPowPayload();
+    const result = await submitPublicBookingAction(
+      {
+        slug: discoveryCallSlug,
+        startsAt: '2026-10-26T18:30:00Z',
+        endsAt: '2026-10-26T19:00:00Z',
+        timezone: 'Europe/Berlin',
+        attendeeName: 'Headers Throw Visitor',
+        attendeeEmail: 'headersthrow@example.com',
+        website_url: '',
+        altcha_payload: pow,
+        locale: 'en',
+      },
+      dbClient,
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it('getPublicAvailableSlotsAction falls back to Europe/Berlin when getStudioSettings throws', async () => {
+    const spy = vi
+      .spyOn(settingsRepo, 'getStudioSettings')
+      .mockRejectedValueOnce(new Error('DB settings failed'));
+
+    const res = await getPublicAvailableSlotsAction(
+      {
+        slug: discoveryCallSlug,
+        startDate: '2026-10-26',
+        endDate: '2026-10-27',
+        timezone: 'UTC',
+      },
+      dbClient,
+    );
+    expect(res.success).toBe(true);
+    expect(res.data?.studioTimezone).toBe('Europe/Berlin');
+
+    spy.mockRestore();
+  });
+
+  it('handles shoot with null endsAt during availability calculation', async () => {
+    const [c] = await dbClient
+      .insert(clients)
+      .values({
+        id: generateUuidV7(),
+        kind: 'person',
+        displayName: 'Open Shoot Client',
+        preferredLocale: 'en',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    const stages = await dbClient.select().from(pipelineStages).limit(1);
+    const stageId = stages[0]?.id;
+
+    if (stageId && c?.id) {
+      const [proj] = await dbClient
+        .insert(projects)
+        .values({
+          id: generateUuidV7(),
+          clientId: c.id,
+          stageId,
+          title: 'Open Shoot Project',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+
+      if (proj?.id) {
+        await dbClient.insert(shoots).values({
+          id: generateUuidV7(),
+          projectId: proj.id,
+          title: 'Open Shoot Without EndsAt',
+          startsAt: new Date('2026-10-26T11:00:00Z'),
+          endsAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        const res = await getPublicAvailableSlotsAction(
+          {
+            slug: discoveryCallSlug,
+            startDate: '2026-10-26',
+            endDate: '2026-10-26',
+            timezone: 'UTC',
+          },
+          dbClient,
+        );
+
+        expect(res.success).toBe(true);
+      }
+    }
   });
 });

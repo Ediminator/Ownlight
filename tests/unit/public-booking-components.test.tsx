@@ -120,6 +120,7 @@ import { BookingClosedView } from '@/components/calendar/public/booking-closed-v
 import {
   BookingConfirmationView,
   downloadBookingIcs,
+  executeBookingIcsDownload,
 } from '@/components/calendar/public/booking-confirmation-view';
 import { PublicBookingScheduler } from '@/components/calendar/public/public-booking-scheduler';
 import {
@@ -129,6 +130,11 @@ import {
   getPrevMonth,
   formatMonthYear,
   fetchBookingChallenge,
+  detectVisitorTimezone,
+  formatLocalTime,
+  formatSlotWithStudioTime,
+  generateMonthGrid,
+  groupSlotsByDate,
 } from '@/components/calendar/public/booking-helpers';
 import BookingPage, { generateMetadata } from '@/app/[locale]/book/[slug]/page';
 import { GET as challengeRouteHandler } from '@/app/api/public/book/[slug]/challenge/route';
@@ -349,14 +355,13 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
 
     it('downloadBookingIcs handles missing window/document gracefully', () => {
       const origWindow = globalThis.window;
-      // @ts-expect-error simulating non-browser environment
-      delete globalThis.window;
+      Reflect.deleteProperty(globalThis, 'window');
 
       expect(() => {
         downloadBookingIcs('test', baseSummary, 'Lumiere Studio');
       }).not.toThrow();
 
-      globalThis.window = origWindow;
+      (globalThis as { window?: unknown }).window = origWindow;
     });
 
     it('downloadBookingIcs triggers browser blob download and onDownload callback', () => {
@@ -417,6 +422,24 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
       downloadBookingIcs('slug-1', baseSummary, 'Studio North', 'north@example.com', onDownload);
       expect(onDownload).toHaveBeenCalledTimes(1);
     });
+
+    it('executeBookingIcsDownload manages downloading state and invokes callback', () => {
+      const onDownload = vi.fn();
+      const stateHistory: boolean[] = [];
+      const setDownloading = (val: boolean) => stateHistory.push(val);
+
+      executeBookingIcsDownload(
+        'slug-1',
+        baseSummary,
+        'Studio North',
+        'north@example.com',
+        onDownload,
+        setDownloading,
+      );
+
+      expect(onDownload).toHaveBeenCalledTimes(1);
+      expect(stateHistory).toEqual([true, false]);
+    });
   });
 
   describe('PublicBookingScheduler (AC-1, AC-2, AC-7)', () => {
@@ -429,6 +452,7 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
       locationType: 'google_meet',
       locationDetails: null,
     };
+    const mockSlot = createMockSlot();
 
     it('renders scheduler in English with full layout and timezone selection', () => {
       const html = renderToStaticMarkup(
@@ -642,6 +666,109 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
 
       expect(html).toContain('publicBooking.form.powVerifying');
     });
+
+    it('renders loading skeleton when initialLoadingSlots is true', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialLoadingSlots={true}
+        />,
+      );
+      expect(html).toContain('publicBooking.slotPicker.loadingSlots');
+    });
+
+    it('renders empty slots message when no slots are available for selected date', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialSlots={[]}
+          initialLoadingSlots={false}
+          initialSelectedDate="2026-11-10"
+        />,
+      );
+      expect(html).toContain('publicBooking.slotPicker.noSlotsOnDate');
+    });
+
+    it('renders error banner when initialErrorBanner is provided', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialErrorBanner="Payment or system error occurred"
+        />,
+      );
+      expect(html).toContain('Payment or system error occurred');
+    });
+
+    it('renders validation field errors when initialFieldErrors is populated', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialSelectedSlot={mockSlot}
+          initialFieldErrors={{
+            attendeeName: 'Name is required',
+            attendeeEmail: 'Valid email is required',
+          }}
+        />,
+      );
+      expect(html).toContain('Name is required');
+      expect(html).toContain('Valid email is required');
+    });
+
+    it('renders disabled submitting button state when initialSubmitting is true', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialSelectedSlot={mockSlot}
+          initialSubmitting={true}
+        />,
+      );
+      expect(html).toContain('publicBooking.form.submitting');
+    });
+
+    it('renders verified pow status label when initialPowStatus is not solving', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={bookingType}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialSelectedSlot={mockSlot}
+          initialPowStatus="verified"
+        />,
+      );
+      expect(html).toContain('publicBooking.form.powVerified');
+    });
+
+    it('renders phone location details when locationType is phone with custom details', () => {
+      const html = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={{
+            ...bookingType,
+            locationType: 'phone',
+            locationDetails: '+49 30 999888',
+          }}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+        />,
+      );
+      expect(html).toContain('+49 30 999888');
+    });
   });
 
   describe('Booking Helpers: validateBookingAttendeeForm & buildBookingIcsParams', () => {
@@ -798,6 +925,132 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
       expect(resException).toBeNull();
 
       globalThis.fetch = origFetch;
+    });
+
+    it('detectVisitorTimezone detects valid timezone and falls back on error or empty string', () => {
+      const detected = detectVisitorTimezone();
+      expect(typeof detected).toBe('string');
+      expect(detected.length).toBeGreaterThan(0);
+
+      // 1. Fallback when DateTimeFormat throws
+      const spyThrow = vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function () {
+        throw new Error('Not supported');
+      });
+      expect(detectVisitorTimezone('Europe/Vienna')).toBe('Europe/Vienna');
+      spyThrow.mockRestore();
+
+      // 2. Fallback when resolved timezone is empty string
+      const spyEmpty = vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function () {
+        return {
+          resolvedOptions: () => ({ timeZone: '' }),
+        } as unknown as Intl.DateTimeFormat;
+      });
+      expect(detectVisitorTimezone('UTC')).toBe('UTC');
+      spyEmpty.mockRestore();
+    });
+
+    it('formatLocalTime formats time and handles invalid timezone via UTC fallback', () => {
+      const date = new Date('2026-11-10T14:30:00Z');
+      const formatted = formatLocalTime(date, 'UTC');
+      expect(formatted).toBe('14:30');
+
+      const fallback = formatLocalTime(date, 'Invalid/Timezone');
+      expect(fallback).toBe('14:30');
+    });
+
+    it('formatSlotWithStudioTime handles same tz, different tz, and city formatting without slashes', () => {
+      const slot = {
+        startsAtUtc: '2026-11-10T14:00:00Z',
+        endsAtUtc: '2026-11-10T15:00:00Z',
+      };
+      // Same timezone
+      const same = formatSlotWithStudioTime(slot, 'Europe/Berlin', 'Europe/Berlin');
+      expect(same.combinedLabel).toBe(same.visitorTime);
+
+      // Different timezone
+      const diff = formatSlotWithStudioTime(slot, 'America/New_York', 'Europe/Berlin');
+      expect(diff.combinedLabel).toContain('Berlin');
+
+      // Studio timezone without slash (e.g. UTC)
+      const noSlash = formatSlotWithStudioTime(slot, 'Europe/Berlin', 'UTC');
+      expect(noSlash.combinedLabel).toContain('UTC');
+    });
+
+    it('generateMonthGrid handles month starting on Sunday (e.g. March 2026)', () => {
+      // 2026-03-01 is Sunday (UTC day 0)
+      const grid = generateMonthGrid(2026, 2, new Set(['2026-03-15']), '2026-03-10');
+      expect(grid.length).toBeGreaterThanOrEqual(4);
+      // Sunday start should produce 6 padding days from previous month (Feb 23 to Feb 28)
+      expect(grid[0]?.[0]?.isCurrentMonth).toBe(false);
+      expect(grid[0]?.[6]?.isCurrentMonth).toBe(true);
+      expect(grid[0]?.[6]?.dayNumber).toBe(1);
+    });
+
+    it('formatMonthYear handles Intl exception with fallback string formatting', () => {
+      const spyThrow = vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function () {
+        throw new Error('Locale error');
+      });
+
+      const fallback = formatMonthYear(2026, 9, 'en');
+      expect(fallback).toBe('2026-10');
+
+      spyThrow.mockRestore();
+    });
+
+    it('fetchBookingChallenge handles non-object and incomplete responses', async () => {
+      const origFetch = globalThis.fetch;
+
+      // 1. Primitive non-object JSON
+      globalThis.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(123),
+      });
+      expect(await fetchBookingChallenge('test')).toBeNull();
+
+      // 2. Missing signature
+      globalThis.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            challenge: 'chal',
+            salt: 'salt',
+          }),
+      });
+      expect(await fetchBookingChallenge('test')).toBeNull();
+
+      globalThis.fetch = origFetch;
+    });
+
+    it('groupSlotsByDate groups multiple slots correctly', () => {
+      const slot1 = {
+        startsAtUtc: '2026-11-10T10:00:00Z',
+        endsAtUtc: '2026-11-10T11:00:00Z',
+        date: '2026-11-10',
+        startTime: '10:00',
+        endTime: '11:00',
+      };
+      const slot2 = {
+        startsAtUtc: '2026-11-10T14:00:00Z',
+        endsAtUtc: '2026-11-10T15:00:00Z',
+        date: '2026-11-10',
+        startTime: '14:00',
+        endTime: '15:00',
+      };
+      const slot3 = {
+        startsAtUtc: '2026-11-11T09:00:00Z',
+        endsAtUtc: '2026-11-11T10:00:00Z',
+        date: '2026-11-11',
+        startTime: '09:00',
+        endTime: '10:00',
+      };
+
+      const grouped = groupSlotsByDate([
+        slot1,
+        slot2,
+        slot3,
+      ] as unknown as import('@/server/calendar/availability').AvailableSlot[]);
+      expect(grouped['2026-11-10']?.length).toBe(2);
+      expect(grouped['2026-11-11']?.length).toBe(1);
     });
   });
 

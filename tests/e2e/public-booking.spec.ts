@@ -1,85 +1,11 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import path from 'node:path';
-import { PGlite } from '@electric-sql/pglite';
-
-const PGLITE_DIR = path.resolve('./.pglite-e2e');
 
 /**
  * Public Booking Scheduler E2E Specs (TASK-0044)
  * Covers AC-1, AC-2, AC-3, AC-7, AC-9, AC-10, AC-11 and WCAG 2.2 AA accessibility.
  */
 test.describe('TASK-0044: Public Booking Scheduler E2E', () => {
-  // Ensure calendar seed exists in .pglite-e2e before running tests
-  test.beforeAll(async () => {
-    let pglite: PGlite | null = null;
-    try {
-      pglite = new PGlite(PGLITE_DIR);
-      await pglite.waitReady;
-
-      // Seed discovery-call booking type if not already present
-      const check = await pglite.query(
-        "SELECT id FROM booking_types WHERE slug = 'discovery-call'",
-      );
-      if (check.rows.length === 0) {
-        const now = new Date().toISOString();
-        await pglite.query(
-          `INSERT INTO booking_types (id, slug, title, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_hours, max_future_days, location_type, color, is_active, created_at, updated_at)
-           VALUES ('01920000-0000-7000-8000-000000000031', 'discovery-call', 'Discovery Call', 'Initial 30-minute consultation', 30, 0, 15, 24, 60, 'google_meet', 'indigo', true, $1, $1)`,
-          [now],
-        );
-      }
-
-      // Ensure availability schedules exist (Mon-Fri 09:00-17:00)
-      for (let day = 1; day <= 5; day++) {
-        const schedCheck = await pglite.query(
-          'SELECT id FROM availability_schedules WHERE day_of_week = $1',
-          [day],
-        );
-        if (schedCheck.rows.length === 0) {
-          const now = new Date().toISOString();
-          await pglite.query(
-            `INSERT INTO availability_schedules (id, day_of_week, start_time, end_time, is_active, created_at, updated_at)
-             VALUES ($1, $2, '09:00', '17:00', true, $3, $3)`,
-            [`01920000-0000-7000-8000-00000000002${String(day)}`, day, now],
-          );
-        }
-      }
-    } catch {
-      // Ignore if database is locked by concurrent process
-    } finally {
-      if (pglite) {
-        try {
-          await pglite.close();
-        } catch {
-          // ignore
-        }
-      }
-    }
-  });
-
-  // Clean up any test appointments after tests
-  test.afterEach(async () => {
-    let pglite: PGlite | null = null;
-    try {
-      pglite = new PGlite(PGLITE_DIR);
-      await pglite.waitReady;
-      await pglite.query("DELETE FROM appointments WHERE attendee_email LIKE '%@example.com'");
-      await pglite.query("DELETE FROM email_outbox WHERE recipient LIKE '%@example.com'");
-      await pglite.query("DELETE FROM calendar_sync_outbox WHERE entity_type = 'appointment'");
-    } catch {
-      // ignore
-    } finally {
-      if (pglite) {
-        try {
-          await pglite.close();
-        } catch {
-          // ignore
-        }
-      }
-    }
-  });
-
   test('AC-1 & AC-2: unauthenticated visitor sees session details, timezone selector, responsive slot picker, and passes a11y', async ({
     page,
   }) => {

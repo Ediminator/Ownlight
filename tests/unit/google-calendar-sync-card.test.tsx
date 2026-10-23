@@ -120,4 +120,77 @@ describe('GoogleCalendarSyncCard Component (AC-7, AC-9)', () => {
     expect(html).toContain('bg-primary text-primary-foreground');
     expect(html).not.toContain('bg-primary text-white');
   });
+
+  describe('google-calendar-sync-helper pure unit tests', () => {
+    it('formats sync dates correctly and handles null or invalid inputs', async () => {
+      const { formatCalendarSyncDate } =
+        await import('@/components/settings/google-calendar-sync-helper');
+
+      expect(formatCalendarSyncDate(null, 'en')).toBeNull();
+      expect(formatCalendarSyncDate(undefined, 'en')).toBeNull();
+      expect(formatCalendarSyncDate('invalid-date', 'en')).toBeNull();
+
+      const validDate = new Date('2026-10-23T12:00:00Z');
+      const formatted = formatCalendarSyncDate(validDate, 'en');
+      expect(formatted).toBeTruthy();
+
+      const stringFormatted = formatCalendarSyncDate('2026-10-23T12:00:00Z', 'en');
+      expect(stringFormatted).toBeTruthy();
+
+      // Invalid locale fallback / error handling
+      expect(formatCalendarSyncDate(validDate, 'invalid-locale-!!!')).toBeNull();
+    });
+
+    it('computes calendar sync state accurately across connection permutations', async () => {
+      const { getCalendarSyncState } =
+        await import('@/components/settings/google-calendar-sync-helper');
+
+      expect(
+        getCalendarSyncState({ connected: false, hasCalendarScope: false, syncEnabled: false }),
+      ).toBe('disconnected');
+
+      expect(
+        getCalendarSyncState({ connected: true, hasCalendarScope: false, syncEnabled: true }),
+      ).toBe('disconnected');
+
+      expect(
+        getCalendarSyncState({ connected: true, hasCalendarScope: true, syncEnabled: false }),
+      ).toBe('inactive');
+
+      expect(
+        getCalendarSyncState({ connected: true, hasCalendarScope: true, syncEnabled: true }),
+      ).toBe('active');
+    });
+
+    it('formats calendar dropdown options with primary indicators and fallbacks', async () => {
+      const { formatCalendarOptions } =
+        await import('@/components/settings/google-calendar-sync-helper');
+
+      // Null / empty array fallback
+      expect(formatCalendarOptions(null)).toEqual([
+        { id: 'primary', label: 'Primary Calendar', isPrimary: true },
+      ]);
+      expect(formatCalendarOptions([])).toEqual([
+        { id: 'primary', label: 'Primary Calendar', isPrimary: true },
+      ]);
+
+      // Populated list
+      const calendars = [
+        { id: 'cal-1', summary: 'Studio Bookings', primary: true },
+        { id: 'cal-2', summary: 'Personal Calendar' },
+      ];
+      const result = formatCalendarOptions(calendars, 'Main Calendar');
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        id: 'cal-1',
+        label: 'Studio Bookings (Main Calendar)',
+        isPrimary: true,
+      });
+      expect(result[1]).toEqual({
+        id: 'cal-2',
+        label: 'Personal Calendar',
+        isPrimary: false,
+      });
+    });
+  });
 });

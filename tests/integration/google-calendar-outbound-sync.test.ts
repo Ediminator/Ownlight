@@ -431,6 +431,240 @@ describe('TASK-0046: Google Calendar & Meet Sync Integration (AC-2, AC-3, AC-5, 
 
       fakeCalendar.reset();
     });
+
+    it('AC-3: returns early when calendar sync is enabled but calendar.events scope is absent', async () => {
+      const dbClient = getDb();
+      const { upsertGoogleOAuthToken, getGoogleOAuthToken } =
+        await import('@/server/integrations/google/repo');
+      const originalToken = await getGoogleOAuthToken(dbClient);
+      if (!originalToken) throw new Error('Token missing');
+
+      // Update token with only contacts scope
+      await upsertGoogleOAuthToken(
+        {
+          encryptedRefreshToken: originalToken.encryptedRefreshToken,
+          accessToken: originalToken.accessToken,
+          accessTokenExpiresAt: originalToken.accessTokenExpiresAt,
+          scope: GOOGLE_CONTACTS_SCOPE,
+          calendarSyncEnabled: true,
+          selectedCalendarId: 'primary',
+        },
+        dbClient,
+      );
+
+      const result = await runCalendarSyncWorker({ dbClient });
+      expect(result.syncedCount).toBe(0);
+      expect(result.failedCount).toBe(0);
+
+      // Restore original token
+      await upsertGoogleOAuthToken(
+        {
+          encryptedRefreshToken: originalToken.encryptedRefreshToken,
+          accessToken: originalToken.accessToken,
+          accessTokenExpiresAt: originalToken.accessTokenExpiresAt,
+          scope: `${GOOGLE_CONTACTS_SCOPE} ${GOOGLE_CALENDAR_SCOPE}`,
+          calendarSyncEnabled: true,
+          selectedCalendarId: 'primary',
+        },
+        dbClient,
+      );
+    });
+
+    it('AC-3: handles delete action when no existingLink was stored', async () => {
+      const dbClient = getDb();
+      const unlinkedEntityId = '01920000-0000-7000-8000-000000000444';
+
+      const [outboxItem] = await dbClient
+        .insert(calendarSyncOutbox)
+        .values({
+          entityType: 'shoot',
+          entityId: unlinkedEntityId,
+          action: 'delete',
+          status: 'PENDING',
+        })
+        .returning();
+      if (!outboxItem?.id) throw new Error('Outbox item failed');
+
+      const result = await runCalendarSyncWorker({ dbClient });
+      expect(result.syncedCount).toBe(1);
+      expect(result.failedCount).toBe(0);
+
+      const [completedOutbox] = await dbClient
+        .select()
+        .from(calendarSyncOutbox)
+        .where(eq(calendarSyncOutbox.id, outboxItem.id));
+      expect(completedOutbox?.status).toBe('COMPLETED');
+    });
+
+    it('AC-3: retries outbox item when Google Calendar delete returns 500 error', async () => {
+      const dbClient = getDb();
+      const linkedEntityId = '01920000-0000-7000-8000-000000000333';
+
+      await dbClient.insert(calendarSyncLinks).values({
+        provider: 'google',
+        entityType: 'appointment',
+        entityId: linkedEntityId,
+        externalEventId: 'event-delete-failure',
+        etag: '"etag"',
+      });
+
+      const [outboxItem] = await dbClient
+        .insert(calendarSyncOutbox)
+        .values({
+          entityType: 'appointment',
+          entityId: linkedEntityId,
+          action: 'delete',
+          status: 'PENDING',
+          attempts: 0,
+        })
+        .returning();
+      if (!outboxItem?.id) throw new Error('Outbox creation failed');
+
+      fakeCalendar.setResponseOverride('DELETE', '/events', 500, {
+        error: { message: 'Internal Server Error' },
+      });
+
+      try {
+        const result = await runCalendarSyncWorker({ dbClient });
+        expect(result.failedCount).toBe(1);
+        expect(result.syncedCount).toBe(0);
+
+        const [retryOutbox] = await dbClient
+          .select()
+          .from(calendarSyncOutbox)
+          .where(eq(calendarSyncOutbox.id, outboxItem.id));
+        expect(retryOutbox?.status).toBe('PENDING');
+        expect(retryOutbox?.attempts).toBe(1);
+        expect(retryOutbox?.lastError).toContain('500');
+      } finally {
+        fakeCalendar.reset();
+      }
+    });
+
+    it('AC-3: handles missing appointment entity and formats description with meetUrl and locationDetails', async () => {
+      const dbClient = getDb();
+
+      // 1. Missing appointment entity
+      const [missingOutbox] = await dbClient
+        .insert(calendarSyncOutbox)
+        .values({
+          entityType: 'appointment',
+          entityId: '01920000-0000-7000-8000-000000000555',
+          action: 'create',
+          status: 'PENDING',
+        })
+        .returning();
+      if (!missingOutbox?.id) throw new Error('Outbox item creation failed');
+
+      // 2. Appointment with pre-existing meetUrl
+      const [apptWithMeetUrl] = await dbClient
+        .insert(appointments)
+        .values({
+          title: 'Virtual Review',
+          status: 'scheduled',
+          startsAt: new Date('2026-11-28T14:00:00Z'),
+          endsAt: new Date('2026-11-28T15:00:00Z'),
+          timezone: 'Europe/Berlin',
+          attendeeName: 'Felix Mendelssohn',
+          attendeeEmail: 'felix@example.org',
+          locationType: 'in_person',
+          meetUrl: 'https://meet.google.com/existing-room',
+        })
+        .returning();
+      if (!apptWithMeetUrl?.id) throw new Error('Appt creation failed');
+
+      await dbClient.insert(calendarSyncOutbox).values({
+        entityType: 'appointment',
+        entityId: apptWithMeetUrl.id,
+        action: 'create',
+        status: 'PENDING',
+      });
+
+      // 3. Cancelled appointment without pre-existing sync link
+      const [cancelledWithoutLink] = await dbClient
+        .insert(appointments)
+        .values({
+          title: 'Never Linked Cancelled',
+          status: 'cancelled',
+          startsAt: new Date('2026-11-29T10:00:00Z'),
+          endsAt: new Date('2026-11-29T11:00:00Z'),
+          timezone: 'Europe/Berlin',
+          attendeeName: 'Fanny Mendelssohn',
+          attendeeEmail: 'fanny@example.org',
+          locationType: 'in_person',
+        })
+        .returning();
+      if (!cancelledWithoutLink?.id) throw new Error('Appt creation failed');
+
+      await dbClient.insert(calendarSyncOutbox).values({
+        entityType: 'appointment',
+        entityId: cancelledWithoutLink.id,
+        action: 'update',
+        status: 'PENDING',
+      });
+
+      const result = await runCalendarSyncWorker({ dbClient });
+      // apptWithMeetUrl synced (1) + cancelledWithoutLink marked completed/synced (1) = 2
+      expect(result.syncedCount).toBe(2);
+      expect(result.failedCount).toBe(0);
+
+      // Verify missing entity was marked completed
+      const [completedMissing] = await dbClient
+        .select()
+        .from(calendarSyncOutbox)
+        .where(eq(calendarSyncOutbox.id, missingOutbox.id));
+      expect(completedMissing?.status).toBe('COMPLETED');
+
+      // Verify description included Google Meet link
+      const meetReq = fakeCalendar.requests.find(
+        (r) =>
+          r.method === 'POST' &&
+          r.url.includes('/events') &&
+          typeof r.parsedBody?.description === 'string' &&
+          r.parsedBody.description.includes('Google Meet: https://meet.google.com/existing-room'),
+      );
+      expect(meetReq).toBeDefined();
+    });
+
+    it('AC-3: handles shoot without endsAt falling back to 1 hour', async () => {
+      const dbClient = getDb();
+      const projectId = await createTestProject();
+
+      const shootStartsAt = new Date('2026-11-30T10:00:00Z');
+      const [shoot] = await dbClient
+        .insert(shoots)
+        .values({
+          projectId,
+          title: 'Quick Studio Shoot',
+          startsAt: shootStartsAt,
+          endsAt: null,
+        })
+        .returning();
+      if (!shoot?.id) throw new Error('Shoot creation failed');
+
+      await dbClient.insert(calendarSyncOutbox).values({
+        entityType: 'shoot',
+        entityId: shoot.id,
+        action: 'create',
+        status: 'PENDING',
+      });
+
+      const result = await runCalendarSyncWorker({ dbClient });
+      expect(result.syncedCount).toBe(1);
+      expect(result.failedCount).toBe(0);
+
+      const shootReq = fakeCalendar.requests.find(
+        (r) =>
+          r.method === 'POST' &&
+          r.url.includes('/events') &&
+          typeof r.parsedBody?.summary === 'string' &&
+          r.parsedBody.summary.includes('Quick Studio Shoot'),
+      );
+      expect(shootReq).toBeDefined();
+      expect((shootReq?.parsedBody?.end as { dateTime?: string } | undefined)?.dateTime).toBe(
+        new Date(shootStartsAt.getTime() + 60 * 60 * 1000).toISOString(),
+      );
+    });
   });
 
   describe('AC-5: Inbound Free/Busy Query & Availability Engine Integration', () => {

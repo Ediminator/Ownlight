@@ -57,6 +57,14 @@ describe('GoogleCalendarClient Unit Tests (AC-2, AC-3, AC-4, AC-5)', () => {
       });
       expect(shootSummaryWithAttendee).toBe('Studio Lux - Shoot: Portraits: Max M.');
 
+      const shootSummaryAlreadyHasAttendee = formatCalendarEventSummary({
+        studioName: 'Studio Lux',
+        entityType: 'shoot',
+        title: 'Portraits: Max M.',
+        attendeeName: 'Max Mustermann',
+      });
+      expect(shootSummaryAlreadyHasAttendee).toBe('Studio Lux - Shoot: Portraits: Max M.');
+
       const blockedSummary = formatCalendarEventSummary({
         studioName: 'Studio Lux',
         entityType: 'blocked_time',
@@ -269,6 +277,52 @@ describe('GoogleCalendarClient Unit Tests (AC-2, AC-3, AC-4, AC-5)', () => {
       vi.spyOn(client, 'getValidAccessToken').mockResolvedValue(fakeToken);
 
       await expect(client.listCalendars()).rejects.toThrow(CalendarApiError);
+    });
+
+    it('handles timeout in listCalendars mapping to 408', async () => {
+      const timeoutErr = new Error('Abort');
+      timeoutErr.name = 'AbortError';
+      const mockFetch = vi.fn().mockRejectedValue(timeoutErr);
+
+      const client = new GoogleCalendarClient({
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+      vi.spyOn(client, 'getValidAccessToken').mockResolvedValue(fakeToken);
+
+      await expect(client.listCalendars()).rejects.toMatchObject({ statusCode: 408 });
+    });
+
+    it('listCalendars: handles missing summary and empty items', async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => await Promise.resolve({ items: [{ id: 'calendar-without-summary' }] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => await Promise.resolve({}),
+        });
+
+      const client = new GoogleCalendarClient({
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+      vi.spyOn(client, 'getValidAccessToken').mockResolvedValue(fakeToken);
+
+      const list1 = await client.listCalendars();
+      expect(list1).toEqual([
+        {
+          id: 'calendar-without-summary',
+          summary: 'calendar-without-summary',
+          primary: false,
+          description: undefined,
+        },
+      ]);
+
+      const list2 = await client.listCalendars();
+      expect(list2).toEqual([]);
     });
 
     it('insertEvent: extracts hangoutLink from conferenceData entryPoints when hangoutLink is absent', async () => {

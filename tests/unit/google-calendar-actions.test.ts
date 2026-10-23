@@ -160,6 +160,40 @@ describe('Google Calendar Server Actions (TASK-0046: AC-1, AC-7, AC-8)', () => {
       );
     });
 
+    it('AC-1: uses __Secure cookie prefix when DB_SSL is enabled', async () => {
+      vi.mocked(guards.requireOwner).mockResolvedValueOnce(mockOwnerAuth);
+      vi.mocked(service.getGoogleIntegrationStatus).mockResolvedValueOnce({
+        status: 'connected',
+        configured: true,
+        connected: true,
+        scope: 'https://www.googleapis.com/auth/contacts',
+      });
+      vi.mocked(service.buildGoogleAuthorizationUrl).mockReturnValueOnce(
+        'https://accounts.google.com/o/oauth2/v2/auth',
+      );
+
+      const originalDbSsl = process.env.DB_SSL;
+      process.env.DB_SSL = 'true';
+      try {
+        const result = await startGoogleCalendarAuthAction(
+          'https://studio.example.com',
+          dummyClient,
+        );
+        expect(result.success).toBe(true);
+        expect(mockCookiesSet).toHaveBeenCalledWith(
+          '__Secure-google_oauth_state',
+          expect.any(String),
+          expect.objectContaining({ httpOnly: true, secure: true }),
+        );
+      } finally {
+        if (originalDbSsl !== undefined) {
+          process.env.DB_SSL = originalDbSsl;
+        } else {
+          delete process.env.DB_SSL;
+        }
+      }
+    });
+
     it('AC-1: falls back to default localhost URL if baseUrl is empty', async () => {
       vi.mocked(guards.requireOwner).mockResolvedValueOnce(mockOwnerAuth);
       vi.mocked(service.getGoogleIntegrationStatus).mockResolvedValueOnce({
@@ -452,6 +486,26 @@ describe('Google Calendar Server Actions (TASK-0046: AC-1, AC-7, AC-8)', () => {
       vi.mocked(repo.getGoogleOAuthToken).mockResolvedValueOnce(createMockToken());
 
       mockListCalendars.mockRejectedValueOnce(new Error('Network error'));
+
+      const result = await getGoogleCalendarSettingsAction(dummyClient);
+      expect(result.success).toBe(true);
+      expect(result.data?.calendars).toEqual([
+        { id: 'primary', summary: 'Primary Calendar', primary: true },
+      ]);
+    });
+
+    it('AC-7: falls back to default primary calendar if listCalendars returns empty list', async () => {
+      vi.mocked(guards.requireOwner).mockResolvedValueOnce(mockOwnerAuth);
+      vi.mocked(service.getGoogleIntegrationStatus).mockResolvedValueOnce({
+        status: 'connected',
+        configured: true,
+        connected: true,
+        scope: 'https://www.googleapis.com/auth/calendar.events',
+        hasCalendarScope: true,
+      });
+      vi.mocked(repo.getGoogleOAuthToken).mockResolvedValueOnce(createMockToken());
+
+      mockListCalendars.mockResolvedValueOnce([]);
 
       const result = await getGoogleCalendarSettingsAction(dummyClient);
       expect(result.success).toBe(true);

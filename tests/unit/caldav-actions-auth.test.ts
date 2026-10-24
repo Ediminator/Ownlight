@@ -80,7 +80,7 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     const res = await testCaldavConnectionAction({
       serverUrl: 'https://caldav.example.org',
       username: 'photographer@example.org',
-      password: 'mock_synthetic_secret_pass',
+      password: 'mock_pw',
     });
 
     expect(res.success).toBe(false);
@@ -93,7 +93,7 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     const res = await saveCaldavAccountAction({
       serverUrl: 'https://caldav.example.org',
       username: 'photographer@example.org',
-      password: 'mock_synthetic_secret_pass',
+      password: 'mock_pw',
       selectedCalendarUrl: '/12345/calendars/work/',
       selectedCalendarName: 'Work',
     });
@@ -284,7 +284,7 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     const res = await saveCaldavAccountAction({
       serverUrl: 'https://caldav.example.org',
       username: 'photographer@example.org',
-      password: 'mock_synthetic_secret_pass',
+      password: 'mock_pw',
       selectedCalendarUrl: '/123/cal/',
       selectedCalendarName: 'Work',
     });
@@ -309,7 +309,7 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     const res = await saveCaldavAccountAction({
       serverUrl: 'https://caldav.example.org',
       username: 'photographer@example.org',
-      password: 'mock_synthetic_secret_pass',
+      password: 'mock_pw',
       selectedCalendarUrl: '/123/cal/',
     });
 
@@ -324,7 +324,7 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     const errRes = await saveCaldavAccountAction({
       serverUrl: 'https://caldav.example.org',
       username: 'photographer@example.org',
-      password: 'mock_synthetic_secret_pass',
+      password: 'mock_pw',
       selectedCalendarUrl: '/123/cal/',
     });
     expect(errRes.success).toBe(false);

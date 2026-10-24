@@ -235,4 +235,39 @@ describe('TASK-0047: CalDAV Event Conversion and Formatting (AC-3, AC-4)', () =>
     expect(intervals[0]?.externalId).toBe('local-tz-evt@example.org');
     expect(intervals[1]?.externalId).toBe('iso-str-evt@example.org');
   });
+
+  it('AC-3: formatCaldavSummary defaults attendee to Client when attendeeName is absent', () => {
+    const summary = formatCaldavSummary({
+      entityType: 'appointment',
+      studioName: '',
+    });
+    expect(summary).toBe('Consultation: Client');
+  });
+
+  it('AC-4: parseCaldavEventToBusyIntervals parses all-day YYYYMMDD date format', () => {
+    const allDayIcal = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'BEGIN:VEVENT',
+      'UID:allday-evt@example.org',
+      'DTSTART;VALUE=DATE:20261125',
+      'DTEND;VALUE=DATE:20261126',
+      'STATUS:CONFIRMED',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const intervals = parseCaldavEventToBusyIntervals(allDayIcal);
+    expect(intervals).toHaveLength(1);
+    expect(intervals[0]?.externalId).toBe('allday-evt@example.org');
+    expect(intervals[0]?.startsAt.toISOString()).toBe('2026-11-25T00:00:00.000Z');
+  });
+
+  it('AC-3: formatCaldavSummary formats shoot without projectTitle and without title', () => {
+    const summary = formatCaldavSummary({
+      entityType: 'shoot',
+      studioName: '',
+    });
+    expect(summary).toBe('Shoot');
+  });
 });

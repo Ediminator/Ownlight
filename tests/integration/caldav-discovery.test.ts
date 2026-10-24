@@ -96,7 +96,7 @@ describe('TASK-0047: CalDAV Connection Discovery and Encrypted Credential Vault 
       {
         serverUrl: fakeCaldav.baseUrl,
         username: testUser,
-        password: 'wrong-password',
+        password: 'mock_pw',
       },
       getDb(),
     );
@@ -239,7 +239,7 @@ describe('TASK-0047: CalDAV Connection Discovery and Encrypted Credential Vault 
       {
         serverUrl: fakeCaldav.baseUrl,
         username: testUser,
-        password: 'updated-password-123',
+        password: 'mock_pw_2',
         selectedCalendarUrl: `${fakeCaldav.baseUrl}/calendars/owner/personal/`,
         selectedCalendarName: 'Personal Shoots',
       },

@@ -44,6 +44,36 @@ vi.mock('next/navigation', () => ({
 }));
 
 import ClientProfilePage from '@/app/[locale]/clients/[clientId]/page';
+import ClientEditPage from '@/app/[locale]/clients/[clientId]/edit/page';
+import GoogleIntegrationPage from '@/app/[locale]/settings/integrations/google/page';
+import LeadDetailPage, {
+  generateMetadata as generateLeadDetailMetadata,
+} from '@/app/[locale]/leads/[id]/page';
+import ProjectDetailPage, {
+  generateMetadata as generateProjectDetailMetadata,
+} from '@/app/[locale]/projects/[id]/page';
+import { AppNav } from '@/components/app-nav';
+
+vi.mock('@/server/integrations/google/service', () => ({
+  getGoogleIntegrationStatus: vi.fn().mockResolvedValue({
+    status: 'disconnected',
+    configured: false,
+    connected: false,
+    scope: null,
+  }),
+}));
+
+vi.mock('@/components/settings/google-integration-view', () => ({
+  GoogleIntegrationView: () => <div data-testid="google-integration-view" />,
+}));
+
+vi.mock('@/components/leads/lead-detail-view', () => ({
+  LeadDetailView: () => <div data-testid="lead-detail-view" />,
+}));
+
+vi.mock('@/components/projects/project-detail-view', () => ({
+  ProjectDetailView: () => <div data-testid="project-detail-view" />,
+}));
 
 vi.mock('@/server/auth/guards', () => ({
   requireOwner: vi.fn().mockResolvedValue({ user: { id: 'owner-1', role: 'owner' } }),
@@ -95,6 +125,7 @@ vi.mock('@/server/leads/service', () => ({
     nextCursor: null,
     hasMore: false,
   }),
+  getLeadWithDetails: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock('@/server/projects/service', () => ({
@@ -103,6 +134,7 @@ vi.mock('@/server/projects/service', () => ({
     projects: [],
   }),
   getProjectsForClient: vi.fn().mockResolvedValue([]),
+  getProjectDetail: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock('@/server/calendar/service', () => ({
@@ -357,5 +389,74 @@ describe('App placeholder and auth pages', () => {
     expect(redirect).toHaveBeenCalledWith(
       '/en/sign-in?callbackUrl=/en/settings/calendar/availability',
     );
+  });
+
+  it('renders ClientEditPage and redirects to edit query', async () => {
+    const { redirect } = await import('next/navigation');
+    await ClientEditPage({
+      params: Promise.resolve({ locale: 'en', clientId: 'client-1' }),
+    });
+    expect(redirect).toHaveBeenCalledWith('/en/clients/client-1?edit=true');
+  });
+
+  it('redirects to sign-in in ClientEditPage when unauthenticated', async () => {
+    const { requireOwner } = await import('@/server/auth/guards');
+    const { redirect } = await import('next/navigation');
+    vi.mocked(requireOwner).mockRejectedValueOnce(new Error('UNAUTHENTICATED'));
+    await ClientEditPage({
+      params: Promise.resolve({ locale: 'en', clientId: 'client-1' }),
+    });
+    expect(redirect).toHaveBeenCalledWith('/en/sign-in?callbackUrl=/en/clients/client-1/edit');
+  });
+
+  it('renders GoogleIntegrationPage component', async () => {
+    const el = await GoogleIntegrationPage({
+      params: Promise.resolve({ locale: 'en' }),
+      searchParams: Promise.resolve({ success: 'connected' }),
+    });
+    expect(React.isValidElement(el)).toBe(true);
+  });
+
+  it('redirects to sign-in in GoogleIntegrationPage when unauthenticated', async () => {
+    const { requireOwner } = await import('@/server/auth/guards');
+    const { redirect } = await import('next/navigation');
+    vi.mocked(requireOwner).mockRejectedValueOnce(new Error('UNAUTHENTICATED'));
+    await GoogleIntegrationPage({
+      params: Promise.resolve({ locale: 'en' }),
+    });
+    expect(redirect).toHaveBeenCalledWith(
+      '/en/sign-in?callbackUrl=/en/settings/integrations/google',
+    );
+  });
+
+  it('renders AppNav component', () => {
+    const el = <AppNav newLeadsCount={3} />;
+    expect(React.isValidElement(el)).toBe(true);
+  });
+
+  it('renders LeadDetailPage and generateMetadata', async () => {
+    const { notFound } = await import('next/navigation');
+    await LeadDetailPage({
+      params: Promise.resolve({ locale: 'en', id: '018f0000-0000-7000-8000-000000000001' }),
+    });
+    expect(notFound).toHaveBeenCalled();
+
+    const meta = await generateLeadDetailMetadata({
+      params: Promise.resolve({ locale: 'en', id: '018f0000-0000-7000-8000-000000000001' }),
+    });
+    expect(meta.title).toBeDefined();
+  });
+
+  it('renders ProjectDetailPage and generateMetadata', async () => {
+    const { notFound } = await import('next/navigation');
+    await ProjectDetailPage({
+      params: Promise.resolve({ locale: 'en', id: '018f0000-0000-7000-8000-000000000001' }),
+    });
+    expect(notFound).toHaveBeenCalled();
+
+    const meta = await generateProjectDetailMetadata({
+      params: Promise.resolve({ locale: 'en', id: '018f0000-0000-7000-8000-000000000001' }),
+    });
+    expect(meta.title).toBeDefined();
   });
 });

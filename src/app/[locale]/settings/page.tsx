@@ -1,6 +1,6 @@
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
-import { Shield, Cloud, ClipboardList, CalendarClock } from 'lucide-react';
+import { Shield, Cloud, ClipboardList, CalendarClock, CalendarSync } from 'lucide-react';
 
 export default function SettingsPage() {
   const t = useTranslations('pages.settings');
@@ -64,6 +64,24 @@ export default function SettingsPage() {
           <div>
             <Link
               href="/settings/integrations/google"
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 min-h-[36px] py-2 px-4 shadow-sm"
+            >
+              {tInt('manage')}
+            </Link>
+          </div>
+        </div>
+
+        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
+          <div className="flex items-center gap-3">
+            <CalendarSync className="h-6 w-6 text-primary shrink-0" aria-hidden="true" />
+            <div>
+              <h2 className="text-lg font-semibold">{tInt('caldav.title')}</h2>
+              <p className="text-sm text-muted-foreground">{tInt('caldav.description')}</p>
+            </div>
+          </div>
+          <div>
+            <Link
+              href="/settings/integrations/caldav"
               className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 min-h-[36px] py-2 px-4 shadow-sm"
             >
               {tInt('manage')}

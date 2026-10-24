@@ -10,6 +10,8 @@ import {
   Loader2,
   ArrowLeft,
   RefreshCw,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import {
@@ -30,6 +32,9 @@ import type { CaldavAccountStatus } from '@/server/integrations/caldav/repo';
 import {
   validateCaldavCredentials,
   formatLastSynced,
+  clearFieldError,
+  togglePasswordVisibility,
+  resolveSelectedCalendarName,
   type CaldavFormErrors,
 } from './caldav-integration-helpers';
 
@@ -47,53 +52,91 @@ export interface CaldavIntegrationViewProps {
   initialSelectedCalendarUrl?: string;
   initialNotification?: { type: 'success' | 'error'; message: string } | null;
   initialErrors?: CaldavFormErrors;
+  initialShowPassword?: boolean;
 }
 
-export function CaldavIntegrationView({
-  initialStatus,
-  locale,
-  initialStep,
-  initialDiscoveredCalendars,
-  initialSelectedCalendarUrl,
-  initialNotification,
-  initialErrors,
-}: CaldavIntegrationViewProps) {
-  const t = useTranslations('settings.integrations.caldav');
+export interface CaldavViewControllerOptions {
+  serverUrl: string;
+  setServerUrl: (val: string) => void;
+  username: string;
+  setUsername: (val: string) => void;
+  password: string;
+  setPassword: (val: string) => void;
+  showPassword: boolean;
+  setShowPassword: React.Dispatch<React.SetStateAction<boolean>>;
+  errors: CaldavFormErrors;
+  setErrors: React.Dispatch<React.SetStateAction<CaldavFormErrors>>;
+  discoveredCalendars: DiscoveredCalendar[];
+  setDiscoveredCalendars: (val: DiscoveredCalendar[]) => void;
+  selectedCalendarUrl: string;
+  setSelectedCalendarUrl: (val: string) => void;
+  status: CaldavAccountStatus;
+  setStatus: React.Dispatch<React.SetStateAction<CaldavAccountStatus>>;
+  setStep: (step: 'credentials' | 'select_calendar') => void;
+  setIsTesting: (val: boolean) => void;
+  setIsSaving: (val: boolean) => void;
+  setIsSyncing: (val: boolean) => void;
+  setIsDisconnecting: (val: boolean) => void;
+  setIsDisconnectDialogOpen: (val: boolean) => void;
+  setNotification: (val: { type: 'success' | 'error'; message: string } | null) => void;
+  t: (key: string, values?: Record<string, string | number | Date>) => string;
+  testAction?: typeof testCaldavConnectionAction;
+  saveAction?: typeof saveCaldavAccountAction;
+  syncAction?: typeof triggerManualCaldavSyncAction;
+  disconnectAction?: typeof disconnectCaldavAccountAction;
+}
 
-  const [status, setStatus] = React.useState<CaldavAccountStatus>(initialStatus);
-  const [step, setStep] = React.useState<'credentials' | 'select_calendar'>(
-    initialStep ?? 'credentials',
-  );
+export interface CaldavViewController {
+  showPassword: boolean;
+  handleServerUrlChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleUsernameChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handlePasswordChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleCalendarSelectChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  handleManualSyncClick: () => void;
+  handleTestAndDiscoverSubmit: (e: React.SyntheticEvent) => void;
+  handleSaveAndConnectClick: () => void;
+  handleConfirmDisconnectClick: () => void;
+  onTogglePasswordVisibility: () => void;
+  onTestAndDiscover: (e?: React.SyntheticEvent) => Promise<void>;
+  onSaveAndConnect: () => Promise<void>;
+  onManualSync: () => Promise<void>;
+  onOpenDisconnectDialog: () => void;
+  onCloseDisconnectDialog: () => void;
+  onConfirmDisconnect: () => Promise<void>;
+  onBackToCredentials: () => void;
+}
 
-  // Form states
-  const [serverUrl, setServerUrl] = React.useState(initialStatus.serverUrl ?? '');
-  const [username, setUsername] = React.useState(initialStatus.username ?? '');
-  const [password, setPassword] = React.useState('');
-  const [errors, setErrors] = React.useState<CaldavFormErrors>(initialErrors ?? {});
-
-  // Wizard state
-  const [discoveredCalendars, setDiscoveredCalendars] = React.useState<DiscoveredCalendar[]>(
-    initialDiscoveredCalendars ?? [],
-  );
-  const [selectedCalendarUrl, setSelectedCalendarUrl] = React.useState(
-    initialSelectedCalendarUrl ?? initialStatus.selectedCalendarUrl ?? '',
-  );
-  const [isTesting, setIsTesting] = React.useState(false);
-  const [isSaving, setIsSaving] = React.useState(false);
-
-  // Syncing & Disconnect state
-  const [isSyncing, setIsSyncing] = React.useState(false);
-  const [isDisconnectDialogOpen, setIsDisconnectDialogOpen] = React.useState(false);
-  const [isDisconnecting, setIsDisconnecting] = React.useState(false);
-
-  // Notifications
-  const [notification, setNotification] = React.useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(initialNotification ?? null);
-
-  const handleTestAndDiscover = async (e: React.SyntheticEvent) => {
-    e.preventDefault();
+export function createCaldavViewController({
+  serverUrl,
+  setServerUrl,
+  username,
+  setUsername,
+  password,
+  setPassword,
+  showPassword,
+  setShowPassword,
+  errors,
+  setErrors,
+  discoveredCalendars,
+  setDiscoveredCalendars,
+  selectedCalendarUrl,
+  setSelectedCalendarUrl,
+  setStatus,
+  setStep,
+  setIsTesting,
+  setIsSaving,
+  setIsSyncing,
+  setIsDisconnecting,
+  setIsDisconnectDialogOpen,
+  setNotification,
+  t,
+  testAction = testCaldavConnectionAction,
+  saveAction = saveCaldavAccountAction,
+  syncAction = triggerManualCaldavSyncAction,
+  disconnectAction = disconnectCaldavAccountAction,
+}: CaldavViewControllerOptions): CaldavViewController {
+  const onTestAndDiscover = async (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault();
     setNotification(null);
 
     const validation = validateCaldavCredentials(
@@ -114,7 +157,7 @@ export function CaldavIntegrationView({
     setIsTesting(true);
 
     try {
-      const res = await testCaldavConnectionAction({
+      const res = await testAction({
         serverUrl: serverUrl.trim(),
         username: username.trim(),
         password,
@@ -146,7 +189,7 @@ export function CaldavIntegrationView({
     }
   };
 
-  const handleSaveAndConnect = async () => {
+  const onSaveAndConnect = async () => {
     if (!selectedCalendarUrl) {
       setErrors({ calendar: t('errorCalendarRequired') });
       return;
@@ -156,11 +199,13 @@ export function CaldavIntegrationView({
     setIsSaving(true);
     setNotification(null);
 
-    const chosenCalendar = discoveredCalendars.find((c) => c.url === selectedCalendarUrl);
-    const selectedCalendarName = chosenCalendar?.displayName ?? chosenCalendar?.url ?? 'Calendar';
+    const selectedCalendarName = resolveSelectedCalendarName(
+      discoveredCalendars,
+      selectedCalendarUrl,
+    );
 
     try {
-      const res = await saveCaldavAccountAction({
+      const res = await saveAction({
         serverUrl: serverUrl.trim(),
         username: username.trim(),
         password,
@@ -199,12 +244,12 @@ export function CaldavIntegrationView({
     }
   };
 
-  const handleManualSync = async () => {
+  const onManualSync = async () => {
     setIsSyncing(true);
     setNotification(null);
 
     try {
-      const res = await triggerManualCaldavSyncAction();
+      const res = await syncAction();
       setIsSyncing(false);
       if (res.success && res.data) {
         setStatus((prev: CaldavAccountStatus) => ({
@@ -240,12 +285,12 @@ export function CaldavIntegrationView({
     }
   };
 
-  const handleConfirmDisconnect = async () => {
+  const onConfirmDisconnect = async () => {
     setIsDisconnecting(true);
     setNotification(null);
 
     try {
-      const res = await disconnectCaldavAccountAction();
+      const res = await disconnectAction();
       setIsDisconnecting(false);
       setIsDisconnectDialogOpen(false);
 
@@ -274,6 +319,127 @@ export function CaldavIntegrationView({
       });
     }
   };
+
+  return {
+    showPassword,
+    handleServerUrlChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      setServerUrl(e.target.value);
+      if (errors.serverUrl) setErrors((prev) => clearFieldError(prev, 'serverUrl'));
+    },
+    handleUsernameChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      setUsername(e.target.value);
+      if (errors.username) setErrors((prev) => clearFieldError(prev, 'username'));
+    },
+    handlePasswordChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      setPassword(e.target.value);
+      if (errors.password) setErrors((prev) => clearFieldError(prev, 'password'));
+    },
+    handleCalendarSelectChange: (e: React.ChangeEvent<HTMLSelectElement>) => {
+      setSelectedCalendarUrl(e.target.value);
+      if (errors.calendar) setErrors((prev) => clearFieldError(prev, 'calendar'));
+    },
+    onTogglePasswordVisibility: () => {
+      setShowPassword((prev) => togglePasswordVisibility(prev));
+    },
+    onOpenDisconnectDialog: () => {
+      setIsDisconnectDialogOpen(true);
+    },
+    onCloseDisconnectDialog: () => {
+      setIsDisconnectDialogOpen(false);
+    },
+    onBackToCredentials: () => {
+      setStep('credentials');
+    },
+    onTestAndDiscover,
+    onSaveAndConnect,
+    onManualSync,
+    onConfirmDisconnect,
+    handleManualSyncClick: () => {
+      void onManualSync();
+    },
+    handleTestAndDiscoverSubmit: (e: React.SyntheticEvent) => {
+      void onTestAndDiscover(e);
+    },
+    handleSaveAndConnectClick: () => {
+      void onSaveAndConnect();
+    },
+    handleConfirmDisconnectClick: () => {
+      void onConfirmDisconnect();
+    },
+  };
+}
+
+export function CaldavIntegrationView({
+  initialStatus,
+  locale,
+  initialStep,
+  initialDiscoveredCalendars,
+  initialSelectedCalendarUrl,
+  initialNotification,
+  initialErrors,
+  initialShowPassword,
+}: CaldavIntegrationViewProps) {
+  const t = useTranslations('settings.integrations.caldav');
+
+  const [status, setStatus] = React.useState<CaldavAccountStatus>(initialStatus);
+  const [step, setStep] = React.useState<'credentials' | 'select_calendar'>(
+    initialStep ?? 'credentials',
+  );
+
+  // Form states
+  const [serverUrl, setServerUrl] = React.useState(initialStatus.serverUrl ?? '');
+  const [username, setUsername] = React.useState(initialStatus.username ?? '');
+  const [password, setPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(initialShowPassword ?? false);
+  const [errors, setErrors] = React.useState<CaldavFormErrors>(initialErrors ?? {});
+
+  // Wizard state
+  const [discoveredCalendars, setDiscoveredCalendars] = React.useState<DiscoveredCalendar[]>(
+    initialDiscoveredCalendars ?? [],
+  );
+  const [selectedCalendarUrl, setSelectedCalendarUrl] = React.useState(
+    initialSelectedCalendarUrl ?? initialStatus.selectedCalendarUrl ?? '',
+  );
+  const [isTesting, setIsTesting] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  // Syncing & Disconnect state
+  const [isSyncing, setIsSyncing] = React.useState(false);
+  const [isDisconnectDialogOpen, setIsDisconnectDialogOpen] = React.useState(false);
+  const [isDisconnecting, setIsDisconnecting] = React.useState(false);
+
+  // Notifications
+  const [notification, setNotification] = React.useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(initialNotification ?? null);
+
+  const controller = createCaldavViewController({
+    serverUrl,
+    setServerUrl,
+    username,
+    setUsername,
+    password,
+    setPassword,
+    showPassword,
+    setShowPassword,
+    errors,
+    setErrors,
+    discoveredCalendars,
+    setDiscoveredCalendars,
+    selectedCalendarUrl,
+    setSelectedCalendarUrl,
+    status,
+    setStatus,
+    setStep,
+    setIsTesting,
+    setIsSaving,
+    setIsSyncing,
+    setIsDisconnecting,
+    setIsDisconnectDialogOpen,
+    setNotification,
+    t,
+  });
 
   return (
     <div className="space-y-6">
@@ -403,9 +569,7 @@ export function CaldavIntegrationView({
             <button
               type="button"
               data-testid="caldav-sync-now-button"
-              onClick={() => {
-                void handleManualSync();
-              }}
+              onClick={controller.handleManualSyncClick}
               disabled={isSyncing}
               className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 min-h-[36px] px-4 py-2 shadow-sm transition-colors disabled:opacity-50"
             >
@@ -419,9 +583,7 @@ export function CaldavIntegrationView({
             <button
               type="button"
               data-testid="caldav-disconnect-button"
-              onClick={() => {
-                setIsDisconnectDialogOpen(true);
-              }}
+              onClick={controller.onOpenDisconnectDialog}
               className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground text-foreground min-h-[36px] px-4 py-2 shadow-sm transition-colors"
             >
               <span>{t('disconnectButton')}</span>
@@ -439,12 +601,7 @@ export function CaldavIntegrationView({
           </div>
 
           {step === 'credentials' ? (
-            <form
-              onSubmit={(e) => {
-                void handleTestAndDiscover(e);
-              }}
-              className="space-y-4 max-w-xl"
-            >
+            <form onSubmit={controller.handleTestAndDiscoverSubmit} className="space-y-4 max-w-xl">
               {/* Server URL field */}
               <div className="space-y-1.5">
                 <label
@@ -458,10 +615,7 @@ export function CaldavIntegrationView({
                   data-testid="caldav-server-url-input"
                   type="text"
                   value={serverUrl}
-                  onChange={(e) => {
-                    setServerUrl(e.target.value);
-                    if (errors.serverUrl) setErrors((prev) => ({ ...prev, serverUrl: undefined }));
-                  }}
+                  onChange={controller.handleServerUrlChange}
                   placeholder={t('serverUrlPlaceholder')}
                   aria-invalid={Boolean(errors.serverUrl)}
                   aria-describedby={
@@ -498,10 +652,7 @@ export function CaldavIntegrationView({
                   type="text"
                   autoComplete="username"
                   value={username}
-                  onChange={(e) => {
-                    setUsername(e.target.value);
-                    if (errors.username) setErrors((prev) => ({ ...prev, username: undefined }));
-                  }}
+                  onChange={controller.handleUsernameChange}
                   placeholder={t('usernamePlaceholder')}
                   aria-invalid={Boolean(errors.username)}
                   aria-describedby={errors.username ? 'caldav-username-error' : undefined}
@@ -519,7 +670,7 @@ export function CaldavIntegrationView({
                 )}
               </div>
 
-              {/* Password field */}
+              {/* Password field with reveal/hide toggle */}
               <div className="space-y-1.5">
                 <label
                   htmlFor="caldav-password"
@@ -527,23 +678,35 @@ export function CaldavIntegrationView({
                 >
                   {t('passwordLabel')}
                 </label>
-                <input
-                  id="caldav-password"
-                  data-testid="caldav-password-input"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
-                  }}
-                  placeholder={t('passwordPlaceholder')}
-                  aria-invalid={Boolean(errors.password)}
-                  aria-describedby={
-                    errors.password ? 'caldav-password-error' : 'caldav-password-hint'
-                  }
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                />
+                <div className="relative">
+                  <input
+                    id="caldav-password"
+                    data-testid="caldav-password-input"
+                    type={controller.showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={controller.handlePasswordChange}
+                    placeholder={t('passwordPlaceholder')}
+                    aria-invalid={Boolean(errors.password)}
+                    aria-describedby={
+                      errors.password ? 'caldav-password-error' : 'caldav-password-hint'
+                    }
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    data-testid="caldav-password-toggle"
+                    onClick={controller.onTogglePasswordVisibility}
+                    aria-label={controller.showPassword ? t('hidePassword') : t('showPassword')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground focus:outline-none"
+                  >
+                    {controller.showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
                 <p id="caldav-password-hint" className="text-xs text-muted-foreground">
                   {t('passwordHint')}
                 </p>
@@ -591,10 +754,7 @@ export function CaldavIntegrationView({
                   id="caldav-calendar-picker"
                   data-testid="caldav-calendar-select"
                   value={selectedCalendarUrl}
-                  onChange={(e) => {
-                    setSelectedCalendarUrl(e.target.value);
-                    if (errors.calendar) setErrors((prev) => ({ ...prev, calendar: undefined }));
-                  }}
+                  onChange={controller.handleCalendarSelectChange}
                   aria-invalid={Boolean(errors.calendar)}
                   aria-describedby={errors.calendar ? 'caldav-calendar-error' : undefined}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -621,9 +781,7 @@ export function CaldavIntegrationView({
                 <button
                   type="button"
                   data-testid="caldav-save-connect-button"
-                  onClick={() => {
-                    void handleSaveAndConnect();
-                  }}
+                  onClick={controller.handleSaveAndConnectClick}
                   disabled={isSaving}
                   className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 min-h-[36px] px-4 py-2 shadow-sm transition-colors disabled:opacity-50"
                 >
@@ -634,9 +792,7 @@ export function CaldavIntegrationView({
                 <button
                   type="button"
                   data-testid="caldav-back-button"
-                  onClick={() => {
-                    setStep('credentials');
-                  }}
+                  onClick={controller.onBackToCredentials}
                   disabled={isSaving}
                   className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground text-foreground min-h-[36px] px-4 py-2 shadow-sm transition-colors disabled:opacity-50"
                 >
@@ -669,9 +825,7 @@ export function CaldavIntegrationView({
             <button
               type="button"
               data-testid="caldav-cancel-disconnect-button"
-              onClick={() => {
-                setIsDisconnectDialogOpen(false);
-              }}
+              onClick={controller.onCloseDisconnectDialog}
               disabled={isDisconnecting}
               className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground text-foreground min-h-[36px] px-4 py-2 shadow-sm transition-colors"
             >
@@ -681,9 +835,7 @@ export function CaldavIntegrationView({
             <button
               type="button"
               data-testid="caldav-confirm-disconnect-button"
-              onClick={() => {
-                void handleConfirmDisconnect();
-              }}
+              onClick={controller.handleConfirmDisconnectClick}
               disabled={isDisconnecting}
               className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 min-h-[36px] px-4 py-2 shadow-sm transition-colors disabled:opacity-50"
             >

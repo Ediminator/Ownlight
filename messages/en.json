@@ -313,6 +313,8 @@
         "passwordLabel": "Password / App Password",
         "passwordPlaceholder": "••••••••••••••••",
         "passwordHint": "Use an application-specific password if supported by your provider.",
+        "showPassword": "Show password",
+        "hidePassword": "Hide password",
         "testAndDiscoverButton": "Test Connection & Find Calendars",
         "testingButton": "Testing connection...",
         "selectCalendarTitle": "Select Calendar",

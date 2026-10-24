@@ -73,3 +73,33 @@ export function formatLastSynced(
     return date.toISOString();
   }
 }
+
+export function clearFieldError(
+  errors: CaldavFormErrors,
+  field: keyof CaldavFormErrors,
+): CaldavFormErrors {
+  switch (field) {
+    case 'serverUrl':
+      return errors.serverUrl ? { ...errors, serverUrl: undefined } : errors;
+    case 'username':
+      return errors.username ? { ...errors, username: undefined } : errors;
+    case 'password':
+      return errors.password ? { ...errors, password: undefined } : errors;
+    case 'calendar':
+      return errors.calendar ? { ...errors, calendar: undefined } : errors;
+    default:
+      return errors;
+  }
+}
+
+export function togglePasswordVisibility(current: boolean): boolean {
+  return !current;
+}
+
+export function resolveSelectedCalendarName(
+  discoveredCalendars: { url: string; displayName?: string }[],
+  selectedCalendarUrl: string,
+): string {
+  const chosen = discoveredCalendars.find((c) => c.url === selectedCalendarUrl);
+  return chosen?.displayName ?? chosen?.url ?? 'Calendar';
+}

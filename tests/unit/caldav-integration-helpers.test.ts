@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   validateCaldavCredentials,
   formatLastSynced,
+  clearFieldError,
+  togglePasswordVisibility,
+  resolveSelectedCalendarName,
 } from '@/components/settings/caldav-integration-helpers';
 
 describe('caldav-integration-helpers', () => {
@@ -77,5 +80,67 @@ describe('caldav-integration-helpers', () => {
 
     const formattedDe = formatLastSynced(date, 'de', 'Noch nie synchronisiert');
     expect(formattedDe).toContain('2026');
+  });
+
+  it('formats last synced with date fallback when Intl formatting throws', () => {
+    const originalDateTimeFormat = Intl.DateTimeFormat;
+    try {
+      // Force Intl.DateTimeFormat to throw
+      (Intl as unknown as { DateTimeFormat: unknown }).DateTimeFormat = function () {
+        throw new Error('Intl mock error');
+      };
+
+      const date = new Date('2026-10-24T12:30:00Z');
+      const fallback = formatLastSynced(date, 'en', 'Never synced');
+      expect(fallback).toBe('2026-10-24T12:30:00.000Z');
+    } finally {
+      Intl.DateTimeFormat = originalDateTimeFormat;
+    }
+  });
+
+  it('clears specific field errors with clearFieldError', () => {
+    const errors = {
+      serverUrl: 'Invalid URL',
+      username: 'Required',
+      password: 'Required',
+      calendar: 'Select calendar',
+    };
+
+    const clearedServer = clearFieldError(errors, 'serverUrl');
+    expect(clearedServer.serverUrl).toBeUndefined();
+    expect(clearedServer.username).toBe('Required');
+
+    const clearedUsername = clearFieldError(errors, 'username');
+    expect(clearedUsername.username).toBeUndefined();
+
+    const clearedPassword = clearFieldError(errors, 'password');
+    expect(clearedPassword.password).toBeUndefined();
+
+    const clearedCalendar = clearFieldError(errors, 'calendar');
+    expect(clearedCalendar.calendar).toBeUndefined();
+
+    // No-op if field error does not exist
+    expect(clearFieldError({}, 'serverUrl').serverUrl).toBeUndefined();
+    expect(clearFieldError({}, 'username').username).toBeUndefined();
+    expect(clearFieldError({}, 'password').password).toBeUndefined();
+    const noOp = clearFieldError({ ...errors, calendar: undefined }, 'calendar');
+    expect(noOp.calendar).toBeUndefined();
+
+    // Fallback for unknown field type cast
+    const fallback = clearFieldError(errors, 'unknown' as unknown as keyof typeof errors);
+    expect(fallback).toBe(errors);
+  });
+
+  it('toggles password visibility', () => {
+    expect(togglePasswordVisibility(false)).toBe(true);
+    expect(togglePasswordVisibility(true)).toBe(false);
+  });
+
+  it('resolves selected calendar display name with fallbacks', () => {
+    const calendars = [{ url: '/cal/1/', displayName: 'Studio Shoots' }, { url: '/cal/2/' }];
+
+    expect(resolveSelectedCalendarName(calendars, '/cal/1/')).toBe('Studio Shoots');
+    expect(resolveSelectedCalendarName(calendars, '/cal/2/')).toBe('/cal/2/');
+    expect(resolveSelectedCalendarName(calendars, '/cal/not-found/')).toBe('Calendar');
   });
 });

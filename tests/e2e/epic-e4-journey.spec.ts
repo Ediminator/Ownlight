@@ -212,8 +212,20 @@ test.describe('TASK-0047: Epic E4 Automated Journey Regression Test', () => {
 
     const feedUrlInput = page.locator('[data-testid="feed-url-input"]');
     await expect(feedUrlInput).toBeVisible();
-    const feedUrl = await feedUrlInput.inputValue();
+    let feedUrl = await feedUrlInput.inputValue();
     expect(feedUrl).toContain('/api/calendar/feed/');
+
+    // If initial token is masked on page load, regenerate once to get active plaintext token URL
+    if (feedUrl.includes('••••')) {
+      await page.locator('[data-testid="revoke-feed-button"]').click();
+      const confirmBtn = page.locator('[data-testid="confirm-revoke-button"]');
+      await expect(confirmBtn).toBeVisible();
+      await page.waitForTimeout(300);
+      await confirmBtn.click();
+      await expect(confirmBtn).not.toBeVisible();
+      await expect(feedUrlInput).not.toHaveValue(/••••/);
+      feedUrl = await feedUrlInput.inputValue();
+    }
 
     // Fetch the .ics feed
     const feedResponse = await page.request.get(feedUrl);

@@ -107,13 +107,13 @@ describe('TASK-0047: CalDAV Event Conversion and Formatting (AC-3, AC-4)', () =>
       'VERSION:2.0',
       'PRODID:-//Apple Inc.//macOS 14.0//EN',
       'BEGIN:VEVENT',
-      'UID:ext-evt-991@icloud.com',
+      'UID:ext-evt-991@example.org',
       'DTSTART:20261120T090000Z',
       'DTEND:20261120T103000Z',
       'SUMMARY:Dentist Appointment',
       'END:VEVENT',
       'BEGIN:VEVENT',
-      'UID:ext-evt-992@icloud.com',
+      'UID:ext-evt-992@example.org',
       'DTSTART:20261120T140000Z',
       'DTEND:20261120T150000Z',
       'SUMMARY:Private Call',
@@ -124,11 +124,11 @@ describe('TASK-0047: CalDAV Event Conversion and Formatting (AC-3, AC-4)', () =>
     const intervals = parseCaldavEventToBusyIntervals(remoteIcal);
     expect(intervals).toHaveLength(2);
 
-    expect(intervals[0]?.externalId).toBe('ext-evt-991@icloud.com');
+    expect(intervals[0]?.externalId).toBe('ext-evt-991@example.org');
     expect(intervals[0]?.startsAt.toISOString()).toBe('2026-11-20T09:00:00.000Z');
     expect(intervals[0]?.endsAt.toISOString()).toBe('2026-11-20T10:30:00.000Z');
 
-    expect(intervals[1]?.externalId).toBe('ext-evt-992@icloud.com');
+    expect(intervals[1]?.externalId).toBe('ext-evt-992@example.org');
     expect(intervals[1]?.startsAt.toISOString()).toBe('2026-11-20T14:00:00.000Z');
     expect(intervals[1]?.endsAt.toISOString()).toBe('2026-11-20T15:00:00.000Z');
   });

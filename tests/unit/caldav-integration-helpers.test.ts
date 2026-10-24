@@ -17,7 +17,7 @@ describe('caldav-integration-helpers', () => {
       {
         serverUrl: 'https://cal.example.org/dav',
         username: 'user@example.org',
-        password: 'secret-password',
+        password: 'mock_synthetic_secret_token_abc',
       },
       messages,
     );
@@ -47,7 +47,7 @@ describe('caldav-integration-helpers', () => {
       {
         serverUrl: 'ftp://cal.example.org',
         username: 'user',
-        password: 'pass',
+        password: 'mock_synthetic_pass',
       },
       messages,
     );
@@ -58,7 +58,7 @@ describe('caldav-integration-helpers', () => {
       {
         serverUrl: 'not-a-valid-url',
         username: 'user',
-        password: 'pass',
+        password: 'mock_synthetic_pass',
       },
       messages,
     );

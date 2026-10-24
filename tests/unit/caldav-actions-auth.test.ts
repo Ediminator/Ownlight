@@ -78,9 +78,9 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     mockRequireOwner.mockRejectedValueOnce(new Error('Unauthenticated'));
 
     const res = await testCaldavConnectionAction({
-      serverUrl: 'https://caldav.icloud.com',
-      username: 'photographer@icloud.com',
-      password: 'app-specific-password',
+      serverUrl: 'https://caldav.example.org',
+      username: 'photographer@example.org',
+      password: 'mock_synthetic_secret_pass',
     });
 
     expect(res.success).toBe(false);
@@ -91,9 +91,9 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     mockRequireOwner.mockRejectedValueOnce(new Error('Unauthenticated'));
 
     const res = await saveCaldavAccountAction({
-      serverUrl: 'https://caldav.icloud.com',
-      username: 'photographer@icloud.com',
-      password: 'app-specific-password',
+      serverUrl: 'https://caldav.example.org',
+      username: 'photographer@example.org',
+      password: 'mock_synthetic_secret_pass',
       selectedCalendarUrl: '/12345/calendars/work/',
       selectedCalendarName: 'Work',
     });
@@ -208,8 +208,8 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     });
     mockGetCaldavAccount.mockResolvedValueOnce({
       id: 'caldav-acc-1',
-      serverUrl: 'https://caldav.icloud.com',
-      username: 'photographer@icloud.com',
+      serverUrl: 'https://caldav.example.org',
+      username: 'photographer@example.org',
       selectedCalendarUrl: '/cal/1/',
       selectedCalendarName: 'Client Shoots',
       lastSyncedAt: new Date('2026-10-24T00:00:00Z'),
@@ -230,8 +230,8 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     });
     mockGetCaldavAccount.mockResolvedValueOnce({
       id: 'caldav-acc-1',
-      serverUrl: 'https://caldav.icloud.com',
-      username: 'photographer@icloud.com',
+      serverUrl: 'https://caldav.example.org',
+      username: 'photographer@example.org',
     });
     mockRunCalendarSyncWorker.mockResolvedValueOnce({
       batchSize: 20,
@@ -252,8 +252,8 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     });
     mockGetCaldavAccount.mockResolvedValueOnce({
       id: 'caldav-acc-1',
-      serverUrl: 'https://caldav.icloud.com',
-      username: 'photographer@icloud.com',
+      serverUrl: 'https://caldav.example.org',
+      username: 'photographer@example.org',
     });
     mockRunCalendarSyncWorker.mockRejectedValueOnce(new Error('Connection timed out'));
 
@@ -282,9 +282,9 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     mockSaveCaldavAccount.mockRejectedValueOnce(new Error('Constraint violation'));
 
     const res = await saveCaldavAccountAction({
-      serverUrl: 'https://caldav.icloud.com',
-      username: 'photographer@icloud.com',
-      password: 'password123',
+      serverUrl: 'https://caldav.example.org',
+      username: 'photographer@example.org',
+      password: 'mock_synthetic_secret_pass',
       selectedCalendarUrl: '/123/cal/',
       selectedCalendarName: 'Work',
     });
@@ -292,5 +292,87 @@ describe('TASK-0047: CalDAV Server Actions AuthZ and Boundary Validation (AC-8)'
     expect(res.success).toBe(false);
     expect(res.code).toBe('ERROR');
     expect(res.error).toBe('Constraint violation');
+  });
+
+  it('AC-8: saveCaldavAccountAction defaults selectedCalendarName to Calendar and handles non-Error throw', async () => {
+    mockRequireOwner.mockResolvedValueOnce({
+      user: { id: 'owner-1', email: 'owner@example.com' },
+    });
+    mockSaveCaldavAccount.mockResolvedValueOnce({
+      id: 'acc-new-1',
+      serverUrl: 'https://caldav.example.org',
+      username: 'photographer@example.org',
+      selectedCalendarUrl: '/123/cal/',
+      selectedCalendarName: null,
+    });
+
+    const res = await saveCaldavAccountAction({
+      serverUrl: 'https://caldav.example.org',
+      username: 'photographer@example.org',
+      password: 'mock_synthetic_secret_pass',
+      selectedCalendarUrl: '/123/cal/',
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.data?.account.id).toBe('acc-new-1');
+
+    // Non-Error throw branch
+    mockRequireOwner.mockResolvedValueOnce({
+      user: { id: 'owner-1', email: 'owner@example.com' },
+    });
+    mockSaveCaldavAccount.mockRejectedValueOnce('raw-string-error');
+    const errRes = await saveCaldavAccountAction({
+      serverUrl: 'https://caldav.example.org',
+      username: 'photographer@example.org',
+      password: 'mock_synthetic_secret_pass',
+      selectedCalendarUrl: '/123/cal/',
+    });
+    expect(errRes.success).toBe(false);
+    expect(errRes.error).toBe('Failed to save CalDAV account.');
+  });
+
+  it('AC-8: disconnectCaldavAccountAction audits when accountId is present and handles non-Error throw', async () => {
+    mockRequireOwner.mockResolvedValueOnce({
+      user: { id: 'owner-1', email: 'owner@example.com' },
+    });
+    mockDeleteCaldavAccount.mockResolvedValueOnce({ deleted: true, accountId: 'acc-del-1' });
+
+    const res = await disconnectCaldavAccountAction();
+    expect(res.success).toBe(true);
+    expect(res.data?.disconnected).toBe(true);
+
+    // Non-Error throw branch
+    mockRequireOwner.mockResolvedValueOnce({
+      user: { id: 'owner-1', email: 'owner@example.com' },
+    });
+    mockDeleteCaldavAccount.mockRejectedValueOnce('unknown-error');
+    const errRes = await disconnectCaldavAccountAction();
+    expect(errRes.success).toBe(false);
+    expect(errRes.error).toBe('Failed to disconnect CalDAV account.');
+  });
+
+  it('AC-8: triggerManualCaldavSyncAction and getCaldavAccountStatusAction handle non-Error throws', async () => {
+    mockRequireOwner.mockResolvedValueOnce({
+      user: { id: 'owner-1', email: 'owner@example.com' },
+    });
+    mockGetCaldavAccount.mockResolvedValueOnce({
+      id: 'caldav-acc-1',
+      serverUrl: 'https://caldav.example.org',
+      username: 'photographer@example.org',
+    });
+    mockRunCalendarSyncWorker.mockRejectedValueOnce('worker-failure-string');
+
+    const res = await triggerManualCaldavSyncAction();
+    expect(res.success).toBe(false);
+    expect(res.error).toBe('Manual CalDAV sync failed.');
+
+    // Status action non-Error throw
+    mockRequireOwner.mockResolvedValueOnce({
+      user: { id: 'owner-1', email: 'owner@example.com' },
+    });
+    mockGetCaldavAccount.mockRejectedValueOnce('db-failure-string');
+    const statusRes = await getCaldavAccountStatusAction();
+    expect(statusRes.success).toBe(false);
+    expect(statusRes.error).toBe('Failed to retrieve CalDAV account status.');
   });
 });

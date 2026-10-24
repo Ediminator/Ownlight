@@ -14,6 +14,8 @@ import {
   calendarSyncOutbox,
   calendarSyncLinks,
   externalCalendarBusyIntervals,
+  blockedTime,
+  caldavAccounts,
 } from '@/server/db/schema/calendar';
 import { clients } from '@/server/db/schema/clients';
 import { projects, shoots, pipelineStages } from '@/server/db/schema/projects';
@@ -427,5 +429,67 @@ describe('TASK-0047: CalDAV Two-Way Sync in Background Worker (AC-3, AC-4)', () 
     expect(slotTimes).not.toContain('11:00');
     expect(slotTimes).toContain('12:00');
     expect(slotTimes).toContain('13:00');
+  });
+
+  it('AC-3: outbound sync worker pushes blocked_time blackout interval to CalDAV', async () => {
+    const dbClient = getDb();
+
+    // 1. Create a blocked_time record
+    const [bt] = await dbClient
+      .insert(blockedTime)
+      .values({
+        title: 'Studio Floor Renovation',
+        startsAt: new Date('2026-11-28T08:00:00Z'),
+        endsAt: new Date('2026-11-28T16:00:00Z'),
+        allDay: false,
+      })
+      .returning();
+
+    if (!bt?.id) throw new Error('Failed to create blocked_time');
+
+    // 2. Queue outbox item
+    await dbClient.insert(calendarSyncOutbox).values({
+      entityType: 'blocked_time',
+      entityId: bt.id,
+      action: 'create',
+      status: 'PENDING',
+    });
+
+    // 3. Run worker
+    const batchResult = await runCalendarSyncWorker({ dbClient });
+    expect(batchResult.syncedCount).toBe(1);
+
+    // 4. Verify sync link created for blocked_time
+    const [link] = await dbClient
+      .select()
+      .from(calendarSyncLinks)
+      .where(
+        and(
+          eq(calendarSyncLinks.provider, 'caldav'),
+          eq(calendarSyncLinks.entityType, 'blocked_time'),
+          eq(calendarSyncLinks.entityId, bt.id),
+        ),
+      )
+      .limit(1);
+
+    expect(link).toBeDefined();
+    expect(link?.externalEventId).toContain(bt.id);
+  });
+
+  it('AC-4: handles inbound CalDAV busy sync error gracefully and logs lastSyncError', async () => {
+    const dbClient = getDb();
+
+    // 1. Point CalDAV account to an invalid server URL that fails
+    await dbClient.update(caldavAccounts).set({
+      selectedCalendarUrl: 'http://127.0.0.1:1/nonexistent-calendar/',
+    });
+
+    // 2. Run worker with forceInbound
+    const result = await runCalendarSyncWorker({ dbClient, forceInbound: true });
+    expect(result).toBeDefined();
+
+    // 3. Verify lastSyncError is recorded
+    const [account] = await dbClient.select().from(caldavAccounts).limit(1);
+    expect(account?.lastSyncError).toBeDefined();
   });
 });

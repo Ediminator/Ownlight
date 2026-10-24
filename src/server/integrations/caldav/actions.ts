@@ -53,7 +53,7 @@ const saveAccountSchema = z
     username: z.string().min(1).max(255),
     password: z.string().min(1).max(500),
     selectedCalendarUrl: z.string().min(1).max(500),
-    selectedCalendarName: z.string().min(1).max(255),
+    selectedCalendarName: z.string().min(1).max(255).default('Calendar'),
   })
   .strict();
 
@@ -266,31 +266,37 @@ export async function getCaldavAccountStatusAction(
     return { success: false, code: 'UNAUTHENTICATED', error: 'Authentication required.' };
   }
 
-  const account = await getCaldavAccount(client);
-  if (!account) {
+  try {
+    const account = await getCaldavAccount(client);
+    if (!account) {
+      return {
+        success: true,
+        data: {
+          connected: false,
+          account: null,
+        },
+      };
+    }
+
     return {
       success: true,
       data: {
-        connected: false,
-        account: null,
+        connected: true,
+        account: {
+          id: account.id,
+          serverUrl: account.serverUrl,
+          username: account.username,
+          selectedCalendarUrl: account.selectedCalendarUrl,
+          selectedCalendarName: account.selectedCalendarName,
+          lastSyncedAt: account.lastSyncedAt,
+          lastSyncError: account.lastSyncError,
+          createdAt: account.createdAt,
+        },
       },
     };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Failed to retrieve CalDAV account status.';
+    return { success: false, code: 'ERROR', error: message };
   }
-
-  return {
-    success: true,
-    data: {
-      connected: true,
-      account: {
-        id: account.id,
-        serverUrl: account.serverUrl,
-        username: account.username,
-        selectedCalendarUrl: account.selectedCalendarUrl,
-        selectedCalendarName: account.selectedCalendarName,
-        lastSyncedAt: account.lastSyncedAt,
-        lastSyncError: account.lastSyncError,
-        createdAt: account.createdAt,
-      },
-    },
-  };
 }

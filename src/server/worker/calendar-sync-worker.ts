@@ -24,7 +24,7 @@ import {
 } from '@/server/integrations/google/calendar-client';
 import { hasGoogleCalendarScope } from '@/server/integrations/google/constants';
 import { getCaldavAccount, updateCaldavAccountSyncStatus } from '@/server/integrations/caldav/repo';
-import { CaldavClient, CaldavApiError } from '@/server/integrations/caldav/client';
+import { CaldavClient } from '@/server/integrations/caldav/client';
 import { decryptSecret } from '@/server/crypto/vault';
 import { type CaldavEventInput } from '@/server/integrations/caldav/mapping';
 import {
@@ -496,21 +496,10 @@ export async function processCalendarSyncBatch(
 
         if (item.action === 'delete' || isAppointmentCancelled) {
           if (existingCaldavLink) {
-            try {
-              await caldavClient.deleteCalendarEvent(
-                existingCaldavLink.externalEventId,
-                existingCaldavLink.etag ?? undefined,
-              );
-            } catch (err) {
-              if (
-                err instanceof CaldavApiError &&
-                (err.statusCode === 404 || err.statusCode === 410)
-              ) {
-                // Idempotent
-              } else {
-                throw err;
-              }
-            }
+            await caldavClient.deleteCalendarEvent(
+              existingCaldavLink.externalEventId,
+              existingCaldavLink.etag ?? undefined,
+            );
             await dbClient
               .delete(calendarSyncLinks)
               .where(eq(calendarSyncLinks.id, existingCaldavLink.id));

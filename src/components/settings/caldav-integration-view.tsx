@@ -33,33 +33,50 @@ import {
   type CaldavFormErrors,
 } from './caldav-integration-helpers';
 
-interface CaldavIntegrationViewProps {
-  initialStatus: CaldavAccountStatus;
-  locale: string;
-}
-
-interface DiscoveredCalendar {
+export interface DiscoveredCalendar {
   url: string;
   displayName: string;
   color?: string;
 }
 
-export function CaldavIntegrationView({ initialStatus, locale }: CaldavIntegrationViewProps) {
+export interface CaldavIntegrationViewProps {
+  initialStatus: CaldavAccountStatus;
+  locale: string;
+  initialStep?: 'credentials' | 'select_calendar';
+  initialDiscoveredCalendars?: DiscoveredCalendar[];
+  initialSelectedCalendarUrl?: string;
+  initialNotification?: { type: 'success' | 'error'; message: string } | null;
+  initialErrors?: CaldavFormErrors;
+}
+
+export function CaldavIntegrationView({
+  initialStatus,
+  locale,
+  initialStep,
+  initialDiscoveredCalendars,
+  initialSelectedCalendarUrl,
+  initialNotification,
+  initialErrors,
+}: CaldavIntegrationViewProps) {
   const t = useTranslations('settings.integrations.caldav');
 
   const [status, setStatus] = React.useState<CaldavAccountStatus>(initialStatus);
-  const [step, setStep] = React.useState<'credentials' | 'select_calendar'>('credentials');
+  const [step, setStep] = React.useState<'credentials' | 'select_calendar'>(
+    initialStep ?? 'credentials',
+  );
 
   // Form states
   const [serverUrl, setServerUrl] = React.useState(initialStatus.serverUrl ?? '');
   const [username, setUsername] = React.useState(initialStatus.username ?? '');
   const [password, setPassword] = React.useState('');
-  const [errors, setErrors] = React.useState<CaldavFormErrors>({});
+  const [errors, setErrors] = React.useState<CaldavFormErrors>(initialErrors ?? {});
 
   // Wizard state
-  const [discoveredCalendars, setDiscoveredCalendars] = React.useState<DiscoveredCalendar[]>([]);
+  const [discoveredCalendars, setDiscoveredCalendars] = React.useState<DiscoveredCalendar[]>(
+    initialDiscoveredCalendars ?? [],
+  );
   const [selectedCalendarUrl, setSelectedCalendarUrl] = React.useState(
-    initialStatus.selectedCalendarUrl ?? '',
+    initialSelectedCalendarUrl ?? initialStatus.selectedCalendarUrl ?? '',
   );
   const [isTesting, setIsTesting] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -73,7 +90,7 @@ export function CaldavIntegrationView({ initialStatus, locale }: CaldavIntegrati
   const [notification, setNotification] = React.useState<{
     type: 'success' | 'error';
     message: string;
-  } | null>(null);
+  } | null>(initialNotification ?? null);
 
   const handleTestAndDiscover = async (e: React.SyntheticEvent) => {
     e.preventDefault();
@@ -332,6 +349,17 @@ export function CaldavIntegrationView({ initialStatus, locale }: CaldavIntegrati
               <p className="text-sm text-muted-foreground">{t('activeCardDescription')}</p>
             </div>
           </div>
+
+          {status.lastSyncError && (
+            <div
+              role="alert"
+              data-testid="caldav-sync-error-notice"
+              className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20 text-xs text-destructive dark:text-red-400"
+            >
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{status.lastSyncError}</span>
+            </div>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t text-sm">
             <div>

@@ -89,6 +89,7 @@ export function encryptSecret(
     const masterKeyRaw =
       masterKeyOverride ??
       process.env.ENCRYPTION_KEY ??
+      (process.env.USE_PGLITE === 'true' ? process.env.AUTH_SECRET : undefined) ??
       (process.env.NODE_ENV === 'test' ? undefined : env.ENCRYPTION_KEY);
     const masterKeyBuf = parseMasterKey(masterKeyRaw);
     const subkey = deriveVaultSubkey(masterKeyBuf, purpose);
@@ -149,6 +150,7 @@ export function decryptSecret(
     const masterKeyRaw =
       masterKeyOverride ??
       process.env.ENCRYPTION_KEY ??
+      (process.env.USE_PGLITE === 'true' ? process.env.AUTH_SECRET : undefined) ??
       (process.env.NODE_ENV === 'test' ? undefined : env.ENCRYPTION_KEY);
     const masterKeyBuf = parseMasterKey(masterKeyRaw);
     const subkey = deriveVaultSubkey(masterKeyBuf, purpose);

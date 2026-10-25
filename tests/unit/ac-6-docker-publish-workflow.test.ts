@@ -52,10 +52,10 @@ describe('AC-6: GitHub Actions GHCR Pipeline & Supply Chain Security', () => {
   it('AC-6: builds for linux/amd64 and pushes both latest and commit sha tags to ghcr.io/ediminator/ownlight', () => {
     const content = fs.readFileSync(workflowPath, 'utf8');
 
-    expect(content).toMatch(/ghcr\.io/);
-    expect(content).toMatch(/linux\/amd64/);
-    expect(content).toMatch(/ghcr\.io\/ediminator\/ownlight:latest/);
-    expect(content).toMatch(/ghcr\.io\/ediminator\/ownlight:\${{\s*github\.sha\s*}}/);
+    expect(content).toContain('ghcr.io');
+    expect(content).toContain('linux/amd64');
+    expect(content).toContain('ghcr.io/ediminator/ownlight:latest');
+    expect(content).toContain('ghcr.io/ediminator/ownlight:${{ github.sha }}');
   });
 
   it('AC-6: passes pnpm run lint:actions validation without errors', () => {

@@ -109,47 +109,59 @@ describe('TASK-0044: Public Booking Scheduler Integration Tests', () => {
   // ==========================================
 
   it('AC-1: getPublicAvailableSlotsAction returns available slots for active booking type without auth', async () => {
-    const res = await getPublicAvailableSlotsAction(
-      {
-        slug: discoveryCallSlug,
-        startDate: '2026-10-26', // A Monday (active in seed)
-        endDate: '2026-10-26',
-        timezone: 'Europe/Berlin',
-      },
-      dbClient,
-    );
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-25T08:00:00Z'));
+    try {
+      const res = await getPublicAvailableSlotsAction(
+        {
+          slug: discoveryCallSlug,
+          startDate: '2026-10-26', // A Monday (active in seed)
+          endDate: '2026-10-26',
+          timezone: 'Europe/Berlin',
+        },
+        dbClient,
+      );
 
-    expect(res.success).toBe(true);
-    if (!res.success || !res.data) return;
+      expect(res.success).toBe(true);
+      if (!res.success || !res.data) return;
 
-    expect(res.data.bookingType.slug).toBe('discovery-call');
-    expect(res.data.bookingType.durationMinutes).toBe(30);
-    expect(res.data.slots.length).toBeGreaterThan(0);
+      expect(res.data.bookingType.slug).toBe('discovery-call');
+      expect(res.data.bookingType.durationMinutes).toBe(30);
+      expect(res.data.slots.length).toBeGreaterThan(0);
 
-    const firstSlot = res.data.slots[0];
-    expect(firstSlot).toBeDefined();
-    expect(firstSlot?.startsAt).toBeDefined();
-    expect(firstSlot?.endsAt).toBeDefined();
+      const firstSlot = res.data.slots[0];
+      expect(firstSlot).toBeDefined();
+      expect(firstSlot?.startsAt).toBeDefined();
+      expect(firstSlot?.endsAt).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('AC-2: available slots convert UTC times to visitor timezone (America/New_York)', async () => {
-    const res = await getPublicAvailableSlotsAction(
-      {
-        slug: discoveryCallSlug,
-        startDate: '2026-10-26',
-        endDate: '2026-10-26',
-        timezone: 'America/New_York',
-      },
-      dbClient,
-    );
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-25T08:00:00Z'));
+    try {
+      const res = await getPublicAvailableSlotsAction(
+        {
+          slug: discoveryCallSlug,
+          startDate: '2026-10-26',
+          endDate: '2026-10-26',
+          timezone: 'America/New_York',
+        },
+        dbClient,
+      );
 
-    expect(res.success).toBe(true);
-    if (!res.success || !res.data) return;
+      expect(res.success).toBe(true);
+      if (!res.success || !res.data) return;
 
-    // Verify slots are converted to America/New_York (-04:00 offset in late October)
-    expect(res.data.slots.length).toBeGreaterThan(0);
-    const firstSlot = res.data.slots[0];
-    expect(firstSlot?.startsAt).toContain('-04:00');
+      // Verify slots are converted to America/New_York (-04:00 offset in late October)
+      expect(res.data.slots.length).toBeGreaterThan(0);
+      const firstSlot = res.data.slots[0];
+      expect(firstSlot?.startsAt).toContain('-04:00');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // ==========================================

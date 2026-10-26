@@ -65,6 +65,7 @@
     "setup": {
       "title": "Initial Studio Setup",
       "description": "Bootstrap the studio owner account with your secure setup token.",
+      "descriptionTokenless": "Bootstrap the studio owner account to begin setting up your photography studio.",
       "setupToken": "Setup Token",
       "setupTokenPlaceholder": "Paste the 32+ byte hex token from your server environment",
       "name": "Full Name",

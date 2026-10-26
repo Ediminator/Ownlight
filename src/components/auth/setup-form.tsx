@@ -47,7 +47,9 @@ export function SetupForm({
     <div className="w-full max-w-md mx-auto space-y-6">
       <div className="text-center space-y-2">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('description')}</p>
+        <p className="text-sm text-muted-foreground">
+          {requireToken ? t('description') : t('descriptionTokenless')}
+        </p>
       </div>
 
       <div className="bg-card text-card-foreground border rounded-lg shadow-sm p-6 sm:p-8">

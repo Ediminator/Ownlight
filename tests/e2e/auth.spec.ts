@@ -68,6 +68,7 @@ test.describe('Authentication, Owner Bootstrap, Security Headers & Accessibility
       (v) => v.impact === 'serious' || v.impact === 'critical',
     );
     expect(violationsDark).toEqual([]);
+    await page.emulateMedia({ colorScheme: 'light' });
   });
 
   test('AC-8: validates mandatory security headers and strict-dynamic CSP on browser response', async ({

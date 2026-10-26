@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -29,7 +29,7 @@ export function sanitizeCallbackUrl(raw: string | null | undefined, locale: stri
 
 export function SignInForm({
   locale,
-  setupAvailable = false,
+  setupAvailable,
 }: {
   locale: string;
   setupAvailable?: boolean;
@@ -50,6 +50,29 @@ export function SignInForm({
   const [mfaMode, setMfaMode] = useState<'totp' | 'recovery'>('totp');
   const [totpCode, setTotpCode] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
+
+  const [fetchedSetupAvailable, setFetchedSetupAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (setupAvailable !== undefined) {
+      return;
+    }
+    let cancelled = false;
+    void fetch(`/${locale}/setup`, { method: 'GET', cache: 'no-store' })
+      .then((res) => {
+        if (!cancelled) {
+          setFetchedSetupAvailable(res.ok);
+        }
+      })
+      .catch(() => {
+        // Ignore fetch errors on unmount
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [locale, setupAvailable]);
+
+  const showSetupCallout = setupAvailable ?? fetchedSetupAvailable ?? false;
 
   const handleCredentialsSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -171,7 +194,7 @@ export function SignInForm({
         </p>
       </div>
 
-      {setupAvailable && (
+      {showSetupCallout && (
         <div
           data-testid="signin-setup-callout"
           role="region"
@@ -182,9 +205,12 @@ export function SignInForm({
           <Link
             href={`/${locale}/setup`}
             data-testid="signin-setup-callout-link"
-            className="inline-flex items-center text-primary font-medium hover:underline text-sm shrink-0"
+            className="inline-flex items-center min-h-[24px] text-primary font-medium hover:underline text-sm shrink-0"
           >
-            {t('setupAvailableLink')} &rarr;
+            <span>{t('setupAvailableLink')}</span>
+            <span aria-hidden="true" className="ml-1">
+              &rarr;
+            </span>
           </Link>
         </div>
       )}

@@ -25,9 +25,11 @@ services:
       TRUSTED_PROXY_COUNT: '${TRUSTED_PROXY_COUNT:-1}'
       SETUP_TOKEN: '${SETUP_TOKEN:-}'
       ENCRYPTION_KEY: '${ENCRYPTION_KEY:?Error: ENCRYPTION_KEY must be set in .env.synology}'
+      STORAGE_ACCESS_KEY: '${STORAGE_ACCESS_KEY:?STORAGE_ACCESS_KEY is required}'
+      STORAGE_SECRET_KEY: '${STORAGE_SECRET_KEY:?STORAGE_SECRET_KEY is required}'
       AUTO_MIGRATE: '${AUTO_MIGRATE:-true}'
       # Optional SMTP configuration
-      SMTP_HOST: '${SMTP_HOST:-}'
+      SMTP_HOST: '${SMTP_HOST:-127.0.0.1}'
       SMTP_PORT: '${SMTP_PORT:-587}'
       SMTP_USER: '${SMTP_USER:-}'
       SMTP_PASSWORD: '${SMTP_PASSWORD:-}'
@@ -50,10 +52,15 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: 'postgresql://${POSTGRES_APP_USER:-ownlight_app}:${POSTGRES_APP_PASSWORD:?Error: POSTGRES_APP_PASSWORD must be set in .env.synology}@db:5432/${POSTGRES_DB:-ownlight_prod}'
+      AUTH_URL: '${AUTH_URL:-http://localhost:3030}'
+      AUTH_SECRET: '${AUTH_SECRET:?AUTH_SECRET is required}'
+      STORAGE_ACCESS_KEY: '${STORAGE_ACCESS_KEY:?STORAGE_ACCESS_KEY is required}'
+      STORAGE_SECRET_KEY: '${STORAGE_SECRET_KEY:?STORAGE_SECRET_KEY is required}'
       ENCRYPTION_KEY: '${ENCRYPTION_KEY:?Error: ENCRYPTION_KEY must be set in .env.synology}'
+      SETUP_TOKEN: '${SETUP_TOKEN:-}'
       AUTO_MIGRATE: 'false'
       # Optional SMTP configuration
-      SMTP_HOST: '${SMTP_HOST:-}'
+      SMTP_HOST: '${SMTP_HOST:-127.0.0.1}'
       SMTP_PORT: '${SMTP_PORT:-587}'
       SMTP_USER: '${SMTP_USER:-}'
       SMTP_PASSWORD: '${SMTP_PASSWORD:-}'
@@ -64,10 +71,22 @@ services:
         condition: service_healthy
       web:
         condition: service_started
+    healthcheck:
+      test: ['CMD-SHELL', 'pgrep -f "scripts/worker.mjs" >/dev/null || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   db:
     image: postgres:18.1-alpine3.21
     restart: unless-stopped
+    entrypoint:
+      [
+        '/bin/sh',
+        '-c',
+        'cp /init-roles-source.sh /tmp/init-roles.sh && chmod 0755 /tmp/init-roles.sh && ln -sf /tmp/init-roles.sh /docker-entrypoint-initdb.d/01-init-roles.sh && exec docker-entrypoint.sh postgres',
+      ]
     environment:
       POSTGRES_DB: '${POSTGRES_DB:-ownlight_prod}'
       POSTGRES_USER: '${POSTGRES_USER:-postgres}'
@@ -78,7 +97,7 @@ services:
       POSTGRES_MIGRATOR_PASSWORD: '${POSTGRES_MIGRATOR_PASSWORD:?Error: POSTGRES_MIGRATOR_PASSWORD must be set in .env.synology}'
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./infra/postgres/init-roles.sh:/docker-entrypoint-initdb.d/01-init-roles.sh:ro
+      - ./infra/postgres/init-roles.sh:/init-roles-source.sh:ro
     healthcheck:
       test:
         ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-ownlight_prod}']

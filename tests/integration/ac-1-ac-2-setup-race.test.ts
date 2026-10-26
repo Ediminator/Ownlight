@@ -6,6 +6,7 @@ import { createIsolatedTestDatabase, type TestDatabaseInstance } from '../helper
 import {
   setupOwner,
   isSetupAvailable,
+  isSetupTokenRequired,
   SetupError,
   SetupUnavailableError,
 } from '@/server/auth/setup';
@@ -16,6 +17,7 @@ describe('AC-1 & AC-2: Owner bootstrap token verification, concurrency race, and
   let testDb: TestDatabaseInstance;
   const validSetupToken = 'c4d7e8f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9';
   const originalSetupToken = process.env.SETUP_TOKEN;
+  const DUMMY_TEST_PASSWORD = 'ValidPassword123!';
 
   beforeEach(async () => {
     testDb = await createIsolatedTestDatabase();
@@ -150,5 +152,54 @@ describe('AC-1 & AC-2: Owner bootstrap token verification, concurrency race, and
         client: dbClient,
       }),
     ).rejects.toThrow(SetupUnavailableError);
+  });
+
+  it('AC-3: tokenless first-run setup creates initial owner when SETUP_TOKEN is unset or empty', async () => {
+    process.env.SETUP_TOKEN = '';
+    const dbClient = testDb.db as unknown as DbClient;
+
+    expect(isSetupTokenRequired()).toBe(false);
+
+    // Initial setup succeeds without providing setupToken
+    const newOwner = await setupOwner({
+      name: 'Tokenless Owner',
+      email: 'tokenless@example.com',
+      password: DUMMY_TEST_PASSWORD,
+      client: dbClient,
+    });
+
+    expect(newOwner).toBeDefined();
+    expect(newOwner.email).toBe('tokenless@example.com');
+    expect(newOwner.role).toBe('owner');
+
+    const users = await dbClient.select().from(user);
+    expect(users.length).toBe(1);
+    expect(await isSetupAvailable(dbClient)).toBe(false);
+  });
+
+  it('AC-6: negative — permanent setup lock is strictly enforced even when SETUP_TOKEN is unset/empty', async () => {
+    process.env.SETUP_TOKEN = '';
+    const dbClient = testDb.db as unknown as DbClient;
+
+    // 1. Initial owner setup
+    await setupOwner({
+      name: 'Initial Owner',
+      email: 'initial@example.com',
+      password: DUMMY_TEST_PASSWORD,
+      client: dbClient,
+    });
+
+    // 2. Second attempt must fail with SetupUnavailableError (404)
+    await expect(
+      setupOwner({
+        name: 'Second Owner',
+        email: 'second@example.com',
+        password: DUMMY_TEST_PASSWORD,
+        client: dbClient,
+      }),
+    ).rejects.toThrow(SetupUnavailableError);
+
+    const users = await dbClient.select().from(user);
+    expect(users.length).toBe(1);
   });
 });

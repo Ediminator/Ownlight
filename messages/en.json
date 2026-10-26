@@ -90,6 +90,8 @@
       "submitting": "Signing in...",
       "forgotPassword": "Forgot your password?",
       "setupLink": "Need initial setup?",
+      "setupAvailablePrompt": "No studio owner account has been configured yet.",
+      "setupAvailableLink": "Complete initial studio setup",
       "mfaTitle": "Two-Factor Verification",
       "mfaDescription": "Enter the 6-digit verification code from your authenticator app.",
       "mfaCode": "Verification Code",

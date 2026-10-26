@@ -156,20 +156,18 @@ export function ClientProfile({
 
   // Focus announcement on mount if created (AC-1)
   React.useEffect(() => {
-    if (statusMessage) {
+    if (searchParams.get('created') === '1') {
       statusRef.current?.focus();
     }
-  }, [statusMessage]);
+  }, [searchParams]);
 
   const announceAndFocus = (message: string, targetRef?: React.RefObject<HTMLElement | null>) => {
     setStatusMessage(message);
-    setTimeout(() => {
-      if (targetRef?.current) {
-        targetRef.current.focus();
-      } else {
-        statusRef.current?.focus();
-      }
-    }, 50);
+    if (targetRef) {
+      setTimeout(() => {
+        targetRef.current?.focus();
+      }, 50);
+    }
   };
 
   const refreshClientData = async () => {

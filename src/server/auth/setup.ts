@@ -52,8 +52,23 @@ export async function isSetupAvailable(client: DbClient = defaultDb): Promise<bo
   }
 }
 
+/**
+ * Checks whether setup token verification is required.
+ * Returns true if SETUP_TOKEN is configured with a non-empty secret string.
+ * Returns false when SETUP_TOKEN is unset or empty, enabling tokenless first-run setup.
+ */
+export function isSetupTokenRequired(): boolean {
+  let expectedToken: string | undefined;
+  try {
+    expectedToken = env.SETUP_TOKEN;
+  } catch {
+    expectedToken = process.env.SETUP_TOKEN;
+  }
+  return typeof expectedToken === 'string' && expectedToken.trim().length > 0;
+}
+
 export interface SetupOwnerInput {
-  setupToken: string;
+  setupToken?: string;
   name: string;
   email: string;
   password: string;
@@ -65,26 +80,27 @@ const SETUP_ADVISORY_LOCK_ID = 746869;
 
 /**
  * Bootstraps the initial studio owner.
- * Protected by constant-time SETUP_TOKEN validation and transactional concurrency lock.
+ * Protected by constant-time SETUP_TOKEN validation (when required) and transactional concurrency lock.
  */
 export async function setupOwner({
-  setupToken,
+  setupToken = '',
   name,
   email,
   password,
   client = defaultDb,
 }: SetupOwnerInput): Promise<User> {
-  // 1. Retrieve expected setup token
-  let expectedToken: string | undefined;
-  try {
-    expectedToken = env.SETUP_TOKEN;
-  } catch {
-    expectedToken = process.env.SETUP_TOKEN;
-  }
+  // 1. Retrieve expected setup token and validate in constant time if token is required
+  if (isSetupTokenRequired()) {
+    let expectedToken: string | undefined;
+    try {
+      expectedToken = env.SETUP_TOKEN;
+    } catch {
+      expectedToken = process.env.SETUP_TOKEN;
+    }
 
-  // 2. Validate setup token in constant time
-  if (!expectedToken || !safeCompareTokens(setupToken, expectedToken)) {
-    throw new SetupError('Invalid setup token or setup unavailable.');
+    if (!expectedToken || !safeCompareTokens(setupToken, expectedToken)) {
+      throw new SetupError('Invalid setup token or setup unavailable.');
+    }
   }
 
   // 3. Validate input fields

@@ -22,6 +22,7 @@ import {
   rotateSession,
   revokeSession,
   getSessionCookieAttributes,
+  shouldUseSecureCookies,
   SESSION_COOKIE_NAME,
   SECURE_SESSION_COOKIE_NAME,
 } from './session';
@@ -149,7 +150,7 @@ async function getClientIp(): Promise<string> {
  * Helper to set session cookie on the response.
  */
 async function setSessionCookie(token: string): Promise<void> {
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = shouldUseSecureCookies();
   const attrs = getSessionCookieAttributes(isProd);
   const cookieStore = await cookies();
   cookieStore.set(attrs.name, token, {

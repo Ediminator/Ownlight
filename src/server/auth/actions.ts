@@ -33,6 +33,7 @@ import {
   verifySession,
   signOutEverywhere,
   getSessionCookieAttributes,
+  shouldUseSecureCookies,
   SESSION_COOKIE_NAME,
   SECURE_SESSION_COOKIE_NAME,
 } from './session';
@@ -61,7 +62,7 @@ async function getClientIp(): Promise<string> {
  * Helper to set session cookie on the response.
  */
 async function setSessionCookie(token: string): Promise<void> {
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = shouldUseSecureCookies();
   const attrs = getSessionCookieAttributes(isProd);
   const cookieStore = await cookies();
   cookieStore.set(attrs.name, token, {
@@ -82,16 +83,14 @@ async function clearSessionCookie(): Promise<void> {
   cookieStore.delete(SECURE_SESSION_COOKIE_NAME);
 }
 
+import { setupOwnerInputSchema, type SetupOwnerActionInput } from './schema';
+export type { SetupOwnerActionInput };
+
 /**
  * Setup Owner Action (Public allowlisted; guarded by setup token & count=0).
  */
 export async function setupOwnerAction(
-  formData: {
-    setupToken: string;
-    name: string;
-    email: string;
-    password: string;
-  },
+  formData: SetupOwnerActionInput,
   client: DbClient = db,
 ): Promise<ActionResult<{ user: { id: string; email: string; name: string } }>> {
   const ip = await getClientIp();
@@ -106,7 +105,21 @@ export async function setupOwnerAction(
       };
     }
 
-    const owner = await setupOwner({ ...formData, client });
+    const parsed = setupOwnerInputSchema.safeParse(formData);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? 'Invalid input data.',
+      };
+    }
+
+    const owner = await setupOwner({
+      setupToken: parsed.data.setupToken,
+      name: parsed.data.name,
+      email: parsed.data.email,
+      password: parsed.data.password,
+      client,
+    });
     const session = await rotateSession(null, owner.id, client, {
       ipAddress: anonymizeIp(ip), // I1-S05
     });

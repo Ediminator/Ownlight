@@ -26,6 +26,50 @@ test.describe('Authentication, Owner Bootstrap, Security Headers & Accessibility
     await expect(errorAlert).toContainText('Invalid setup token or setup unavailable');
   });
 
+  test('AC-4: displays first-run setup callout on sign-in page when zero users exist', async ({
+    page,
+  }) => {
+    // 1. English sign-in page
+    await page.goto('/en/sign-in');
+    const calloutEn = page.locator('[data-testid="signin-setup-callout"]');
+    await expect(calloutEn).toBeVisible();
+    const linkEn = page.locator('[data-testid="signin-setup-callout-link"]');
+    await expect(linkEn).toBeVisible();
+    await expect(linkEn).toHaveAttribute('href', '/en/setup');
+
+    // Heading remains untouched
+    await expect(page.locator('h1')).toHaveText('Studio Sign In');
+
+    // 2. German sign-in page
+    await page.goto('/de/sign-in');
+    const calloutDe = page.locator('[data-testid="signin-setup-callout"]');
+    await expect(calloutDe).toBeVisible();
+    const linkDe = page.locator('[data-testid="signin-setup-callout-link"]');
+    await expect(linkDe).toBeVisible();
+    await expect(linkDe).toHaveAttribute('href', '/de/setup');
+
+    // Heading remains untouched
+    await expect(page.locator('h1')).toHaveText('Studio-Anmeldung');
+
+    // 3. Accessibility scans on both light and dark themes
+    const scanLight = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+    const violationsLight = scanLight.violations.filter(
+      (v) => v.impact === 'serious' || v.impact === 'critical',
+    );
+    expect(violationsLight).toEqual([]);
+
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const scanDark = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+    const violationsDark = scanDark.violations.filter(
+      (v) => v.impact === 'serious' || v.impact === 'critical',
+    );
+    expect(violationsDark).toEqual([]);
+  });
+
   test('AC-8: validates mandatory security headers and strict-dynamic CSP on browser response', async ({
     page,
   }) => {

@@ -120,6 +120,7 @@ export async function consumeRateLimit(
 ): Promise<RateLimitCheckResult> {
   const now = new Date();
   const windowEnd = new Date(now.getTime() + windowMs);
+  const windowEndIso = windowEnd.toISOString();
 
   try {
     const rows = await client
@@ -134,7 +135,7 @@ export async function consumeRateLimit(
         target: rateLimits.key,
         set: {
           count: sql`CASE WHEN ${rateLimits.expiresAt} <= now() THEN 1 ELSE ${rateLimits.count} + 1 END`,
-          expiresAt: sql`CASE WHEN ${rateLimits.expiresAt} <= now() THEN ${windowEnd} ELSE ${rateLimits.expiresAt} END`,
+          expiresAt: sql`CASE WHEN ${rateLimits.expiresAt} <= now() THEN ${windowEndIso}::timestamptz ELSE ${rateLimits.expiresAt} END`,
           lastAttemptAt: sql`now()`,
         },
       })
@@ -247,6 +248,7 @@ export async function recordFailedAttempt(
 ): Promise<void> {
   const now = new Date();
   const windowEnd = new Date(now.getTime() + windowMs);
+  const windowEndIso = windowEnd.toISOString();
 
   try {
     await client
@@ -261,7 +263,7 @@ export async function recordFailedAttempt(
         target: rateLimits.key,
         set: {
           count: sql`CASE WHEN ${rateLimits.expiresAt} <= now() THEN 1 ELSE ${rateLimits.count} + 1 END`,
-          expiresAt: sql`CASE WHEN ${rateLimits.expiresAt} <= now() THEN ${windowEnd} ELSE ${rateLimits.expiresAt} END`,
+          expiresAt: sql`CASE WHEN ${rateLimits.expiresAt} <= now() THEN ${windowEndIso}::timestamptz ELSE ${rateLimits.expiresAt} END`,
           lastAttemptAt: sql`now()`,
         },
       });

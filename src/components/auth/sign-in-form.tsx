@@ -27,7 +27,13 @@ export function sanitizeCallbackUrl(raw: string | null | undefined, locale: stri
   return `/${locale}`;
 }
 
-export function SignInForm({ locale }: { locale: string }) {
+export function SignInForm({
+  locale,
+  setupAvailable = false,
+}: {
+  locale: string;
+  setupAvailable?: boolean;
+}) {
   const t = useTranslations('auth.signIn');
   const tCommon = useTranslations('auth.common');
   const router = useRouter();
@@ -164,6 +170,24 @@ export function SignInForm({ locale }: { locale: string }) {
           {step === 'mfa' ? t('mfaDescription') : t('description')}
         </p>
       </div>
+
+      {setupAvailable && (
+        <div
+          data-testid="signin-setup-callout"
+          role="region"
+          aria-label={t('setupAvailablePrompt')}
+          className="p-4 rounded-lg border border-primary/30 bg-primary/5 text-sm text-foreground flex flex-col sm:flex-row items-center justify-between gap-3"
+        >
+          <span>{t('setupAvailablePrompt')}</span>
+          <Link
+            href={`/${locale}/setup`}
+            data-testid="signin-setup-callout-link"
+            className="inline-flex items-center text-primary font-medium hover:underline text-sm shrink-0"
+          >
+            {t('setupAvailableLink')} &rarr;
+          </Link>
+        </div>
+      )}
 
       <div className="bg-card text-card-foreground border rounded-lg shadow-sm p-6 sm:p-8">
         {error && (

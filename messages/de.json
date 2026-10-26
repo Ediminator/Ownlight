@@ -90,6 +90,8 @@
       "submitting": "Wird angemeldet...",
       "forgotPassword": "Passwort vergessen?",
       "setupLink": "Ersteinrichtung erforderlich?",
+      "setupAvailablePrompt": "Es wurde noch kein Studio-Inhaberkonto eingerichtet.",
+      "setupAvailableLink": "Ersteinrichtung des Studios abschließen",
       "mfaTitle": "Zwei-Faktor-Verifizierung",
       "mfaDescription": "Geben Sie den 6-stelligen Verifizierungscode aus Ihrer Authentifikator-App ein.",
       "mfaCode": "Verifizierungscode",

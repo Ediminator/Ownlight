@@ -32,6 +32,7 @@ import { isSetupAvailable } from '@/server/auth/setup';
 
 vi.mock('@/server/auth/setup', () => ({
   isSetupAvailable: vi.fn(),
+  isSetupTokenRequired: vi.fn(() => true),
 }));
 
 vi.mock('next/navigation', () => ({

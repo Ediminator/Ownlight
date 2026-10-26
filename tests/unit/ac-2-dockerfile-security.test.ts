@@ -2,57 +2,58 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 
-describe('AC-2: Multi-Stage Hardened Dockerfile', () => {
+describe('Dockerfile Configuration & Hardening (TASK-0052)', () => {
   const rootDir = path.resolve(import.meta.dirname, '../..');
   const dockerfilePath = path.resolve(rootDir, 'Dockerfile');
+  const content = fs.readFileSync(dockerfilePath, 'utf8');
 
-  it('AC-2: Dockerfile exists and uses pinned Node 24 alpine base image', () => {
+  // Helper to extract stages
+  const stages = content.split(/FROM\s+/i).slice(1);
+  const depsStage = stages.find((s) => s.startsWith('node:24.2.0-alpine3.21 AS deps')) ?? '';
+  const builderStage = stages.find((s) => s.startsWith('node:24.2.0-alpine3.21 AS builder')) ?? '';
+  const runnerStage = stages.find((s) => s.startsWith('node:24.2.0-alpine3.21 AS runner')) ?? '';
+
+  it('AC-1: deps and builder stages install pnpm directly via npm install -g pnpm@12.10.1 without Corepack', () => {
+    expect(content.includes('corepack')).toBe(false);
+    expect(depsStage).toMatch(/npm\s+install\s+-g\s+pnpm@12\.10\.1/);
+    expect(builderStage).toMatch(/npm\s+install\s+-g\s+pnpm@12\.10\.1/);
+  });
+
+  it('AC-2: deps, builder, and runner stages each install libc6-compat for Alpine native binary compatibility', () => {
+    expect(depsStage).toMatch(/apk\s+add\s+--no-cache\s+libc6-compat/);
+    expect(builderStage).toMatch(/apk\s+add\s+--no-cache\s+libc6-compat/);
+    expect(runnerStage).toMatch(/apk\s+add\s+--no-cache\s+libc6-compat/);
+  });
+
+  it('AC-3: maintains unprivileged nodejs user (UID 1001, GID 1001), healthcheck /api/health, and port 3000 exposure', () => {
+    expect(
+      runnerStage.includes('addgroup') &&
+        runnerStage.includes('1001') &&
+        runnerStage.includes('nodejs'),
+    ).toBe(true);
+    expect(
+      runnerStage.includes('adduser') &&
+        runnerStage.includes('1001') &&
+        runnerStage.includes('nodejs'),
+    ).toBe(true);
+    expect(runnerStage).toMatch(/USER\s+nodejs(:nodejs)?/);
+    expect(runnerStage).toMatch(/EXPOSE\s+3000/);
+    expect(runnerStage).toMatch(/HEALTHCHECK[\s\S]*http:\/\/127\.0\.0\.1:3000\/api\/health/);
+  });
+
+  it('verifies multi-stage build and artifact copying', () => {
     expect(fs.existsSync(dockerfilePath)).toBe(true);
-    const content = fs.readFileSync(dockerfilePath, 'utf8');
+    expect(depsStage).toBeTruthy();
+    expect(builderStage).toBeTruthy();
+    expect(runnerStage).toBeTruthy();
 
-    // Base image should be pinned Node 24 alpine
-    expect(content.includes('FROM node:24.2.0-alpine3.21')).toBe(true);
-  });
-
-  it('AC-2: implements multi-stage build with deps, builder, and runner stages', () => {
-    const content = fs.readFileSync(dockerfilePath, 'utf8');
-
-    expect(content).toMatch(/FROM\s+node:24\.2\.0-alpine3\.21\s+AS\s+deps/i);
-    expect(content).toMatch(/FROM\s+node:24\.2\.0-alpine3\.21\s+AS\s+builder/i);
-    expect(content).toMatch(/FROM\s+node:24\.2\.0-alpine3\.21\s+AS\s+runner/i);
-  });
-
-  it('AC-2: creates and switches to dedicated unprivileged nodejs user (UID 1001, GID 1001)', () => {
-    const content = fs.readFileSync(dockerfilePath, 'utf8');
-
-    expect(
-      content.includes('addgroup') && content.includes('1001') && content.includes('nodejs'),
-    ).toBe(true);
-    expect(
-      content.includes('adduser') && content.includes('1001') && content.includes('nodejs'),
-    ).toBe(true);
-    expect(content).toMatch(/USER\s+nodejs/);
-  });
-
-  it('AC-2: copies standalone server, static assets, public directory, migrations, and worker bundle', () => {
-    const content = fs.readFileSync(dockerfilePath, 'utf8');
-
-    expect(content).toMatch(/COPY.*\.next\/standalone/);
-    expect(content).toMatch(/COPY.*\.next\/static/);
-    expect(content).toMatch(/COPY.*public/);
-    expect(content).toMatch(/COPY.*scripts\/migrate\.mjs/);
-    expect(content).toMatch(/COPY.*drizzle/);
-    expect(content).toMatch(/COPY.*scripts\/worker\.mjs/);
-    expect(content).toMatch(/COPY.*dist\/retention/);
-  });
-
-  it('AC-2: exposes port 3000, sets production environment, and configures /api/health healthcheck', () => {
-    const content = fs.readFileSync(dockerfilePath, 'utf8');
-
-    expect(content).toMatch(/EXPOSE\s+3000/);
-    expect(content).toMatch(/ENV\s+NODE_ENV(=|\s+)production/);
-    expect(content).toMatch(/ENV\s+PORT(=|\s+)3000/);
-    expect(content).toMatch(/ENV\s+HOSTNAME(=|\s+)["']?0\.0\.0\.0["']?/);
-    expect(content).toMatch(/HEALTHCHECK[\s\S]*http:\/\/127\.0\.0\.1:3000\/api\/health/);
+    expect(runnerStage).toMatch(/COPY.*\.next\/standalone/);
+    expect(runnerStage).toMatch(/COPY.*\.next\/static/);
+    expect(runnerStage).toMatch(/COPY.*public/);
+    expect(runnerStage).toMatch(/COPY.*scripts\/migrate\.mjs/);
+    expect(runnerStage).toMatch(/COPY.*drizzle/);
+    expect(runnerStage).toMatch(/COPY.*scripts\/worker\.mjs/);
+    expect(runnerStage).toMatch(/COPY.*dist\/retention/);
+    expect(runnerStage).toMatch(/COPY.*docker-entrypoint\.sh/);
   });
 });

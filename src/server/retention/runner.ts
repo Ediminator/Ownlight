@@ -2,7 +2,7 @@ import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import * as schema from '@/server/db/schema';
 import { runRetentionSweep, type SweepOptions, type SweepSummary } from './sweep';
-import type { DbClient } from '@/server/db/client';
+import { type DbClient, configurePostgresDateSerializers } from '@/server/db/client';
 
 export interface CliOptions extends SweepOptions {
   connectionUrl?: string;
@@ -45,6 +45,7 @@ export async function executeRetentionSweep(options: CliOptions = {}): Promise<C
       onnotice: () => undefined,
     });
     client = drizzle(rawClient, { schema });
+    configurePostgresDateSerializers(rawClient);
   }
 
   try {

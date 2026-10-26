@@ -34,6 +34,25 @@ export function createPostgresClient(config: DbClientConfig = {}): postgres.Sql 
   });
 }
 
+/**
+ * Configures postgres-js serializers for timestamp/date OIDs (1184, 1082, 1083, 1114)
+ * so that raw Date objects passed into sql`...` template tags serialize to ISO strings
+ * rather than throwing TypeError.
+ */
+export function configurePostgresDateSerializers(sqlClient: {
+  options?: { serializers?: Record<string, (val: unknown) => unknown> };
+}): void {
+  sqlClient.options ??= {};
+  sqlClient.options.serializers ??= {};
+
+  const serializeDate = (val: unknown): unknown => (val instanceof Date ? val.toISOString() : val);
+
+  sqlClient.options.serializers['1184'] = serializeDate;
+  sqlClient.options.serializers['1082'] = serializeDate;
+  sqlClient.options.serializers['1083'] = serializeDate;
+  sqlClient.options.serializers['1114'] = serializeDate;
+}
+
 import path from 'node:path';
 import fs from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
@@ -89,7 +108,9 @@ export function getDb(): DbClient {
     return globalForDb.db;
   }
 
-  globalForDb.db = drizzle(getRawSql(), { schema });
+  const rawClient = getRawSql();
+  globalForDb.db = drizzle(rawClient, { schema });
+  configurePostgresDateSerializers(rawClient);
   return globalForDb.db;
 }
 

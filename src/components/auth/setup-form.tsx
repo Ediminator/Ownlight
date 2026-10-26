@@ -5,7 +5,13 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { setupOwnerAction } from '@/server/auth/actions';
 
-export function SetupForm({ locale }: { locale: string }) {
+export function SetupForm({
+  locale,
+  requireToken = true,
+}: {
+  locale: string;
+  requireToken?: boolean;
+}) {
   const t = useTranslations('auth.setup');
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -22,7 +28,7 @@ export function SetupForm({ locale }: { locale: string }) {
 
     startTransition(async () => {
       const result = await setupOwnerAction({
-        setupToken,
+        setupToken: requireToken ? setupToken : '',
         name,
         email,
         password,
@@ -41,7 +47,9 @@ export function SetupForm({ locale }: { locale: string }) {
     <div className="w-full max-w-md mx-auto space-y-6">
       <div className="text-center space-y-2">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('description')}</p>
+        <p className="text-sm text-muted-foreground">
+          {requireToken ? t('description') : t('descriptionTokenless')}
+        </p>
       </div>
 
       <div className="bg-card text-card-foreground border rounded-lg shadow-sm p-6 sm:p-8">
@@ -58,30 +66,32 @@ export function SetupForm({ locale }: { locale: string }) {
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <label
-              htmlFor="setup-token"
-              className="text-sm font-medium leading-none text-foreground"
-            >
-              {t('setupToken')}
-            </label>
-            <input
-              id="setup-token"
-              name="setupToken"
-              data-testid="setup-token-input"
-              type="password"
-              autoComplete="off"
-              required
-              aria-invalid={Boolean(error)}
-              aria-describedby={error ? 'setup-error-msg' : undefined}
-              value={setupToken}
-              onChange={(e) => {
-                setSetupToken(e.target.value);
-              }}
-              placeholder={t('setupTokenPlaceholder')}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
+          {requireToken && (
+            <div className="space-y-1.5">
+              <label
+                htmlFor="setup-token"
+                className="text-sm font-medium leading-none text-foreground"
+              >
+                {t('setupToken')}
+              </label>
+              <input
+                id="setup-token"
+                name="setupToken"
+                data-testid="setup-token-input"
+                type="password"
+                autoComplete="off"
+                required
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? 'setup-error-msg' : undefined}
+                value={setupToken}
+                onChange={(e) => {
+                  setSetupToken(e.target.value);
+                }}
+                placeholder={t('setupTokenPlaceholder')}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label

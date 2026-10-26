@@ -117,6 +117,7 @@ vi.mock('@/server/auth/session', () => ({
   })),
   SESSION_COOKIE_NAME: 'ownlight_session',
   SECURE_SESSION_COOKIE_NAME: '__Secure-ownlight_session',
+  shouldUseSecureCookies: vi.fn(() => false),
 }));
 
 vi.mock('@/server/auth/guards', () => ({

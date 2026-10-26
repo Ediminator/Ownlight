@@ -19,6 +19,24 @@ export interface CookieAttributes {
 }
 
 /**
+ * Determines whether the session cookie should have the Secure attribute and __Secure- prefix.
+ * In production over HTTPS, returns true. When accessed over plain HTTP (e.g. self-hosted Synology
+ * private LAN with AUTH_URL=http://...), returns false to prevent browsers dropping the cookie.
+ */
+export function shouldUseSecureCookies(
+  nodeEnv: string | undefined = process.env.NODE_ENV,
+  authUrl: string | undefined = process.env.AUTH_URL,
+): boolean {
+  if (nodeEnv !== 'production') {
+    return false;
+  }
+  if (typeof authUrl === 'string' && authUrl.trim().toLowerCase().startsWith('http://')) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Returns security attributes for the session cookie adhering to OWASP ASVS V7.
  */
 export function getSessionCookieAttributes(isProduction = false): CookieAttributes {

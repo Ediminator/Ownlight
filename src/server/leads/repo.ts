@@ -113,9 +113,10 @@ export async function listLeadsRecords(
       query.cursor.receivedAt instanceof Date
         ? query.cursor.receivedAt
         : new Date(query.cursor.receivedAt);
+    const cursorIso = cursorDate.toISOString();
 
     conditions.push(
-      sql`(${leads.receivedAt} < ${cursorDate} OR (${leads.receivedAt} = ${cursorDate} AND ${leads.id} < ${query.cursor.id}))`,
+      sql`(${leads.receivedAt} < ${cursorIso}::timestamptz OR (${leads.receivedAt} = ${cursorIso}::timestamptz AND ${leads.id} < ${query.cursor.id}))`,
     );
   }
 

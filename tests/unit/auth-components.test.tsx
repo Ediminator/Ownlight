@@ -22,6 +22,16 @@ vi.mock('react', async (importOriginal) => {
       }
       return actual.useState(initial);
     },
+    useEffect: (fn: React.EffectCallback) => {
+      try {
+        const cleanup = fn();
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+      } catch {
+        // Ignore effect errors in unit test environment
+      }
+    },
   };
 });
 
@@ -252,6 +262,18 @@ describe('Auth Client Components and Form Submissions', () => {
       expect(html).toContain('aria-invalid="true"');
       expect(html).toContain('aria-describedby="setup-error-msg"');
     });
+
+    it('AC-3 / I1-U01: renders tokenless subtitle and hides token input when requireToken={false}', () => {
+      const html = renderToStaticMarkup(<SetupForm locale="en" requireToken={false} />);
+      expect(html).toContain('translated-descriptionTokenless');
+      expect(html).not.toContain('data-testid="setup-token-input"');
+    });
+
+    it('AC-3: renders setup token input when requireToken={true}', () => {
+      const html = renderToStaticMarkup(<SetupForm locale="en" requireToken={true} />);
+      expect(html).toContain('translated-description');
+      expect(html).toContain('data-testid="setup-token-input"');
+    });
   });
 
   describe('SignInForm', () => {
@@ -262,6 +284,19 @@ describe('Auth Client Components and Form Submissions', () => {
       expect(html).toContain('data-testid="email-input"');
       expect(html).toContain('data-testid="password-input"');
       expect(html).toContain('/forgot-password');
+    });
+
+    it('AC-4: renders setup callout when setupAvailable={true}', () => {
+      const html = renderToStaticMarkup(<SignInForm locale="en" setupAvailable={true} />);
+      expect(html).toContain('data-testid="signin-setup-callout"');
+      expect(html).toContain('data-testid="signin-setup-callout-link"');
+      expect(html).toContain('min-h-[24px]');
+      expect(html).toContain('aria-hidden="true"');
+    });
+
+    it('AC-4: omits setup callout when setupAvailable={false}', () => {
+      const html = renderToStaticMarkup(<SignInForm locale="en" setupAvailable={false} />);
+      expect(html).not.toContain('data-testid="signin-setup-callout"');
     });
 
     it('I2-U02: renders localized divider between password and passkey sign in', () => {

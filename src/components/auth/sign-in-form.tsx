@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -27,7 +27,13 @@ export function sanitizeCallbackUrl(raw: string | null | undefined, locale: stri
   return `/${locale}`;
 }
 
-export function SignInForm({ locale }: { locale: string }) {
+export function SignInForm({
+  locale,
+  setupAvailable,
+}: {
+  locale: string;
+  setupAvailable?: boolean;
+}) {
   const t = useTranslations('auth.signIn');
   const tCommon = useTranslations('auth.common');
   const router = useRouter();
@@ -44,6 +50,29 @@ export function SignInForm({ locale }: { locale: string }) {
   const [mfaMode, setMfaMode] = useState<'totp' | 'recovery'>('totp');
   const [totpCode, setTotpCode] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
+
+  const [fetchedSetupAvailable, setFetchedSetupAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (setupAvailable !== undefined) {
+      return;
+    }
+    let cancelled = false;
+    void fetch(`/${locale}/setup`, { method: 'GET', cache: 'no-store' })
+      .then((res) => {
+        if (!cancelled) {
+          setFetchedSetupAvailable(res.ok);
+        }
+      })
+      .catch(() => {
+        // Ignore fetch errors on unmount
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [locale, setupAvailable]);
+
+  const showSetupCallout = setupAvailable ?? fetchedSetupAvailable ?? false;
 
   const handleCredentialsSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -164,6 +193,27 @@ export function SignInForm({ locale }: { locale: string }) {
           {step === 'mfa' ? t('mfaDescription') : t('description')}
         </p>
       </div>
+
+      {showSetupCallout && (
+        <div
+          data-testid="signin-setup-callout"
+          role="region"
+          aria-label={t('setupAvailablePrompt')}
+          className="p-4 rounded-lg border border-primary/30 bg-primary/5 text-sm text-foreground flex flex-col sm:flex-row items-center justify-between gap-3"
+        >
+          <span>{t('setupAvailablePrompt')}</span>
+          <Link
+            href={`/${locale}/setup`}
+            data-testid="signin-setup-callout-link"
+            className="inline-flex items-center min-h-[24px] text-primary font-medium hover:underline text-sm shrink-0"
+          >
+            <span>{t('setupAvailableLink')}</span>
+            <span aria-hidden="true" className="ml-1">
+              &rarr;
+            </span>
+          </Link>
+        </div>
+      )}
 
       <div className="bg-card text-card-foreground border rounded-lg shadow-sm p-6 sm:p-8">
         {error && (

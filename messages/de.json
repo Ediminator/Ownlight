@@ -65,6 +65,7 @@
     "setup": {
       "title": "Ersteinrichtung des Studios",
       "description": "Richten Sie das Inhaber-Konto mit Ihrem sicheren Setup-Token ein.",
+      "descriptionTokenless": "Richten Sie das Inhaber-Konto ein, um mit der Konfiguration Ihres Fotostudios zu beginnen.",
       "setupToken": "Setup-Token",
       "setupTokenPlaceholder": "Fügen Sie das 32+ Byte Hex-Token aus Ihrer Serverumgebung ein",
       "name": "Vollständiger Name",
@@ -90,6 +91,8 @@
       "submitting": "Wird angemeldet...",
       "forgotPassword": "Passwort vergessen?",
       "setupLink": "Ersteinrichtung erforderlich?",
+      "setupAvailablePrompt": "Es wurde noch kein Studio-Inhaberkonto eingerichtet.",
+      "setupAvailableLink": "Ersteinrichtung des Studios abschließen",
       "mfaTitle": "Zwei-Faktor-Verifizierung",
       "mfaDescription": "Geben Sie den 6-stelligen Verifizierungscode aus Ihrer Authentifikator-App ein.",
       "mfaCode": "Verifizierungscode",

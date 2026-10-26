@@ -61,13 +61,16 @@ Generate secure secrets for each mandatory variable in `/volume1/agent_scratch/s
 # 1. AUTH_SECRET (Better-Auth session signing)
 openssl rand -base64 32
 
-# 2. SETUP_TOKEN (One-time initial owner bootstrap)
+# 2. SETUP_TOKEN (One-time initial owner bootstrap; optional on private LAN — leave blank for tokenless setup)
 openssl rand -base64 32
 
 # 3. ENCRYPTION_KEY (Field-level AES-256-GCM encryption key, 64 hex characters)
 openssl rand -hex 32
 
-# 4. Database passwords (PostgreSQL root, app, and migrator passwords)
+# 4. STORAGE_ACCESS_KEY / STORAGE_SECRET_KEY (Object storage credentials)
+openssl rand -base64 24
+
+# 5. Database passwords (PostgreSQL root, app, and migrator passwords)
 openssl rand -base64 24
 ```
 
@@ -85,8 +88,10 @@ POSTGRES_APP_PASSWORD=<strong_app_password>
 POSTGRES_MIGRATOR_USER=ownlight_migrator
 POSTGRES_MIGRATOR_PASSWORD=<strong_migrator_password>
 AUTH_SECRET=<generated_auth_secret>
-SETUP_TOKEN=<generated_setup_token>
+SETUP_TOKEN=<generated_setup_token_or_blank_for_tokenless_lan_setup>
 ENCRYPTION_KEY=<generated_encryption_key>
+STORAGE_ACCESS_KEY=<storage_access_key>
+STORAGE_SECRET_KEY=<storage_secret_key>
 AUTO_MIGRATE=true
 ```
 
@@ -114,7 +119,7 @@ docker compose -f compose.synology.yml --env-file .env.synology pull
 docker compose -f compose.synology.yml --env-file .env.synology up -d --remove-orphans
 ```
 
-### 4. Initial Bootstrap (Setup Token Redemption)
+### 4. Initial Bootstrap (Setup Token Redemption or Tokenless LAN Setup)
 
 Once the containers are healthy, browse to the setup endpoint:
 
@@ -122,9 +127,9 @@ Once the containers are healthy, browse to the setup endpoint:
 http://<synology-nas-ip>:3030/en/setup
 ```
 
-1. Enter the `SETUP_TOKEN` from `.env.synology`.
+1. Enter the `SETUP_TOKEN` from `.env.synology` (if `SETUP_TOKEN` is unset or blank in `.env.synology`, the token input field is omitted for simplified private LAN setup).
 2. Provide the studio owner email, name, and secure password.
-3. Upon registration, the setup token is invalidated, establishing the instance owner.
+3. Upon registration, initial setup is permanently locked and subsequent setup requests return 404, establishing the instance owner.
 
 ---
 

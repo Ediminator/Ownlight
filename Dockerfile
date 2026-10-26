@@ -8,15 +8,16 @@ FROM node:24.2.0-alpine3.21 AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@12.10.1 --activate
+RUN npm install -g pnpm@12.10.1
 
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # Stage 2: Application compilation & bundle generation
 FROM node:24.2.0-alpine3.21 AS builder
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@12.10.1 --activate
+RUN npm install -g pnpm@12.10.1
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -30,6 +31,7 @@ RUN pnpm run retention:build
 
 # Stage 3: Minimal hardened production runner
 FROM node:24.2.0-alpine3.21 AS runner
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 ENV NODE_ENV=production

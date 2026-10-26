@@ -3,17 +3,27 @@
 # Node 24 Alpine, non-root user (UID 1001, GID 1001), Next.js Standalone
 # ==============================================================================
 
-# Stage 1: Dependency resolution and caching
+# Stage 1: Full dependency resolution and caching for build
 FROM node:24.2.0-alpine3.21 AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 RUN npm install -g pnpm@12.10.1
 
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# Stage 2: Application compilation & bundle generation
+# Stage 2: Production-only dependencies resolution
+FROM node:24.2.0-alpine3.21 AS prod-deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+RUN npm install -g pnpm@12.10.1
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
+
+# Stage 3: Application compilation & bundle generation
 FROM node:24.2.0-alpine3.21 AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
@@ -24,12 +34,13 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV SKIP_ENV_VALIDATION=true
 
 # Compile Next.js standalone and retention worker bundles
 RUN pnpm run build
 RUN pnpm run retention:build
 
-# Stage 3: Minimal hardened production runner
+# Stage 4: Minimal hardened production runner
 FROM node:24.2.0-alpine3.21 AS runner
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
@@ -43,8 +54,13 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 -G nodejs nodejs
 
-# Copy Next.js standalone server and traced modules
-COPY --from=builder --chown=nodejs:nodejs /app/.next/standalone ./
+# Production dependencies from prod-deps stage (ensures worker and migration runtime modules)
+COPY --from=prod-deps --chown=nodejs:nodejs /app/node_modules ./node_modules
+
+# Copy Next.js standalone server and compiled files (excluding standalone traced node_modules)
+COPY --from=builder --chown=nodejs:nodejs /app/.next/standalone/server.js ./server.js
+COPY --from=builder --chown=nodejs:nodejs /app/.next/standalone/package.json ./package.json
+COPY --from=builder --chown=nodejs:nodejs /app/.next/standalone/.next ./.next
 COPY --from=builder --chown=nodejs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nodejs:nodejs /app/public ./public
 

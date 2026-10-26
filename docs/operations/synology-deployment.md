@@ -130,9 +130,15 @@ http://<synology-nas-ip>:3030/en/setup
 
 ## Maintenance & Operations
 
-### Continuous Image Updates
+### Continuous Image Updates & CI Verification
 
-When a new container image is pushed to GitHub Container Registry (`ghcr.io/ediminator/ownlight:latest`), update the stack:
+To guarantee zero downtime and deployment regressions, container image builds and runtime boot health are strictly verified before merge:
+
+- **PR CI Verification (TASK-0053):** Every pull request that modifies application source code, Docker configs, or dependencies automatically builds the `linux/amd64` Docker image and executes runtime smoke tests against an ephemeral PostgreSQL service container in GitHub Actions (`.github/workflows/docker-publish.yml`).
+- **Automated Verification Steps:** The web container must boot, run DDL migrations with `AUTO_MIGRATE=true`, and pass `/api/health` within 90 seconds. The background worker container (`scripts/worker.mjs`) must also boot and remain healthy under load. Only after all tests succeed is code eligible for merge.
+- **Publish Gating:** GHCR push credentials (`packages: write`) are strictly restricted to trusted `push` events on `main` and semver release tags (`v*`). Pull request builds never push to GHCR.
+
+When a new container image is published to GitHub Container Registry (`ghcr.io/ediminator/ownlight:latest`), update the stack:
 
 ```bash
 cd /volume1/agent_scratch/staging/ownlight

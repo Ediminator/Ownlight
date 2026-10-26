@@ -13,13 +13,34 @@ on:
       - 'scripts/**'
       - 'drizzle/**'
       - 'Dockerfile'
+      - '.dockerignore'
       - 'docker-entrypoint.sh'
       - 'compose.synology.yml'
       - 'package.json'
       - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
       - 'next.config.mjs'
       - '.github/workflows/docker-publish.yml'
       - 'projects/ownlight/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'scripts/**'
+      - 'drizzle/**'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'docker-entrypoint.sh'
+      - 'compose.synology.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'next.config.mjs'
+      - '.github/workflows/docker-publish.yml'
+      - 'projects/ownlight/**'
+  workflow_dispatch:
 
 permissions: {}
 
@@ -29,12 +50,26 @@ concurrency:
 
 jobs:
   publish:
-    name: Build and Push Docker Image
+    name: Build, Verify and Publish Docker Image
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       packages: write
+    services:
+      postgres:
+        image: postgres:16.8-alpine3.21
+        env:
+          POSTGRES_DB: ownlight_smoke
+          POSTGRES_USER: smoke_user
+          POSTGRES_PASSWORD: smokepostgreskey98729384729384
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -43,13 +78,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.4.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract Docker metadata
         id: meta
@@ -61,14 +89,140 @@ jobs:
             type=sha,format=long,prefix=
             type=semver,pattern={{version}}
 
-      - name: Build and push linux/amd64 Docker image
+      - name: Build linux/amd64 Docker image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64
-          push: true
+          load: true
           tags: |
+            ownlight:smoke
             ghcr.io/ediminator/ownlight:latest
             ghcr.io/ediminator/ownlight:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Smoke test web container boot and migrations
+        shell: bash
+        run: |
+          # Generate throwaway cryptographic secrets per run (never printed to logs)
+          AUTH_SECRET=$(openssl rand -hex 32)
+          echo "::add-mask::$AUTH_SECRET"
+
+          STORAGE_SECRET_KEY=$(openssl rand -hex 32)
+          echo "::add-mask::$STORAGE_SECRET_KEY"
+
+          ENCRYPTION_KEY=$(openssl rand -hex 32)
+          echo "::add-mask::$ENCRYPTION_KEY"
+
+          STORAGE_ACCESS_KEY="smokeaccesskey"
+          DB_USER="smoke_user"
+          DB_PASS="smokepostgreskey98729384729384"
+          DB_NAME="ownlight_smoke"
+          echo "::add-mask::$DB_PASS"
+          DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@127.0.0.1:5432/${DB_NAME}"
+          echo "::add-mask::$DATABASE_URL"
+
+          echo "Starting web container with AUTO_MIGRATE=true..."
+          WEB_CONTAINER_ID=$(docker run -d --network host \
+            -e NODE_ENV=production \
+            -e PORT=3000 \
+            -e HOSTNAME=0.0.0.0 \
+            -e AUTH_URL=http://127.0.0.1:3000 \
+            -e AUTH_SECRET="$AUTH_SECRET" \
+            -e DATABASE_URL="$DATABASE_URL" \
+            -e MIGRATION_DATABASE_URL="$DATABASE_URL" \
+            -e STORAGE_ACCESS_KEY="$STORAGE_ACCESS_KEY" \
+            -e STORAGE_SECRET_KEY="$STORAGE_SECRET_KEY" \
+            -e ENCRYPTION_KEY="$ENCRYPTION_KEY" \
+            -e AUTO_MIGRATE=true \
+            ownlight:smoke)
+
+          echo "Polling http://127.0.0.1:3000/api/health (timeout 90s)..."
+          READY=0
+          for i in $(seq 1 90); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/health || echo "000")
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+              echo "Health check passed with HTTP status $HTTP_CODE (attempt $i)."
+              READY=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$READY" -ne 1 ]; then
+            echo "❌ Health check timed out after 90s. Web container logs:"
+            docker logs "$WEB_CONTAINER_ID"
+            docker rm -f "$WEB_CONTAINER_ID" 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "Stopping web container..."
+          docker rm -f "$WEB_CONTAINER_ID"
+
+      - name: Smoke test worker container liveness
+        shell: bash
+        run: |
+          # Generate throwaway cryptographic secrets per run (never printed to logs)
+          AUTH_SECRET=$(openssl rand -hex 32)
+          echo "::add-mask::$AUTH_SECRET"
+
+          STORAGE_SECRET_KEY=$(openssl rand -hex 32)
+          echo "::add-mask::$STORAGE_SECRET_KEY"
+
+          ENCRYPTION_KEY=$(openssl rand -hex 32)
+          echo "::add-mask::$ENCRYPTION_KEY"
+
+          STORAGE_ACCESS_KEY="smokeaccesskey"
+          DB_USER="smoke_user"
+          DB_PASS="smokepostgreskey98729384729384"
+          DB_NAME="ownlight_smoke"
+          echo "::add-mask::$DB_PASS"
+          DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@127.0.0.1:5432/${DB_NAME}"
+          echo "::add-mask::$DATABASE_URL"
+
+          echo "Starting worker smoke test under timeout 20..."
+          WORKER_CONTAINER_ID="smoke-worker-$RANDOM"
+          set +e
+          timeout 20 docker run --name "$WORKER_CONTAINER_ID" --network host \
+            -e NODE_ENV=production \
+            -e DATABASE_URL="$DATABASE_URL" \
+            -e ENCRYPTION_KEY="$ENCRYPTION_KEY" \
+            -e STORAGE_ACCESS_KEY="$STORAGE_ACCESS_KEY" \
+            -e STORAGE_SECRET_KEY="$STORAGE_SECRET_KEY" \
+            -e AUTH_URL=http://127.0.0.1:3000 \
+            -e AUTH_SECRET="$AUTH_SECRET" \
+            -e AUTO_MIGRATE=false \
+            ownlight:smoke node scripts/worker.mjs
+          EXIT_CODE=$?
+          set -e
+
+          if [ "$EXIT_CODE" -eq 124 ]; then
+            echo "✅ Worker ran successfully for 20s (exit code 124 as expected)."
+            docker rm -f "$WORKER_CONTAINER_ID" 2>/dev/null || true
+          else
+            echo "❌ Worker exited unexpectedly with code $EXIT_CODE (expected 124). Worker container logs:"
+            docker logs "$WORKER_CONTAINER_ID" 2>/dev/null || true
+            docker rm -f "$WORKER_CONTAINER_ID" 2>/dev/null || true
+            exit 1
+          fi
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Docker image to GHCR
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          docker push ghcr.io/ediminator/ownlight:latest
+          docker push "ghcr.io/ediminator/ownlight:${{ github.sha }}"
+          if [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            docker tag ownlight:smoke "ghcr.io/ediminator/ownlight:${TAG_NAME}"
+            docker push "ghcr.io/ediminator/ownlight:${TAG_NAME}"
+          fi

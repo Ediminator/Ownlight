@@ -3,7 +3,94 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 
-describe('GitHub Actions GHCR Pipeline & Container Verification (TASK-0053)', () => {
+export const EXPECTED_DOCKER_ACTIONS = [
+  'actions/checkout',
+  'docker/setup-buildx-action',
+  'docker/login-action',
+  'docker/metadata-action',
+  'docker/build-push-action',
+] as const;
+
+export interface ActionVerificationResult {
+  valid: boolean;
+  foundActions: Map<string, { sha: string; comment: string }>;
+  errors: string[];
+}
+
+export function verifyWorkflowActionPinning(
+  workflowContent: string,
+  expectedActions: readonly string[] = EXPECTED_DOCKER_ACTIONS,
+): ActionVerificationResult {
+  const lines = workflowContent.split(/\r?\n/);
+  const foundActions = new Map<string, { sha: string; comment: string }>();
+  const errors: string[] = [];
+  const usesRegex = /uses:\s*([^\s#]+)(.*)$/;
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- uses:') || trimmed.startsWith('uses:')) {
+      const match = usesRegex.exec(trimmed);
+      if (match) {
+        const actionRef = match[1] ?? '';
+        const comment = (match[2] ?? '').trim();
+
+        if (actionRef && !actionRef.startsWith('./')) {
+          const atIndex = actionRef.indexOf('@');
+          const lineNum = String(index + 1);
+          if (atIndex === -1) {
+            errors.push(`Line ${lineNum}: Action "${actionRef}" is missing '@' delimiter`);
+            return;
+          }
+
+          const actionName = actionRef.slice(0, atIndex);
+          const sha = actionRef.slice(atIndex + 1);
+
+          // Invariant 1: Action path format owner/repo or owner/repo/path
+          const parts = actionName.split('/');
+          const isFormatValid =
+            (parts.length === 2 || parts.length === 3) &&
+            parts.every((p) => p.length > 0 && /^[\w.-]+$/.test(p));
+          if (!isFormatValid) {
+            errors.push(
+              `Line ${lineNum}: Action name "${actionName}" has invalid repository format`,
+            );
+          }
+
+          // Invariant 2: Exactly 40 lowercase hexadecimal characters
+          if (!/^[0-9a-f]{40}$/.test(sha)) {
+            errors.push(
+              `Line ${lineNum}: Action "${actionName}" ref "${sha}" is not a 40-character lowercase hex SHA`,
+            );
+          }
+
+          // Invariant 3: Version comment matching # vMAJOR.MINOR.PATCH (semver)
+          if (!/^#\s*v\d+\.\d+\.\d+$/.test(comment)) {
+            errors.push(
+              `Line ${lineNum}: Action "${actionName}" has invalid or missing version comment "${comment}" (expected "# vX.Y.Z")`,
+            );
+          }
+
+          foundActions.set(actionName, { sha, comment });
+        }
+      }
+    }
+  });
+
+  // Invariant 4: Required set of action repositories
+  for (const expected of expectedActions) {
+    if (!foundActions.has(expected)) {
+      errors.push(`Missing expected action repository "${expected}"`);
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    foundActions,
+    errors,
+  };
+}
+
+describe('GitHub Actions GHCR Pipeline & Container Verification (TASK-0053, TASK-0054)', () => {
   const rootDir = path.resolve(import.meta.dirname, '../..');
   const workflowPath = path.resolve(rootDir, '.github/workflows/docker-publish.yml');
   const content = fs.readFileSync(workflowPath, 'utf8');
@@ -69,59 +156,149 @@ describe('GitHub Actions GHCR Pipeline & Container Verification (TASK-0053)', ()
     expect(content).toMatch(/openssl rand -hex 32/);
     expect(content).toMatch(/echo "::add-mask::\$/);
 
-    // Pinned actions with version comments
-    const expectedPinnedActions: Record<string, { sha: string; version: string }> = {
-      'actions/checkout': {
-        sha: '3d3c42e5aac5ba805825da76410c181273ba90b1',
-        version: '# v7.0.1',
-      },
-      'docker/setup-buildx-action': {
-        sha: '8d2750c68a42422c14e847fe6c8ac0403b4cbd6f',
-        version: '# v3.12.0',
-      },
-      'docker/login-action': {
-        sha: 'c94ce9fb468520275223c153574b00df6fe4bcc9',
-        version: '# v3.4.0',
-      },
-      'docker/metadata-action': {
-        sha: 'c299e40c65443455700f0fdfc63efafe5b349051',
-        version: '# v5.6.1',
-      },
-      'docker/build-push-action': {
-        sha: '10e90e3645eae34f1e60eeb005ba3a3d33f178e8',
-        version: '# v6.19.2',
-      },
-    };
-
-    const lines = content.split(/\r?\n/);
-    const foundActions = new Map<string, { sha: string; comment: string }>();
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('- uses:') || trimmed.startsWith('uses:')) {
-        const usesRegex = /uses:\s*([^\s#]+)(.*)$/;
-        const match = usesRegex.exec(trimmed);
-        if (match) {
-          const actionRef = match[1];
-          const comment = (match[2] ?? '').trim();
-          if (actionRef && !actionRef.startsWith('./')) {
-            const [actionName, sha] = actionRef.split('@');
-            expect(sha).toMatch(/^[0-9a-f]{40}$/i);
-            expect(comment).toMatch(/^#\s*v/);
-            if (actionName && sha) {
-              foundActions.set(actionName, { sha, comment });
-            }
-          }
-        }
-      }
+    // Pinned actions with version comments (invariant check: 40-char lowercase hex + # vX.Y.Z)
+    const verification = verifyWorkflowActionPinning(content, EXPECTED_DOCKER_ACTIONS);
+    expect(verification.errors).toEqual([]);
+    expect(verification.valid).toBe(true);
+    for (const actionName of EXPECTED_DOCKER_ACTIONS) {
+      expect(verification.foundActions.has(actionName)).toBe(true);
     }
+  });
 
-    for (const [actionName, expected] of Object.entries(expectedPinnedActions)) {
-      const action = foundActions.get(actionName);
-      expect(action).toBeDefined();
-      expect(action?.sha).toBe(expected.sha);
-      expect(action?.comment).toBe(expected.version);
-    }
+  it('AC-1: version-agnostic action-pinning test passes when action SHA and version comment change to another valid 40-hex SHA and # vX.Y.Z comment', () => {
+    // Modify Docker actions with new arbitrary valid 40-hex lowercase SHAs and semver comments
+    const modifiedContent = content
+      .replace(
+        /uses: docker\/setup-buildx-action@[^\n]+/,
+        'uses: docker/setup-buildx-action@a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e # v4.0.0',
+      )
+      .replace(
+        /uses: docker\/metadata-action@[^\n]+/,
+        'uses: docker/metadata-action@f0e1d2c3b4a5968778695a4b3c2d1e0f1a2b3c4d # v6.0.0',
+      )
+      .replace(
+        /uses: docker\/build-push-action@[^\n]+/,
+        'uses: docker/build-push-action@1234567890abcdef1234567890abcdef12345678 # v7.1.2',
+      )
+      .replace(
+        /uses: docker\/login-action@[^\n]+/,
+        'uses: docker/login-action@fedcba0987654321fedcba0987654321fedcba09 # v4.1.0',
+      );
+
+    const verification = verifyWorkflowActionPinning(modifiedContent, EXPECTED_DOCKER_ACTIONS);
+    expect(verification.errors).toEqual([]);
+    expect(verification.valid).toBe(true);
+    expect(verification.foundActions.get('docker/setup-buildx-action')?.sha).toBe(
+      'a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e',
+    );
+    expect(verification.foundActions.get('docker/setup-buildx-action')?.comment).toBe('# v4.0.0');
+  });
+
+  it('AC-2: action-pinning fails when an action uses a mutable tag reference instead of commit SHA', () => {
+    const tagVariant = content.replace(
+      /uses: docker\/setup-buildx-action@[^\n]+/,
+      'uses: docker/setup-buildx-action@v3.12.0 # v3.12.0',
+    );
+    const result = verifyWorkflowActionPinning(tagVariant, EXPECTED_DOCKER_ACTIONS);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) =>
+          e.includes('docker/setup-buildx-action') &&
+          e.includes('not a 40-character lowercase hex SHA'),
+      ),
+    ).toBe(true);
+  });
+
+  it('AC-2: action-pinning fails when an action uses a short SHA', () => {
+    const shortShaVariant = content.replace(
+      /uses: docker\/setup-buildx-action@[^\n]+/,
+      'uses: docker/setup-buildx-action@8d2750c # v3.12.0',
+    );
+    const result = verifyWorkflowActionPinning(shortShaVariant, EXPECTED_DOCKER_ACTIONS);
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) =>
+          e.includes('docker/setup-buildx-action') &&
+          e.includes('not a 40-character lowercase hex SHA'),
+      ),
+    ).toBe(true);
+  });
+
+  it('AC-2: action-pinning fails when an action uses an uppercase or non-hex SHA', () => {
+    // Uppercase hex SHA
+    const uppercaseVariant = content.replace(
+      /uses: docker\/build-push-action@[^\n]+/,
+      'uses: docker/build-push-action@10E90E3645EAE34F1E60EEB005BA3A3D33F178E8 # v6.19.2',
+    );
+    const uppercaseResult = verifyWorkflowActionPinning(uppercaseVariant, EXPECTED_DOCKER_ACTIONS);
+    expect(uppercaseResult.valid).toBe(false);
+    expect(
+      uppercaseResult.errors.some(
+        (e) =>
+          e.includes('docker/build-push-action') &&
+          e.includes('not a 40-character lowercase hex SHA'),
+      ),
+    ).toBe(true);
+
+    // Non-hex SHA
+    const nonHexVariant = content.replace(
+      /uses: docker\/build-push-action@[^\n]+/,
+      'uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178zz # v6.19.2',
+    );
+    const nonHexResult = verifyWorkflowActionPinning(nonHexVariant, EXPECTED_DOCKER_ACTIONS);
+    expect(nonHexResult.valid).toBe(false);
+    expect(
+      nonHexResult.errors.some(
+        (e) =>
+          e.includes('docker/build-push-action') &&
+          e.includes('not a 40-character lowercase hex SHA'),
+      ),
+    ).toBe(true);
+  });
+
+  it('AC-2: action-pinning fails when an action has missing or non-semver version comment', () => {
+    // Missing comment entirely
+    const noCommentVariant = content.replace(
+      /uses: docker\/login-action@[^\n]+/,
+      'uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772',
+    );
+    const noCommentResult = verifyWorkflowActionPinning(noCommentVariant, EXPECTED_DOCKER_ACTIONS);
+    expect(noCommentResult.valid).toBe(false);
+    expect(
+      noCommentResult.errors.some(
+        (e) =>
+          e.includes('docker/login-action') && e.includes('invalid or missing version comment'),
+      ),
+    ).toBe(true);
+
+    // Invalid non-semver comment (e.g. # latest or # v3)
+    const invalidCommentVariant = content.replace(
+      /uses: docker\/login-action@[^\n]+/,
+      'uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # latest',
+    );
+    const invalidCommentResult = verifyWorkflowActionPinning(
+      invalidCommentVariant,
+      EXPECTED_DOCKER_ACTIONS,
+    );
+    expect(invalidCommentResult.valid).toBe(false);
+    expect(
+      invalidCommentResult.errors.some(
+        (e) =>
+          e.includes('docker/login-action') && e.includes('invalid or missing version comment'),
+      ),
+    ).toBe(true);
+  });
+
+  it('AC-3: action set enforcement fails when an expected Docker action is missing', () => {
+    const missingActionVariant = content.replace(
+      /- name: Extract Docker metadata[\s\S]*?uses: docker\/metadata-action@[^\n]+/,
+      '# metadata-action step omitted',
+    );
+    const result = verifyWorkflowActionPinning(missingActionVariant, EXPECTED_DOCKER_ACTIONS);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('Missing expected action repository "docker/metadata-action"');
   });
 
   it('AC-8: negative failure paths print container logs and fail the workflow on container failure', () => {

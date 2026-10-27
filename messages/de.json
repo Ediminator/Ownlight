@@ -846,7 +846,9 @@
         "deliverableQuantityLabel": "Menge",
         "moveUp": "Nach oben",
         "moveDown": "Nach unten",
-        "removeDeliverable": "Leistung entfernen",
+        "moveDeliverableUp": "Leistungsbestandteil {position} nach oben verschieben",
+        "moveDeliverableDown": "Leistungsbestandteil {position} nach unten verschieben",
+        "removeDeliverable": "Leistungsbestandteil {position} entfernen",
         "save": "Paket speichern",
         "saving": "Speichern...",
         "cancel": "Abbrechen",
@@ -857,6 +859,7 @@
           "priceInvalid": "Grundpreis muss eine nicht-negative Zahl sein",
           "taxRateInvalid": "Steuersatz muss zwischen 0% und 100% liegen",
           "deliverableTitleRequired": "Leistungstitel ist erforderlich",
+          "deliverableQuantityInvalid": "Menge muss mindestens 1 sein",
           "generic": "Fehler beim Speichern des Pakets. Bitte überprüfen Sie die Eingaben."
         }
       },
@@ -872,6 +875,8 @@
         "title": "Katalog & Zusatzleistungen",
         "description": "Eigenständige Zusatzprodukte, Extrastunden, Fahrtkosten und Lizenzierungsoptionen für Angebote.",
         "createButton": "Zusatzleistung erstellen",
+        "categoryFilterLabel": "Kategorie:",
+        "showArchived": "Archivierte anzeigen",
         "filterAll": "Alle Kategorien",
         "categories": {
           "service": "Dienstleistung",
@@ -901,10 +906,16 @@
           "namePlaceholder": "z. B. Zusätzliche Begleitstunde",
           "slugLabel": "URL-Slug",
           "slugPlaceholder": "z. B. zusaetzliche-begleitstunde",
+          "slugHelp": "Wird in Kundenangebots-URLs und Vertragszusammenfassungen verwendet",
           "categoryLabel": "Kategorie",
           "unitPriceLabel": "Einzelpreis",
           "unitPricePlaceholder": "0,00",
           "taxRateLabel": "Steuersatz",
+          "taxRateStandard": "Standard (19%)",
+          "taxRateReduced": "Ermäßigt (7%)",
+          "taxRateZero": "Befreit / Kleinunternehmer (0%)",
+          "taxRateCustom": "Individueller Steuersatz",
+          "taxRateCustomLabel": "Individueller Steuersatz (%)",
           "descriptionLabel": "Beschreibung",
           "descriptionPlaceholder": "Optionale Beschreibung für Kundenangebote",
           "save": "Artikel speichern",
@@ -914,6 +925,7 @@
             "nameRequired": "Artikelname ist erforderlich",
             "slugRequired": "Slug ist erforderlich",
             "slugInvalid": "Slug muss Kebab-Case sein (Kleinbuchstaben, Zahlen und einzelne Bindestriche)",
+            "categoryInvalid": "Ungültige Katalogkategorie",
             "priceInvalid": "Einzelpreis muss eine nicht-negative Zahl sein",
             "taxRateInvalid": "Steuersatz muss zwischen 0% und 100% liegen",
             "generic": "Fehler beim Speichern des Katalogartikels. Bitte überprüfen Sie die Eingaben."
@@ -937,9 +949,11 @@
       "statutoryNoticeHelp": "Gesetzlich vorgeschriebener Hinweis auf allen Angeboten und Rechnungen nach § 19 UStG.",
       "defaultTaxRateLabel": "Standard-Umsatzsteuersatz",
       "defaultTaxRateHelp": "Wird auf steuerpflichtige Pakete und Katalogartikel angewendet, sofern nicht befreit.",
+      "customRateOption": "Benutzerdefinierter Steuersatz",
+      "customRateAriaLabel": "Benutzerdefinierter USt-Satz in Prozent",
       "rates": {
-        "standard": "19% (Standard rate)",
-        "reduced": "7% (Reduced rate)",
+        "standard": "19% (Regelsteuersatz)",
+        "reduced": "7% (Ermäßigter Steuersatz)",
         "zero": "0% (Befreit)"
       },
       "pricingDisplayModeLabel": "Preisanzeigemodus",
@@ -949,7 +963,13 @@
       "saveButton": "Steuereinstellungen speichern",
       "savingButton": "Steuereinstellungen werden gespeichert...",
       "saveSuccess": "Steuereinstellungen erfolgreich gespeichert.",
-      "saveError": "Fehler beim Speichern der Steuereinstellungen. Bitte versuchen Sie es erneut."
+      "saveError": "Fehler beim Speichern der Steuereinstellungen. Bitte versuchen Sie es erneut.",
+      "errors": {
+        "taxNumberTooLong": "Steuernummer darf maximal 50 Zeichen lang sein",
+        "vatIdTooLong": "USt-IdNr. darf maximal 50 Zeichen lang sein",
+        "defaultTaxRateInvalid": "Standard-Steuersatz muss zwischen 0% und 100% liegen",
+        "noticeTooLong": "Hinweistext darf maximal 1000 Zeichen lang sein"
+      }
     }
   },
   "clients": {

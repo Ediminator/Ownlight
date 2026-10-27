@@ -60,7 +60,7 @@ export function PackageDeliverableRow({
   total: number;
   errors?: Record<number, { title?: string; quantity?: string }>;
   disabled: boolean;
-  t: (key: string) => string;
+  t: (key: string, values?: Record<string, string | number | Date>) => string;
   dispatch: React.Dispatch<PackageFormAction>;
 }) {
   const idxStr = String(index);
@@ -130,7 +130,7 @@ export function PackageDeliverableRow({
             disabled={disabled || index === 0}
             onClick={handlers.onMoveUp}
             data-testid={`deliverable-move-up-${idxStr}`}
-            aria-label={`Move deliverable ${posStr} up`}
+            aria-label={t('modal.moveDeliverableUp', { position: posStr })}
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
           >
             <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
@@ -142,7 +142,7 @@ export function PackageDeliverableRow({
             disabled={disabled || index === total - 1}
             onClick={handlers.onMoveDown}
             data-testid={`deliverable-move-down-${idxStr}`}
-            aria-label={`Move deliverable ${posStr} down`}
+            aria-label={t('modal.moveDeliverableDown', { position: posStr })}
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
           >
             <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
@@ -154,7 +154,7 @@ export function PackageDeliverableRow({
             disabled={disabled}
             onClick={handlers.onRemove}
             data-testid={`deliverable-remove-${idxStr}`}
-            aria-label={`Remove deliverable ${posStr}`}
+            aria-label={t('modal.removeDeliverable', { position: posStr })}
             className="h-8 w-8 text-destructive hover:bg-destructive/10"
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -192,7 +192,7 @@ export function PackageModal({
   const { formData, errors } = state;
 
   const dialogHandlers = createModalDialogHandlers(onClose, triggerRef);
-  const handlers = createPackageModalHandlers(dispatch, formData, onSave, onClose);
+  const handlers = createPackageModalHandlers(dispatch, formData, onSave, onClose, t);
 
   const isCustomTaxRate =
     formData.taxRateBasisPoints !== 1900 &&

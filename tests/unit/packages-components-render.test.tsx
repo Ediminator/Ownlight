@@ -760,4 +760,105 @@ describe('Packages and Catalogue Component Static Render Tests', () => {
     expect(html).toContain('Price invalid');
     expect(html).toContain('Tax rate invalid');
   });
+
+  describe('Iteration 1 Review Feedback Regressions (I1-U01, I1-U02, I1-U04, I1-U05)', () => {
+    it('I1-U01 regression: CatalogueItemModal renders localized tax rates and slug help in German without raw translation keys', () => {
+      currentLocale = 'de';
+      const html = renderToStaticMarkup(
+        <CatalogueItemModal
+          item={mockCatalogueItem}
+          isOpen={true}
+          isSubmitting={false}
+          triggerRef={{ current: null }}
+          onClose={noop}
+          onSave={mockAsyncTrue}
+        />,
+      );
+      expect(html).toContain('Wird in Kundenangebots-URLs und Vertragszusammenfassungen verwendet');
+      expect(html).not.toContain('settings.packages.catalogue.modal.slugHelp');
+      expect(html).not.toContain('settings.packages.catalogue.modal.taxRateStandard');
+      expect(html).toContain('Standard (19%)');
+      expect(html).toContain('Ermäßigt (7%)');
+      expect(html).toContain('Befreit / Kleinunternehmer (0%)');
+      expect(html).toContain('Individueller Steuersatz');
+      currentLocale = 'en';
+    });
+
+    it('I1-U02 regression: CatalogueSection and TaxSettingsSection render localized category filter and custom tax option in German', () => {
+      currentLocale = 'de';
+      const catHtml = renderToStaticMarkup(
+        <CatalogueSection
+          initialItems={[mockCatalogueItem]}
+          locale="de"
+          onSaveCatalogueItem={mockAsyncTrue}
+          onArchiveCatalogueItem={mockAsyncTrue}
+        />,
+      );
+      expect(catHtml).toContain('Kategorie:');
+      expect(catHtml).not.toContain('>Category:<');
+      expect(catHtml).toContain('Archivierte anzeigen');
+      expect(catHtml).not.toContain('>Show Archived<');
+
+      const taxHtml = renderToStaticMarkup(
+        <TaxSettingsSection
+          initialSettings={{ ...mockTaxSettings, default_tax_rate_basis_points: 1250 }}
+          locale="de"
+          onUpdateTaxSettings={mockAsyncTrue}
+        />,
+      );
+      expect(taxHtml).toContain('Benutzerdefinierter Steuersatz');
+      expect(taxHtml).not.toContain('>Custom Tax Rate<');
+      expect(taxHtml).toContain('aria-label="Benutzerdefinierter USt-Satz in Prozent"');
+      expect(taxHtml).not.toContain('aria-label="Custom VAT rate percentage"');
+      currentLocale = 'en';
+    });
+
+    it('I1-U04 regression: TaxSettingsSection renders German VAT rates with proper German terminology (Regelsteuersatz)', () => {
+      currentLocale = 'de';
+      const taxHtml = renderToStaticMarkup(
+        <TaxSettingsSection
+          initialSettings={mockTaxSettings}
+          locale="de"
+          onUpdateTaxSettings={mockAsyncTrue}
+        />,
+      );
+      expect(taxHtml).toContain('19% (Regelsteuersatz)');
+      expect(taxHtml).toContain('7% (Ermäßigter Steuersatz)');
+      expect(taxHtml).not.toContain('19% (Standard rate)');
+      expect(taxHtml).not.toContain('7% (Reduced rate)');
+      currentLocale = 'en';
+    });
+
+    it('I1-U05 regression: PackageDeliverableRow renders localized aria-labels for reordering and removal buttons in German', () => {
+      currentLocale = 'de';
+      const tMock = (key: string, values?: Record<string, string | number | Date>) => {
+        const fullPath = `settings.packages.${key}`;
+        const raw = getNestedValue(deMessages, fullPath);
+        let text = typeof raw === 'string' ? raw : `[${fullPath}]`;
+        if (values) {
+          for (const [vKey, vVal] of Object.entries(values)) {
+            text = text.replace(new RegExp(`\\{${vKey}\\}`, 'g'), String(vVal));
+          }
+        }
+        return text;
+      };
+
+      const html = renderToStaticMarkup(
+        <PackageDeliverableRow
+          item={{ id: 'd-1', title: 'Test Leistung', quantity: 1, position: 1 }}
+          index={1}
+          total={3}
+          disabled={false}
+          dispatch={noop}
+          t={tMock}
+        />,
+      );
+      expect(html).toContain('aria-label="Leistungsbestandteil 2 nach oben verschieben"');
+      expect(html).toContain('aria-label="Leistungsbestandteil 2 nach unten verschieben"');
+      expect(html).toContain('aria-label="Leistungsbestandteil 2 entfernen"');
+      expect(html).not.toContain('Move deliverable 2 up');
+      expect(html).not.toContain('Remove deliverable 2');
+      currentLocale = 'en';
+    });
+  });
 });

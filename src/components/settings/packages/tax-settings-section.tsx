@@ -54,6 +54,7 @@ export function TaxSettingsSection({
     setSaveStatus,
     setIsSubmitting,
     onUpdateTaxSettings,
+    t,
   });
 
   return (
@@ -219,7 +220,7 @@ export function TaxSettingsSection({
                     {t(preset.labelKey)}
                   </option>
                 ))}
-                <option value="custom">Custom Tax Rate</option>
+                <option value="custom">{t('customRateOption')}</option>
               </select>
 
               {formData.taxRateSelection === 'custom' && (
@@ -228,7 +229,7 @@ export function TaxSettingsSection({
                   name="customTaxRate"
                   type="text"
                   inputMode="decimal"
-                  aria-label="Custom VAT rate percentage"
+                  aria-label={t('customRateAriaLabel')}
                   data-testid="default-custom-tax-input"
                   value={formData.customTaxRatePercent}
                   onChange={handlers.handleCustomTaxRateChange}

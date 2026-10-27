@@ -1971,4 +1971,102 @@ describe('TASK-0057: Packages and Catalogue Studio Settings Form Schemas & Helpe
       }
     });
   });
+
+  describe('Iteration 1 Review Feedback Regressions (I1-U03, I1-S01)', () => {
+    it('I1-U03 regression: validation helpers return localized error messages when passed a German translator', () => {
+      const dePath = path.resolve(process.cwd(), 'messages/de.json');
+      const deMessages = JSON.parse(fs.readFileSync(dePath, 'utf8')) as Record<string, unknown>;
+
+      const getNested = (obj: Record<string, unknown>, keyPath: string): string => {
+        const parts = keyPath.split('.');
+        let cur: unknown = obj;
+        for (const p of parts) {
+          if (cur && typeof cur === 'object' && p in cur) {
+            cur = Reflect.get(cur, p);
+          }
+        }
+        return typeof cur === 'string' ? cur : keyPath;
+      };
+
+      // Package translator (scoped to settings.packages)
+      const tPkg = (key: string) => getNested(deMessages, `settings.packages.${key}`);
+
+      const invalidPkg: PackageFormData = {
+        name: '',
+        slug: '',
+        projectTypeKey: '',
+        basePriceMajor: '-50',
+        taxRateBasisPoints: -100,
+        taxRateCustomPercent: '',
+        description: '',
+        includedItems: [{ id: '1', title: '', quantity: 0, position: 0 }],
+      };
+
+      const pkgValidation = validatePackageForm(invalidPkg, tPkg);
+      expect(pkgValidation.isValid).toBe(false);
+      expect(pkgValidation.errors.name).toBe('Pakettitel ist erforderlich');
+      expect(pkgValidation.errors.slug).toBe('Slug ist erforderlich');
+      expect(pkgValidation.errors.basePrice).toBe('Grundpreis muss eine nicht-negative Zahl sein');
+      expect(pkgValidation.errors.taxRate).toBe('Steuersatz muss zwischen 0% und 100% liegen');
+      expect(pkgValidation.errors.deliverables?.[0]?.title).toBe('Leistungstitel ist erforderlich');
+      expect(pkgValidation.errors.deliverables?.[0]?.quantity).toBe('Menge muss mindestens 1 sein');
+
+      // Catalogue translator (scoped to settings.packages)
+      const tCat = (key: string) => getNested(deMessages, `settings.packages.${key}`);
+
+      const invalidCat: CatalogueItemFormData = {
+        name: '',
+        slug: '',
+        category: 'invalid-cat' as never,
+        unitPriceMajor: '-10',
+        taxRateBasisPoints: -1,
+        taxRateCustomPercent: '',
+        description: '',
+        isActive: true,
+      };
+
+      const catValidation = validateCatalogueItemForm(invalidCat, tCat);
+      expect(catValidation.isValid).toBe(false);
+      expect(catValidation.errors.name).toBe('Artikelname ist erforderlich');
+      expect(catValidation.errors.slug).toBe('Slug ist erforderlich');
+      expect(catValidation.errors.category).toBe('Ungültige Katalogkategorie');
+      expect(catValidation.errors.unitPrice).toBe('Einzelpreis muss eine nicht-negative Zahl sein');
+      expect(catValidation.errors.taxRate).toBe('Steuersatz muss zwischen 0% und 100% liegen');
+
+      // Tax settings translator (scoped to settings.tax)
+      const tTax = (key: string) => getNested(deMessages, `settings.tax.${key}`);
+
+      const invalidTax: TaxSettingsFormData = {
+        taxNumber: 'x'.repeat(51),
+        vatId: 'y'.repeat(51),
+        isKleinunternehmer: true,
+        kleinunternehmerNotice: 'z'.repeat(1001),
+        taxRateSelection: 'custom',
+        defaultTaxRateBasisPoints: 10001,
+        customTaxRatePercent: '101',
+        pricesIncludeTax: true,
+      };
+
+      const taxValidation = validateTaxSettingsForm(invalidTax, tTax);
+      expect(taxValidation.isValid).toBe(false);
+      expect(taxValidation.errors.taxNumber).toBe('Steuernummer darf maximal 50 Zeichen lang sein');
+      expect(taxValidation.errors.vatId).toBe('USt-IdNr. darf maximal 50 Zeichen lang sein');
+      expect(taxValidation.errors.defaultTaxRate).toBe(
+        'Standard-Steuersatz muss zwischen 0% und 100% liegen',
+      );
+      expect(taxValidation.errors.kleinunternehmerNotice).toBe(
+        'Hinweistext darf maximal 1000 Zeichen lang sein',
+      );
+    });
+
+    it('I1-S01 regression: docs/privacy/data-inventory.md registers studio_settings.tax_number and vat_id', () => {
+      const inventoryPath = path.resolve(process.cwd(), 'docs/privacy/data-inventory.md');
+      const content = fs.readFileSync(inventoryPath, 'utf8');
+
+      expect(content).toContain('`studio_settings.tax_number`');
+      expect(content).toContain('`studio_settings.vat_id`');
+      expect(content).toContain('§14 UStG');
+      expect(content).toContain('§27a UStG');
+    });
+  });
 });

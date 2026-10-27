@@ -62,7 +62,7 @@ export function CatalogueItemModal({
   const { formData, errors } = state;
 
   const dialogHandlers = createModalDialogHandlers(onClose, triggerRef);
-  const handlers = createCatalogueItemModalHandlers(dispatch, formData, onSave, onClose);
+  const handlers = createCatalogueItemModalHandlers(dispatch, formData, onSave, onClose, t);
 
   const isCustomTaxRate =
     formData.taxRateBasisPoints !== 1900 &&

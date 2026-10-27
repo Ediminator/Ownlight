@@ -133,26 +133,33 @@ export function moveDeliverable<T extends { position?: number }>(
 /**
  * Validates package modal form inputs before submission.
  */
-export function validatePackageForm(data: PackageFormData): {
+export function validatePackageForm(
+  data: PackageFormData,
+  t?: (key: string) => string,
+): {
   isValid: boolean;
   errors: PackageFormErrors;
 } {
   const errors: PackageFormErrors = {};
 
   if (!data.name.trim()) {
-    errors.name = 'Package title is required';
+    errors.name = t ? t('modal.errors.titleRequired') : 'Package title is required';
   }
 
   const slug = data.slug.trim();
   if (!slug) {
-    errors.slug = 'Slug is required';
+    errors.slug = t ? t('modal.errors.slugRequired') : 'Slug is required';
   } else if (!SLUG_REGEX.test(slug)) {
-    errors.slug = 'Slug must be kebab-case (lowercase letters, numbers, and single hyphens)';
+    errors.slug = t
+      ? t('modal.errors.slugInvalid')
+      : 'Slug must be kebab-case (lowercase letters, numbers, and single hyphens)';
   }
 
   const minor = convertPriceMajorToMinor(data.basePriceMajor);
   if (minor === undefined || minor < 0) {
-    errors.basePrice = 'Base price must be a non-negative number';
+    errors.basePrice = t
+      ? t('modal.errors.priceInvalid')
+      : 'Base price must be a non-negative number';
   }
 
   if (
@@ -161,17 +168,21 @@ export function validatePackageForm(data: PackageFormData): {
     data.taxRateBasisPoints < 0 ||
     data.taxRateBasisPoints > 10000
   ) {
-    errors.taxRate = 'Tax rate must be between 0% and 100%';
+    errors.taxRate = t ? t('modal.errors.taxRateInvalid') : 'Tax rate must be between 0% and 100%';
   }
 
   const deliverableErrors: Record<number, { title?: string; quantity?: string }> = {};
   data.includedItems.forEach((item, index) => {
     const itemErrors: { title?: string; quantity?: string } = {};
     if (!item.title.trim()) {
-      itemErrors.title = 'Deliverable title is required';
+      itemErrors.title = t
+        ? t('modal.errors.deliverableTitleRequired')
+        : 'Deliverable title is required';
     }
     if (typeof item.quantity !== 'number' || item.quantity < 1) {
-      itemErrors.quantity = 'Quantity must be at least 1';
+      itemErrors.quantity = t
+        ? t('modal.errors.deliverableQuantityInvalid')
+        : 'Quantity must be at least 1';
     }
     if (Object.keys(itemErrors).length > 0) {
       Object.assign(deliverableErrors, { [index]: itemErrors });
@@ -532,6 +543,7 @@ export function createPackageModalHandlers(
   formData: PackageFormData,
   onSave: (payload: ReturnType<typeof buildPackageSavePayload>) => Promise<boolean>,
   onClose: () => void,
+  t?: (key: string) => string,
 ) {
   return {
     handleTitleChange: (e: { target: { value: string } }) => {
@@ -560,7 +572,7 @@ export function createPackageModalHandlers(
     },
     handleSubmit: async (e?: { preventDefault: () => void }) => {
       e?.preventDefault();
-      const validation = validatePackageForm(formData);
+      const validation = validatePackageForm(formData, t);
       if (!validation.isValid) {
         dispatch({ type: 'SET_ERRORS', errors: validation.errors });
         return false;
@@ -575,7 +587,7 @@ export function createPackageModalHandlers(
     onSubmit: (e?: { preventDefault: () => void }) => {
       e?.preventDefault();
       void (async () => {
-        const validation = validatePackageForm(formData);
+        const validation = validatePackageForm(formData, t);
         if (!validation.isValid) {
           dispatch({ type: 'SET_ERRORS', errors: validation.errors });
           return;

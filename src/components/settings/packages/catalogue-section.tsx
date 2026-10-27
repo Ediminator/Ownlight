@@ -119,7 +119,7 @@ export function CatalogueSection({
             htmlFor="catalogue-category-filter"
             className="text-xs font-medium text-muted-foreground shrink-0"
           >
-            Category:
+            {t('catalogue.categoryFilterLabel')}
           </label>
           <select
             id="catalogue-category-filter"
@@ -145,7 +145,7 @@ export function CatalogueSection({
               data-testid="toggle-show-archived-catalogue"
               className="rounded border-input text-primary focus:ring-primary h-4 w-4"
             />
-            <span>Show Archived</span>
+            <span>{t('catalogue.showArchived')}</span>
           </label>
         </div>
       </div>

@@ -61,18 +61,21 @@ export function studioSettingsToTaxFormData(
 /**
  * Validates tax settings form data before submitting to server action.
  */
-export function validateTaxSettingsForm(data: TaxSettingsFormData): {
+export function validateTaxSettingsForm(
+  data: TaxSettingsFormData,
+  t?: (key: string) => string,
+): {
   isValid: boolean;
   errors: TaxSettingsFormErrors;
 } {
   const errors: TaxSettingsFormErrors = {};
 
   if (data.taxNumber && data.taxNumber.trim().length > 50) {
-    errors.taxNumber = 'Tax number cannot exceed 50 characters';
+    errors.taxNumber = t ? t('errors.taxNumberTooLong') : 'Tax number cannot exceed 50 characters';
   }
 
   if (data.vatId && data.vatId.trim().length > 50) {
-    errors.vatId = 'VAT ID cannot exceed 50 characters';
+    errors.vatId = t ? t('errors.vatIdTooLong') : 'VAT ID cannot exceed 50 characters';
   }
 
   if (
@@ -81,7 +84,9 @@ export function validateTaxSettingsForm(data: TaxSettingsFormData): {
     data.defaultTaxRateBasisPoints < 0 ||
     data.defaultTaxRateBasisPoints > 10000
   ) {
-    errors.defaultTaxRate = 'Default tax rate must be between 0% and 100%';
+    errors.defaultTaxRate = t
+      ? t('errors.defaultTaxRateInvalid')
+      : 'Default tax rate must be between 0% and 100%';
   }
 
   if (
@@ -89,7 +94,9 @@ export function validateTaxSettingsForm(data: TaxSettingsFormData): {
     data.kleinunternehmerNotice &&
     data.kleinunternehmerNotice.length > 1000
   ) {
-    errors.kleinunternehmerNotice = 'Notice text cannot exceed 1000 characters';
+    errors.kleinunternehmerNotice = t
+      ? t('errors.noticeTooLong')
+      : 'Notice text cannot exceed 1000 characters';
   }
 
   return {
@@ -180,6 +187,7 @@ export function createTaxSettingsHandlers(params: {
   onUpdateTaxSettings: (
     payload: ReturnType<typeof buildTaxSettingsSavePayload>,
   ) => Promise<boolean>;
+  t?: (key: string) => string;
 }) {
   return {
     handleTaxNumberChange: (e: { target: { value: string } }) => {
@@ -236,7 +244,7 @@ export function createTaxSettingsHandlers(params: {
     },
     handleSubmit: async (e?: { preventDefault: () => void }) => {
       e?.preventDefault();
-      const validation = validateTaxSettingsForm(params.formData);
+      const validation = validateTaxSettingsForm(params.formData, params.t);
       if (!validation.isValid) {
         params.setErrors(validation.errors);
         return false;
@@ -258,7 +266,7 @@ export function createTaxSettingsHandlers(params: {
     onSubmit: (e?: { preventDefault: () => void }) => {
       e?.preventDefault();
       void (async () => {
-        const validation = validateTaxSettingsForm(params.formData);
+        const validation = validateTaxSettingsForm(params.formData, params.t);
         if (!validation.isValid) {
           params.setErrors(validation.errors);
           return;

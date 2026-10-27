@@ -846,7 +846,9 @@
         "deliverableQuantityLabel": "Qty",
         "moveUp": "Move Up",
         "moveDown": "Move Down",
-        "removeDeliverable": "Remove deliverable",
+        "moveDeliverableUp": "Move deliverable {position} up",
+        "moveDeliverableDown": "Move deliverable {position} down",
+        "removeDeliverable": "Remove deliverable {position}",
         "save": "Save Package",
         "saving": "Saving...",
         "cancel": "Cancel",
@@ -857,6 +859,7 @@
           "priceInvalid": "Base price must be a non-negative number",
           "taxRateInvalid": "Tax rate must be between 0% and 100%",
           "deliverableTitleRequired": "Deliverable title is required",
+          "deliverableQuantityInvalid": "Quantity must be at least 1",
           "generic": "Failed to save package. Please check the form and try again."
         }
       },
@@ -872,6 +875,8 @@
         "title": "Catalogue & Add-ons",
         "description": "Standalone add-on products, extra services, travel fees, and licensing options for proposals.",
         "createButton": "Create Add-on Item",
+        "categoryFilterLabel": "Category:",
+        "showArchived": "Show Archived",
         "filterAll": "All Categories",
         "categories": {
           "service": "Service",
@@ -901,10 +906,16 @@
           "namePlaceholder": "e.g. Additional Coverage Hour",
           "slugLabel": "URL Slug",
           "slugPlaceholder": "e.g. additional-coverage-hour",
+          "slugHelp": "Used in client proposal URLs and contract summaries",
           "categoryLabel": "Category",
           "unitPriceLabel": "Unit Price",
           "unitPricePlaceholder": "0.00",
           "taxRateLabel": "Tax Rate",
+          "taxRateStandard": "Standard (19%)",
+          "taxRateReduced": "Reduced (7%)",
+          "taxRateZero": "Exempt / Kleinunternehmer (0%)",
+          "taxRateCustom": "Custom Tax Rate",
+          "taxRateCustomLabel": "Custom Tax Rate (%)",
           "descriptionLabel": "Description",
           "descriptionPlaceholder": "Optional description for client proposals",
           "save": "Save Item",
@@ -914,6 +925,7 @@
             "nameRequired": "Item name is required",
             "slugRequired": "Slug is required",
             "slugInvalid": "Slug must be kebab-case (lowercase letters, numbers, and single hyphens)",
+            "categoryInvalid": "Invalid catalogue category",
             "priceInvalid": "Unit price must be a non-negative number",
             "taxRateInvalid": "Tax rate must be between 0% and 100%",
             "generic": "Failed to save catalogue item. Please check the form and try again."
@@ -937,6 +949,8 @@
       "statutoryNoticeHelp": "Required legal notice displayed on all quotes, proposals, and invoices issued under § 19 UStG.",
       "defaultTaxRateLabel": "Default Standard VAT Rate",
       "defaultTaxRateHelp": "Applied to taxable packages and catalogue items when not exempt.",
+      "customRateOption": "Custom Tax Rate",
+      "customRateAriaLabel": "Custom VAT rate percentage",
       "rates": {
         "standard": "19% (Standard rate)",
         "reduced": "7% (Reduced rate, e.g. certain books/prints)",
@@ -949,7 +963,13 @@
       "saveButton": "Save Tax Settings",
       "savingButton": "Saving Tax Settings...",
       "saveSuccess": "Tax settings saved successfully.",
-      "saveError": "Failed to save tax settings. Please try again."
+      "saveError": "Failed to save tax settings. Please try again.",
+      "errors": {
+        "taxNumberTooLong": "Tax number cannot exceed 50 characters",
+        "vatIdTooLong": "VAT ID cannot exceed 50 characters",
+        "defaultTaxRateInvalid": "Default tax rate must be between 0% and 100%",
+        "noticeTooLong": "Notice text cannot exceed 1000 characters"
+      }
     }
   },
   "clients": {

@@ -31,30 +31,39 @@ export interface CatalogueItemFormErrors {
 /**
  * Validates catalogue item modal form inputs before submission.
  */
-export function validateCatalogueItemForm(data: CatalogueItemFormData): {
+export function validateCatalogueItemForm(
+  data: CatalogueItemFormData,
+  t?: (key: string) => string,
+): {
   isValid: boolean;
   errors: CatalogueItemFormErrors;
 } {
   const errors: CatalogueItemFormErrors = {};
 
   if (!data.name.trim()) {
-    errors.name = 'Item name is required';
+    errors.name = t ? t('catalogue.modal.errors.nameRequired') : 'Item name is required';
   }
 
   const slug = data.slug.trim();
   if (!slug) {
-    errors.slug = 'Slug is required';
+    errors.slug = t ? t('catalogue.modal.errors.slugRequired') : 'Slug is required';
   } else if (!SLUG_REGEX.test(slug)) {
-    errors.slug = 'Slug must be kebab-case (lowercase letters, numbers, and single hyphens)';
+    errors.slug = t
+      ? t('catalogue.modal.errors.slugInvalid')
+      : 'Slug must be kebab-case (lowercase letters, numbers, and single hyphens)';
   }
 
   if (!CATALOGUE_CATEGORIES.includes(data.category)) {
-    errors.category = 'Invalid catalogue category';
+    errors.category = t
+      ? t('catalogue.modal.errors.categoryInvalid')
+      : 'Invalid catalogue category';
   }
 
   const minor = convertPriceMajorToMinor(data.unitPriceMajor);
   if (minor === undefined || minor < 0) {
-    errors.unitPrice = 'Unit price must be a non-negative number';
+    errors.unitPrice = t
+      ? t('catalogue.modal.errors.priceInvalid')
+      : 'Unit price must be a non-negative number';
   }
 
   if (
@@ -63,7 +72,9 @@ export function validateCatalogueItemForm(data: CatalogueItemFormData): {
     data.taxRateBasisPoints < 0 ||
     data.taxRateBasisPoints > 10000
   ) {
-    errors.taxRate = 'Tax rate must be between 0% and 100%';
+    errors.taxRate = t
+      ? t('catalogue.modal.errors.taxRateInvalid')
+      : 'Tax rate must be between 0% and 100%';
   }
 
   return {
@@ -303,6 +314,7 @@ export function createCatalogueItemModalHandlers(
   formData: CatalogueItemFormData,
   onSave: (payload: ReturnType<typeof buildCatalogueItemSavePayload>) => Promise<boolean>,
   onClose: () => void,
+  t?: (key: string) => string,
 ) {
   return {
     handleNameChange: (e: { target: { value: string } }) => {
@@ -328,7 +340,7 @@ export function createCatalogueItemModalHandlers(
     },
     handleSubmit: async (e?: { preventDefault: () => void }) => {
       e?.preventDefault();
-      const validation = validateCatalogueItemForm(formData);
+      const validation = validateCatalogueItemForm(formData, t);
       if (!validation.isValid) {
         dispatch({ type: 'SET_ERRORS', errors: validation.errors });
         return false;
@@ -343,7 +355,7 @@ export function createCatalogueItemModalHandlers(
     onSubmit: (e?: { preventDefault: () => void }) => {
       e?.preventDefault();
       void (async () => {
-        const validation = validateCatalogueItemForm(formData);
+        const validation = validateCatalogueItemForm(formData, t);
         if (!validation.isValid) {
           dispatch({ type: 'SET_ERRORS', errors: validation.errors });
           return;

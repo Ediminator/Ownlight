@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { createArchiveDialogHandlers } from './packages-helpers';
 import type { PackageWithIncludedItems } from '@/server/packages/repo';
 
 export interface PackageArchiveDialogProps {
@@ -34,25 +35,13 @@ export function PackageArchiveDialog({
 
   if (!pkg) return null;
 
-  const handleConfirm = () => {
-    onConfirm(pkg);
-  };
+  const dialogHandlers = createArchiveDialogHandlers(onClose, onConfirm, pkg, triggerRef);
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        if (!open) {
-          onClose();
-        }
-      }}
-    >
+    <Dialog open={isOpen} onOpenChange={dialogHandlers.onOpenChange}>
       <DialogContent
         data-testid="package-archive-dialog"
-        onCloseAutoFocus={(e) => {
-          e.preventDefault();
-          triggerRef?.current?.focus();
-        }}
+        onCloseAutoFocus={dialogHandlers.onCloseAutoFocus}
       >
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
@@ -72,7 +61,7 @@ export function PackageArchiveDialog({
           <Button
             type="button"
             variant="destructive"
-            onClick={handleConfirm}
+            onClick={dialogHandlers.handleConfirm}
             disabled={isSubmitting}
             data-testid="confirm-archive-btn"
           >

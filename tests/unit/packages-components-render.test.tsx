@@ -76,7 +76,7 @@ vi.mock('next-intl', () => ({
 
 import { PackagesView } from '@/components/settings/packages/packages-view';
 import { PackagesSection } from '@/components/settings/packages/packages-section';
-import { PackageModal } from '@/components/settings/packages/package-modal';
+import { PackageModal, PackageDeliverableRow } from '@/components/settings/packages/package-modal';
 import { PackageArchiveDialog } from '@/components/settings/packages/package-archive-dialog';
 import { CatalogueSection } from '@/components/settings/packages/catalogue-section';
 import { CatalogueItemModal } from '@/components/settings/packages/catalogue-item-modal';
@@ -401,5 +401,363 @@ describe('Packages and Catalogue Component Static Render Tests', () => {
 
     expect(kuHtml).toContain('data-testid="kleinunternehmer-notice-textarea"');
     expect(kuHtml).toContain('Gemäß § 19 UStG wird keine USt berechnet.');
+  });
+
+  it('renders PackagesView with defaultTab="catalogue"', () => {
+    currentLocale = 'en';
+    const html = renderToStaticMarkup(
+      <PackagesView
+        initialPackages={[mockPackage]}
+        initialCatalogueItems={[mockCatalogueItem]}
+        initialTaxSettings={mockTaxSettings}
+        locale="en"
+        defaultTab="catalogue"
+      />,
+    );
+
+    expect(html).toContain('data-testid="catalogue-section"');
+    expect(html).toContain('Extra Hour Coverage');
+  });
+
+  it('renders PackagesView with defaultTab="tax"', () => {
+    currentLocale = 'en';
+    const html = renderToStaticMarkup(
+      <PackagesView
+        initialPackages={[mockPackage]}
+        initialCatalogueItems={[mockCatalogueItem]}
+        initialTaxSettings={mockTaxSettings}
+        locale="en"
+        defaultTab="tax"
+      />,
+    );
+
+    expect(html).toContain('data-testid="tax-settings-section"');
+    expect(html).toContain('data-testid="tax-number-input"');
+  });
+
+  it('renders PackageArchiveDialog as empty when pkg is null', () => {
+    const html = renderToStaticMarkup(
+      <PackageArchiveDialog
+        pkg={null}
+        isOpen={true}
+        isSubmitting={false}
+        triggerRef={{ current: null }}
+        onClose={noop}
+        onConfirm={noop}
+      />,
+    );
+
+    expect(html).toBe('');
+  });
+
+  it('renders PackageDeliverableRow directly with validation errors', () => {
+    currentLocale = 'en';
+    const html = renderToStaticMarkup(
+      <PackageDeliverableRow
+        item={{ title: '', quantity: 0, position: 0 }}
+        index={0}
+        total={2}
+        errors={{ 0: { title: 'Title is required', quantity: 'Quantity must be at least 1' } }}
+        disabled={false}
+        t={(k) => k}
+        dispatch={noop}
+      />,
+    );
+
+    expect(html).toContain('data-testid="deliverable-row-0"');
+    expect(html).toContain('data-testid="deliverable-title-input-0"');
+    expect(html).toContain('data-testid="deliverable-quantity-input-0"');
+    expect(html).toContain('Title is required');
+    expect(html).toContain('Quantity must be at least 1');
+    expect(html).toContain('data-testid="deliverable-move-up-0"');
+    expect(html).toContain('data-testid="deliverable-move-down-0"');
+    expect(html).toContain('data-testid="deliverable-remove-0"');
+  });
+
+  it('renders PackageModal with custom tax rate preset', () => {
+    currentLocale = 'en';
+    const customTaxPackage: PackageWithIncludedItems = {
+      ...mockPackage,
+      taxRateBasisPoints: 850,
+    };
+
+    const html = renderToStaticMarkup(
+      <PackageModal
+        pkg={customTaxPackage}
+        isOpen={true}
+        isSubmitting={false}
+        triggerRef={{ current: null }}
+        onClose={noop}
+        onSave={mockAsyncTrue}
+      />,
+    );
+
+    expect(html).toContain('data-testid="package-custom-tax-input"');
+    expect(html).toContain('8.5');
+  });
+
+  it('renders TaxSettingsSection with custom tax rate preset', () => {
+    currentLocale = 'en';
+    const customTaxSettings: StudioSettings = {
+      ...mockTaxSettings,
+      default_tax_rate_basis_points: 850,
+    };
+
+    const html = renderToStaticMarkup(
+      <TaxSettingsSection
+        initialSettings={customTaxSettings}
+        locale="en"
+        onUpdateTaxSettings={mockAsyncTrue}
+      />,
+    );
+
+    expect(html).toContain('data-testid="default-custom-tax-input"');
+    expect(html).toContain('8.5');
+  });
+
+  it('renders PackagesView with catalogue and tax default tabs', () => {
+    currentLocale = 'en';
+    const catHtml = renderToStaticMarkup(
+      <PackagesView
+        initialPackages={[mockPackage]}
+        initialCatalogueItems={[mockCatalogueItem]}
+        initialTaxSettings={mockTaxSettings}
+        locale="en"
+        defaultTab="catalogue"
+      />,
+    );
+    expect(catHtml).toContain('aria-selected="true"');
+    expect(catHtml).toContain('data-testid="tab-catalogue"');
+
+    const taxHtml = renderToStaticMarkup(
+      <PackagesView
+        initialPackages={[mockPackage]}
+        initialCatalogueItems={[mockCatalogueItem]}
+        initialTaxSettings={mockTaxSettings}
+        locale="en"
+        defaultTab="tax"
+      />,
+    );
+    expect(taxHtml).toContain('data-testid="tab-tax"');
+  });
+
+  it('renders PackagesSection with archived packages section', () => {
+    currentLocale = 'en';
+    const archivedPkg: PackageWithIncludedItems = {
+      ...mockPackage,
+      id: '01920000-0000-7000-8000-000000000099',
+      name: 'Archived Mini Session',
+      slug: 'archived-mini-session',
+      isActive: false,
+    };
+
+    const html = renderToStaticMarkup(
+      <PackagesSection
+        initialPackages={[mockPackage, archivedPkg]}
+        initialShowArchived={true}
+        onSavePackage={mockAsyncTrue}
+        onArchivePackage={mockAsyncTrue}
+      />,
+    );
+    expect(html).toContain('data-testid="toggle-archived-packages"');
+    expect(html).toContain('data-testid="archived-package-01920000-0000-7000-8000-000000000099"');
+  });
+
+  it('renders PackageModal in create mode and submitting state', () => {
+    currentLocale = 'en';
+    const html = renderToStaticMarkup(
+      <PackageModal
+        pkg={null}
+        isOpen={true}
+        isSubmitting={true}
+        triggerRef={{ current: null }}
+        onClose={noop}
+        onSave={mockAsyncTrue}
+      />,
+    );
+    expect(html).toContain('data-testid="save-package-btn"');
+    expect(html).toContain('disabled=""');
+  });
+
+  it('renders PackageArchiveDialog in restore mode and submitting state', () => {
+    currentLocale = 'en';
+    const archivedPkg: PackageWithIncludedItems = {
+      ...mockPackage,
+      isActive: false,
+    };
+
+    const html = renderToStaticMarkup(
+      <PackageArchiveDialog
+        pkg={archivedPkg}
+        isOpen={true}
+        isSubmitting={true}
+        triggerRef={{ current: null }}
+        onClose={noop}
+        onConfirm={noop}
+      />,
+    );
+    expect(html).toContain('data-testid="confirm-archive-btn"');
+    expect(html).toContain('disabled=""');
+  });
+
+  it('renders CatalogueSection with archived item and category filtering', () => {
+    currentLocale = 'en';
+    const archivedItem: CatalogueItem = {
+      ...mockCatalogueItem,
+      id: '01920000-0000-7000-8000-000000000088',
+      name: 'Archived Travel Fee',
+      category: 'travel',
+      isActive: false,
+    };
+
+    const html = renderToStaticMarkup(
+      <CatalogueSection
+        initialItems={[mockCatalogueItem, archivedItem]}
+        initialShowArchived={true}
+        onSaveCatalogueItem={mockAsyncTrue}
+        onArchiveCatalogueItem={mockAsyncTrue}
+      />,
+    );
+    expect(html).toContain('data-testid="toggle-show-archived-catalogue"');
+    expect(html).toContain(
+      'data-testid="toggle-archive-catalogue-item-01920000-0000-7000-8000-000000000088"',
+    );
+  });
+
+  it('renders TaxSettingsSection with success banner, error banner, and inline field errors', () => {
+    currentLocale = 'en';
+    const successHtml = renderToStaticMarkup(
+      <TaxSettingsSection
+        initialSettings={mockTaxSettings}
+        locale="en"
+        initialSaveStatus="success"
+        onUpdateTaxSettings={mockAsyncTrue}
+      />,
+    );
+    expect(successHtml).toContain('data-testid="tax-save-success-banner"');
+
+    const errorHtml = renderToStaticMarkup(
+      <TaxSettingsSection
+        initialSettings={mockTaxSettings}
+        locale="en"
+        initialSaveStatus="error"
+        initialErrors={{
+          taxNumber: 'Invalid tax number',
+          vatId: 'Invalid VAT ID',
+          defaultTaxRate: 'Invalid default tax rate',
+          kleinunternehmerNotice: 'Notice too long',
+        }}
+        onUpdateTaxSettings={mockAsyncTrue}
+      />,
+    );
+    expect(errorHtml).toContain('data-testid="tax-settings-save-error"');
+    expect(errorHtml).toContain('Invalid tax number');
+    expect(errorHtml).toContain('Invalid VAT ID');
+    expect(errorHtml).toContain('Invalid default tax rate');
+  });
+
+  it('renders CatalogueItemModal in create mode, submitting state, and custom tax rate', () => {
+    currentLocale = 'en';
+    const customItem: CatalogueItem = {
+      ...mockCatalogueItem,
+      taxRateBasisPoints: 850,
+    };
+
+    const html = renderToStaticMarkup(
+      <CatalogueItemModal
+        item={customItem}
+        isOpen={true}
+        isSubmitting={true}
+        triggerRef={{ current: null }}
+        onClose={noop}
+        onSave={mockAsyncTrue}
+      />,
+    );
+    expect(html).toContain('data-testid="catalogue-custom-tax-input"');
+    expect(html).toContain('8.5');
+    expect(html).toContain('disabled=""');
+
+    const createHtml = renderToStaticMarkup(
+      <CatalogueItemModal
+        item={null}
+        isOpen={true}
+        isSubmitting={false}
+        triggerRef={{ current: null }}
+        onClose={noop}
+        onSave={mockAsyncTrue}
+      />,
+    );
+    expect(createHtml).toContain('data-testid="catalogue-item-name-input"');
+  });
+
+  it('renders TaxSettingsSection with net pricing display mode and Kleinunternehmer enabled in German', () => {
+    currentLocale = 'de';
+    const netTaxSettings: StudioSettings = {
+      ...mockTaxSettings,
+      prices_include_tax: false,
+      is_kleinunternehmer: true,
+      kleinunternehmer_notice: 'Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.',
+    };
+
+    const html = renderToStaticMarkup(
+      <TaxSettingsSection
+        initialSettings={netTaxSettings}
+        locale="de"
+        onUpdateTaxSettings={mockAsyncTrue}
+      />,
+    );
+    expect(html).toContain('data-testid="pricing-mode-net"');
+    expect(html).toContain('checked=""');
+    expect(html).toContain('data-testid="toggle-kleinunternehmer"');
+  });
+
+  it('renders PackageModal with validation errors and aria-describedby alerts', () => {
+    currentLocale = 'en';
+    const html = renderToStaticMarkup(
+      <PackageModal
+        pkg={mockPackage}
+        isOpen={true}
+        isSubmitting={false}
+        initialErrors={{
+          name: 'Title is required',
+          slug: 'Invalid slug format',
+          basePrice: 'Price must be positive',
+          taxRate: 'Tax rate invalid',
+        }}
+        triggerRef={{ current: null }}
+        onClose={noop}
+        onSave={mockAsyncTrue}
+      />,
+    );
+    expect(html).toContain('data-testid="package-modal"');
+    expect(html).toContain('Title is required');
+    expect(html).toContain('Invalid slug format');
+    expect(html).toContain('Price must be positive');
+    expect(html).toContain('Tax rate invalid');
+  });
+
+  it('renders CatalogueItemModal with validation errors and aria-describedby alerts', () => {
+    currentLocale = 'en';
+    const html = renderToStaticMarkup(
+      <CatalogueItemModal
+        item={mockCatalogueItem}
+        isOpen={true}
+        isSubmitting={false}
+        initialErrors={{
+          name: 'Name is required',
+          slug: 'Invalid slug',
+          unitPrice: 'Price invalid',
+          taxRate: 'Tax rate invalid',
+        }}
+        triggerRef={{ current: null }}
+        onClose={noop}
+        onSave={mockAsyncTrue}
+      />,
+    );
+    expect(html).toContain('data-testid="catalogue-item-modal"');
+    expect(html).toContain('Name is required');
+    expect(html).toContain('Invalid slug');
+    expect(html).toContain('Price invalid');
+    expect(html).toContain('Tax rate invalid');
   });
 });

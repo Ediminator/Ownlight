@@ -6,24 +6,23 @@ import { Button } from '@/components/ui/button';
 import { Plus, Edit, Archive, RefreshCw, Layers } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
 import { formatTaxRateBasisPoints } from './packages-helpers';
-import { filterCatalogueItems, getCategoryBadgeClasses } from './catalogue-helpers';
+import {
+  filterCatalogueItems,
+  getCategoryBadgeClasses,
+  useCatalogueSectionHandlers,
+  buildCatalogueItemSavePayload,
+} from './catalogue-helpers';
 import { CatalogueItemModal } from './catalogue-item-modal';
 import type { CatalogueCategory, CatalogueItem } from '@/server/db/schema/packages';
 
 export interface CatalogueSectionProps {
   initialItems: CatalogueItem[];
   locale?: string;
-  onSaveCatalogueItem: (payload: {
-    id?: string;
-    name: string;
-    slug: string;
-    category: CatalogueCategory;
-    unitPriceMinor: number;
-    taxRateBasisPoints: number;
-    description: string | null;
-    isActive: boolean;
-  }) => Promise<boolean>;
+  onSaveCatalogueItem: (
+    payload: ReturnType<typeof buildCatalogueItemSavePayload>,
+  ) => Promise<boolean>;
   onArchiveCatalogueItem: (id: string, isActive?: boolean) => Promise<boolean>;
+  initialShowArchived?: boolean;
 }
 
 const CATEGORY_NAMES: Record<
@@ -58,13 +57,14 @@ const CATEGORY_FILTER_OPTIONS: {
 export function CatalogueSection({
   initialItems,
   locale = 'en',
+  initialShowArchived = false,
   onSaveCatalogueItem,
   onArchiveCatalogueItem,
 }: CatalogueSectionProps) {
   const t = useTranslations('settings.packages');
 
   const [categoryFilter, setCategoryFilter] = React.useState('all');
-  const [showArchived, setShowArchived] = React.useState(false);
+  const [showArchived, setShowArchived] = React.useState(initialShowArchived);
 
   // Modal states
   const [editingItem, setEditingItem] = React.useState<CatalogueItem | null>(null);
@@ -79,31 +79,17 @@ export function CatalogueSection({
     [initialItems, categoryFilter, showArchived],
   );
 
-  const handleOpenCreateModal = (e: React.MouseEvent<HTMLButtonElement>) => {
-    triggerRef.current = e.currentTarget;
-    setEditingItem(null);
-    setIsModalOpen(true);
-  };
-
-  const handleOpenEditModal = (item: CatalogueItem, e: React.MouseEvent<HTMLButtonElement>) => {
-    triggerRef.current = e.currentTarget;
-    setEditingItem(item);
-    setIsModalOpen(true);
-  };
-
-  const handleSaveModal = async (payload: Parameters<typeof onSaveCatalogueItem>[0]) => {
-    setIsModalSubmitting(true);
-    try {
-      const ok = await onSaveCatalogueItem(payload);
-      return ok;
-    } finally {
-      setIsModalSubmitting(false);
-    }
-  };
-
-  const handleToggleArchive = async (item: CatalogueItem) => {
-    await onArchiveCatalogueItem(item.id, !item.isActive);
-  };
+  const handlers = useCatalogueSectionHandlers({
+    triggerRef,
+    setEditingItem,
+    setIsModalOpen,
+    setIsModalSubmitting,
+    setCategoryFilter,
+    setShowArchived,
+    onSaveCatalogueItem,
+    onArchiveCatalogueItem,
+    initialItems,
+  });
 
   return (
     <div className="space-y-6" data-testid="catalogue-section">
@@ -117,7 +103,7 @@ export function CatalogueSection({
         </div>
         <Button
           type="button"
-          onClick={handleOpenCreateModal}
+          onClick={handlers.handleOpenCreateModal}
           data-testid="create-catalogue-item-btn"
           className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 min-h-[36px] shadow-sm self-start sm:self-auto"
         >
@@ -139,9 +125,7 @@ export function CatalogueSection({
             id="catalogue-category-filter"
             data-testid="catalogue-category-filter"
             value={categoryFilter}
-            onChange={(e) => {
-              setCategoryFilter(e.target.value);
-            }}
+            onChange={handlers.onCategoryFilterChange}
             className="rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px]"
           >
             {CATEGORY_FILTER_OPTIONS.map((opt) => (
@@ -157,9 +141,7 @@ export function CatalogueSection({
             <input
               type="checkbox"
               checked={showArchived}
-              onChange={(e) => {
-                setShowArchived(e.target.checked);
-              }}
+              onChange={handlers.onShowArchivedChange}
               data-testid="toggle-show-archived-catalogue"
               className="rounded border-input text-primary focus:ring-primary h-4 w-4"
             />
@@ -251,9 +233,8 @@ export function CatalogueSection({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={(e) => {
-                          handleOpenEditModal(item, e);
-                        }}
+                        data-item-id={item.id}
+                        onClick={handlers.onEditItemClick}
                         data-testid={`edit-catalogue-item-${item.id}`}
                         className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
                       >
@@ -264,9 +245,8 @@ export function CatalogueSection({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          void handleToggleArchive(item);
-                        }}
+                        data-item-id={item.id}
+                        onClick={handlers.onToggleArchiveClick}
                         data-testid={`toggle-archive-catalogue-item-${item.id}`}
                         className={`h-8 px-2 text-xs ${
                           item.isActive
@@ -301,10 +281,8 @@ export function CatalogueSection({
         isOpen={isModalOpen}
         isSubmitting={isModalSubmitting}
         triggerRef={triggerRef}
-        onClose={() => {
-          setIsModalOpen(false);
-        }}
-        onSave={handleSaveModal}
+        onClose={handlers.handleCloseModal}
+        onSave={handlers.handleSaveModal}
       />
     </div>
   );

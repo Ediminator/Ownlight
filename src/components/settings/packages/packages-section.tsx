@@ -9,6 +9,8 @@ import {
   formatTaxRateBasisPoints,
   splitPackagesByActiveStatus,
   filterPackagesByProjectType,
+  usePackagesSectionHandlers,
+  buildPackageSavePayload,
 } from './packages-helpers';
 import { PackageModal } from './package-modal';
 import { PackageArchiveDialog } from './package-archive-dialog';
@@ -17,22 +19,8 @@ import type { PackageWithIncludedItems } from '@/server/packages/repo';
 export interface PackagesSectionProps {
   initialPackages: PackageWithIncludedItems[];
   locale?: string;
-  onSavePackage: (payload: {
-    id?: string;
-    name: string;
-    slug: string;
-    projectTypeKey: string | null;
-    basePriceMinor: number;
-    taxRateBasisPoints: number;
-    description: string | null;
-    includedItems: {
-      id?: string;
-      title: string;
-      description?: string | null;
-      quantity: number;
-      position: number;
-    }[];
-  }) => Promise<boolean>;
+  initialShowArchived?: boolean;
+  onSavePackage: (payload: ReturnType<typeof buildPackageSavePayload>) => Promise<boolean>;
   onArchivePackage: (id: string, isActive?: boolean) => Promise<boolean>;
 }
 
@@ -54,13 +42,14 @@ const PROJECT_TYPE_FILTER_OPTIONS: {
 export function PackagesSection({
   initialPackages,
   locale = 'en',
+  initialShowArchived = false,
   onSavePackage,
   onArchivePackage,
 }: PackagesSectionProps) {
   const t = useTranslations('settings.packages');
 
   const [typeFilter, setTypeFilter] = React.useState('all');
-  const [showArchived, setShowArchived] = React.useState(false);
+  const [showArchived, setShowArchived] = React.useState(initialShowArchived);
 
   // Modal states
   const [editingPackage, setEditingPackage] = React.useState<PackageWithIncludedItems | null>(null);
@@ -91,52 +80,19 @@ export function PackagesSection({
     [archived, typeFilter],
   );
 
-  const handleOpenCreateModal = (e: React.MouseEvent<HTMLButtonElement>) => {
-    triggerRef.current = e.currentTarget;
-    setEditingPackage(null);
-    setIsModalOpen(true);
-  };
-
-  const handleOpenEditModal = (
-    pkg: PackageWithIncludedItems,
-    e: React.MouseEvent<HTMLButtonElement>,
-  ) => {
-    triggerRef.current = e.currentTarget;
-    setEditingPackage(pkg);
-    setIsModalOpen(true);
-  };
-
-  const handleOpenArchiveDialog = (
-    pkg: PackageWithIncludedItems,
-    e: React.MouseEvent<HTMLButtonElement>,
-  ) => {
-    triggerRef.current = e.currentTarget;
-    setArchivingPackage(pkg);
-  };
-
-  const handleSaveModal = async (payload: Parameters<typeof onSavePackage>[0]) => {
-    setIsModalSubmitting(true);
-    try {
-      const ok = await onSavePackage(payload);
-      return ok;
-    } finally {
-      setIsModalSubmitting(false);
-    }
-  };
-
-  const handleConfirmArchive = async (pkg: PackageWithIncludedItems) => {
-    setIsArchiveSubmitting(true);
-    try {
-      await onArchivePackage(pkg.id, false);
-      setArchivingPackage(null);
-    } finally {
-      setIsArchiveSubmitting(false);
-    }
-  };
-
-  const handleRestore = async (pkgId: string) => {
-    await onArchivePackage(pkgId, true);
-  };
+  const handlers = usePackagesSectionHandlers({
+    triggerRef,
+    setEditingPackage,
+    setIsModalOpen,
+    setArchivingPackage,
+    setIsModalSubmitting,
+    setIsArchiveSubmitting,
+    setTypeFilter,
+    setShowArchived,
+    onSavePackage,
+    onArchivePackage,
+    initialPackages,
+  });
 
   return (
     <div className="space-y-6" data-testid="packages-section">
@@ -150,7 +106,7 @@ export function PackagesSection({
         </div>
         <Button
           type="button"
-          onClick={handleOpenCreateModal}
+          onClick={handlers.handleOpenCreateModal}
           data-testid="create-package-button"
           className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 min-h-[36px] shadow-sm self-start sm:self-auto"
         >
@@ -172,9 +128,7 @@ export function PackagesSection({
             id="package-type-filter"
             data-testid="package-type-filter"
             value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value);
-            }}
+            onChange={handlers.onTypeFilterChange}
             className="rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[32px]"
           >
             {PROJECT_TYPE_FILTER_OPTIONS.map((opt) => (
@@ -192,9 +146,7 @@ export function PackagesSection({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setShowArchived((prev) => !prev);
-              }}
+              onClick={handlers.onToggleShowArchived}
               data-testid="toggle-archived-packages"
               className="text-xs text-muted-foreground hover:text-foreground h-8 px-2"
             >
@@ -297,9 +249,8 @@ export function PackagesSection({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={(e) => {
-                    handleOpenEditModal(pkg, e);
-                  }}
+                  data-pkg-id={pkg.id}
+                  onClick={handlers.onEditPackageClick}
                   data-testid={`edit-package-${pkg.id}`}
                   className="h-8 px-2.5 text-xs gap-1.5 min-h-[32px]"
                 >
@@ -310,9 +261,8 @@ export function PackagesSection({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={(e) => {
-                    handleOpenArchiveDialog(pkg, e);
-                  }}
+                  data-pkg-id={pkg.id}
+                  onClick={handlers.onArchivePackageClick}
                   data-testid={`archive-package-${pkg.id}`}
                   className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 min-h-[32px]"
                 >
@@ -366,9 +316,8 @@ export function PackagesSection({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        void handleRestore(pkg.id);
-                      }}
+                      data-pkg-id={pkg.id}
+                      onClick={handlers.onRestorePackageClick}
                       data-testid={`restore-package-${pkg.id}`}
                       className="h-8 px-2.5 text-xs gap-1.5 min-h-[32px]"
                     >
@@ -389,10 +338,8 @@ export function PackagesSection({
         isOpen={isModalOpen}
         isSubmitting={isModalSubmitting}
         triggerRef={triggerRef}
-        onClose={() => {
-          setIsModalOpen(false);
-        }}
-        onSave={handleSaveModal}
+        onClose={handlers.onCloseModal}
+        onSave={handlers.handleSaveModal}
       />
 
       {/* Package Archive Confirmation Dialog */}
@@ -401,12 +348,8 @@ export function PackagesSection({
         isOpen={Boolean(archivingPackage)}
         isSubmitting={isArchiveSubmitting}
         triggerRef={triggerRef}
-        onClose={() => {
-          setArchivingPackage(null);
-        }}
-        onConfirm={(pkg) => {
-          void handleConfirmArchive(pkg);
-        }}
+        onClose={handlers.onCloseArchiveDialog}
+        onConfirm={handlers.onConfirmArchive}
       />
     </div>
   );

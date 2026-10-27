@@ -11,8 +11,9 @@ import { TaxSettingsSection } from './tax-settings-section';
 import { savePackageAction, archivePackageAction } from '@/server/packages/actions';
 import { saveCatalogueItemAction, archiveCatalogueItemAction } from '@/server/catalogue/actions';
 import { updateStudioTaxSettingsAction } from '@/server/studio/actions';
+import { createPackagesViewHandlers, createPackagesViewActionHandlers } from './packages-helpers';
 import type { PackageWithIncludedItems } from '@/server/packages/repo';
-import type { CatalogueCategory, CatalogueItem } from '@/server/db/schema/packages';
+import type { CatalogueItem } from '@/server/db/schema/packages';
 import type { StudioSettings } from '@/server/db/schema/studio-settings';
 
 export type PackagesTab = 'packages' | 'catalogue' | 'tax';
@@ -43,24 +44,6 @@ export function PackagesView({
   const [catalogueList, setCatalogueList] = React.useState<CatalogueItem[]>(initialCatalogueItems);
   const [taxSettings, setTaxSettings] = React.useState<StudioSettings>(initialTaxSettings);
 
-  const [prevPackages, setPrevPackages] = React.useState(initialPackages);
-  if (initialPackages !== prevPackages) {
-    setPrevPackages(initialPackages);
-    setPackagesList(initialPackages);
-  }
-
-  const [prevCatalogue, setPrevCatalogue] = React.useState(initialCatalogueItems);
-  if (initialCatalogueItems !== prevCatalogue) {
-    setPrevCatalogue(initialCatalogueItems);
-    setCatalogueList(initialCatalogueItems);
-  }
-
-  const [prevTax, setPrevTax] = React.useState(initialTaxSettings);
-  if (initialTaxSettings !== prevTax) {
-    setPrevTax(initialTaxSettings);
-    setTaxSettings(initialTaxSettings);
-  }
-
   const tabs = [
     {
       id: 'packages' as const,
@@ -82,129 +65,18 @@ export function PackagesView({
     },
   ];
 
-  // Roving keyboard navigation for tabs
-  const handleTabKeyDown = (e: React.KeyboardEvent, index: number) => {
-    let nextIndex: number | null = null;
-    if (e.key === 'ArrowRight') {
-      nextIndex = (index + 1) % tabs.length;
-    } else if (e.key === 'ArrowLeft') {
-      nextIndex = (index - 1 + tabs.length) % tabs.length;
-    } else if (e.key === 'Home') {
-      nextIndex = 0;
-    } else if (e.key === 'End') {
-      nextIndex = tabs.length - 1;
-    }
-
-    if (nextIndex !== null) {
-      e.preventDefault();
-      const target = tabs.find((_, i) => i === nextIndex);
-      if (target) {
-        setActiveTab(target.id);
-        const button = document.getElementById(`tab-${target.id}`);
-        button?.focus();
-      }
-    }
-  };
-
-  // Package Server Action Handlers
-  const handleSavePackage = async (payload: {
-    id?: string;
-    name: string;
-    slug: string;
-    projectTypeKey: string | null;
-    basePriceMinor: number;
-    taxRateBasisPoints: number;
-    description: string | null;
-    includedItems: {
-      id?: string;
-      title: string;
-      description?: string | null;
-      quantity: number;
-      position: number;
-    }[];
-  }) => {
-    const res = await savePackageAction(payload);
-    if (res.success) {
-      const saved = res.data;
-      setPackagesList((prev) => {
-        const index = prev.findIndex((p) => p.id === saved.id);
-        if (index >= 0) {
-          return prev.map((p, i) => (i === index ? saved : p));
-        }
-        return [saved, ...prev];
-      });
-      router.refresh();
-      return true;
-    }
-    return false;
-  };
-
-  const handleArchivePackage = async (id: string, isActive = false) => {
-    const res = await archivePackageAction({ id, isActive });
-    if (res.success) {
-      setPackagesList((prev) => prev.map((pkg) => (pkg.id === id ? { ...pkg, isActive } : pkg)));
-      router.refresh();
-      return true;
-    }
-    return false;
-  };
-
-  // Catalogue Server Action Handlers
-  const handleSaveCatalogueItem = async (payload: {
-    id?: string;
-    name: string;
-    slug: string;
-    category: CatalogueCategory;
-    unitPriceMinor: number;
-    taxRateBasisPoints: number;
-    description: string | null;
-    isActive: boolean;
-  }) => {
-    const res = await saveCatalogueItemAction(payload);
-    if (res.success) {
-      const saved = res.data;
-      setCatalogueList((prev) => {
-        const index = prev.findIndex((i) => i.id === saved.id);
-        if (index >= 0) {
-          return prev.map((item, i) => (i === index ? saved : item));
-        }
-        return [saved, ...prev];
-      });
-      router.refresh();
-      return true;
-    }
-    return false;
-  };
-
-  const handleArchiveCatalogueItem = async (id: string, isActive = false) => {
-    const res = await archiveCatalogueItemAction({ id, isActive });
-    if (res.success) {
-      setCatalogueList((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, isActive } : item)),
-      );
-      router.refresh();
-      return true;
-    }
-    return false;
-  };
-
-  // Tax Settings Server Action Handler
-  const handleUpdateTaxSettings = async (payload: {
-    taxNumber?: string | null;
-    vatId?: string | null;
-    isKleinunternehmer?: boolean;
-    kleinunternehmerNotice?: string | null;
-    defaultTaxRateBasisPoints?: number;
-    pricesIncludeTax?: boolean;
-  }) => {
-    const res = await updateStudioTaxSettingsAction(payload);
-    if (res.success) {
-      setTaxSettings(res.data);
-      router.refresh();
-      return true;
-    }
-    return false;
-  };
+  const { onTabClick, onTabKeyDown } = createPackagesViewHandlers(setActiveTab);
+  const actionHandlers = createPackagesViewActionHandlers({
+    setPackagesList,
+    setCatalogueList,
+    setTaxSettings,
+    router,
+    savePackageAction,
+    archivePackageAction,
+    saveCatalogueItemAction,
+    archiveCatalogueItemAction,
+    updateStudioTaxSettingsAction,
+  });
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto" data-testid="packages-settings-view">
@@ -254,12 +126,10 @@ export function PackagesView({
               aria-controls={`tabpanel-${tab.id}`}
               tabIndex={isSelected ? 0 : -1}
               data-testid={tab.testId}
-              onClick={() => {
-                setActiveTab(tab.id);
-              }}
-              onKeyDown={(e) => {
-                handleTabKeyDown(e, index);
-              }}
+              data-tab={tab.id}
+              data-index={index}
+              onClick={onTabClick}
+              onKeyDown={onTabKeyDown}
               className={cn(
                 'inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                 isSelected
@@ -286,8 +156,8 @@ export function PackagesView({
           <PackagesSection
             initialPackages={packagesList}
             locale={locale}
-            onSavePackage={handleSavePackage}
-            onArchivePackage={handleArchivePackage}
+            onSavePackage={actionHandlers.handleSavePackage}
+            onArchivePackage={actionHandlers.handleArchivePackage}
           />
         </div>
       )}
@@ -303,8 +173,8 @@ export function PackagesView({
           <CatalogueSection
             initialItems={catalogueList}
             locale={locale}
-            onSaveCatalogueItem={handleSaveCatalogueItem}
-            onArchiveCatalogueItem={handleArchiveCatalogueItem}
+            onSaveCatalogueItem={actionHandlers.handleSaveCatalogueItem}
+            onArchiveCatalogueItem={actionHandlers.handleArchiveCatalogueItem}
           />
         </div>
       )}
@@ -320,7 +190,7 @@ export function PackagesView({
           <TaxSettingsSection
             initialSettings={taxSettings}
             locale={locale}
-            onUpdateTaxSettings={handleUpdateTaxSettings}
+            onUpdateTaxSettings={actionHandlers.handleUpdateTaxSettings}
           />
         </div>
       )}

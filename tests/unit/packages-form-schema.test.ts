@@ -21,19 +21,43 @@ import {
   moveDeliverable,
   validatePackageForm,
   packageToFormData,
+  initPackageFormState,
+  packageFormReducer,
+  buildPackageSavePayload,
+  createModalDialogHandlers,
+  handleDeliverableFieldChange,
+  handleDeliverableReorderOrRemove,
+  createDeliverableRowHandlers,
+  createPackageModalHandlers,
+  createArchiveDialogHandlers,
+  createPackagesSectionHandlers,
+  createPackagesViewHandlers,
+  createPackagesViewActionHandlers,
   type PackageFormData,
+  type PackageFormAction,
 } from '@/components/settings/packages/packages-helpers';
 import {
   validateCatalogueItemForm,
   filterCatalogueItems,
   catalogueItemToFormData,
   getCategoryBadgeClasses,
+  initCatalogueFormState,
+  catalogueFormReducer,
+  buildCatalogueItemSavePayload,
+  createCatalogueItemModalHandlers,
+  createCatalogueSectionHandlers,
   type CatalogueItemFormData,
+  type CatalogueFormAction,
 } from '@/components/settings/packages/catalogue-helpers';
 import {
   validateTaxSettingsForm,
   studioSettingsToTaxFormData,
+  taxSettingsFormReducer,
+  buildTaxSettingsSavePayload,
+  createTaxSettingsHandlers,
   type TaxSettingsFormData,
+  type TaxSettingsFormAction,
+  type TaxSettingsFormErrors,
 } from '@/components/settings/packages/tax-helpers';
 import {
   getEffectiveKleinunternehmerNotice,
@@ -914,6 +938,1037 @@ describe('TASK-0057: Packages and Catalogue Studio Settings Form Schemas & Helpe
 
       const filtered = filterPackagesByProjectType([pkgWithNulls], 'wedding');
       expect(filtered.length).toBe(0);
+    });
+
+    it('AC-1 & AC-2: packageFormReducer handles all field and deliverable mutations', () => {
+      let state = initPackageFormState(null);
+      expect(state.formData.name).toBe('');
+      expect(state.isSlugManuallyEdited).toBe(false);
+
+      // SET_TITLE updates name and auto-computes slug
+      state = packageFormReducer(state, { type: 'SET_TITLE', title: 'Summer Wedding' });
+      expect(state.formData.name).toBe('Summer Wedding');
+      expect(state.formData.slug).toBe('summer-wedding');
+
+      // SET_SLUG marks slug manually edited
+      state = packageFormReducer(state, { type: 'SET_SLUG', slug: 'custom-slug' });
+      expect(state.formData.slug).toBe('custom-slug');
+      expect(state.isSlugManuallyEdited).toBe(true);
+
+      // Title change preserves manual slug
+      state = packageFormReducer(state, { type: 'SET_TITLE', title: 'Autumn Wedding' });
+      expect(state.formData.name).toBe('Autumn Wedding');
+      expect(state.formData.slug).toBe('custom-slug');
+
+      // SET_PROJECT_TYPE
+      state = packageFormReducer(state, { type: 'SET_PROJECT_TYPE', projectTypeKey: 'wedding' });
+      expect(state.formData.projectTypeKey).toBe('wedding');
+
+      // SET_BASE_PRICE
+      state = packageFormReducer(state, { type: 'SET_BASE_PRICE', basePriceMajor: '2500' });
+      expect(state.formData.basePriceMajor).toBe('2500');
+
+      // SET_TAX_RATE_PRESET
+      state = packageFormReducer(state, { type: 'SET_TAX_RATE_PRESET', preset: '700' });
+      expect(state.formData.taxRateBasisPoints).toBe(700);
+      expect(state.formData.taxRateCustomPercent).toBe('7');
+
+      state = packageFormReducer(state, { type: 'SET_TAX_RATE_PRESET', preset: 'custom' });
+      expect(state.formData.taxRateBasisPoints).toBe(1900);
+      expect(state.formData.taxRateCustomPercent).toBe('19');
+
+      // SET_CUSTOM_TAX_RATE
+      state = packageFormReducer(state, { type: 'SET_CUSTOM_TAX_RATE', percent: '8.5' });
+      expect(state.formData.taxRateBasisPoints).toBe(850);
+      expect(state.formData.taxRateCustomPercent).toBe('8.5');
+
+      // SET_DESCRIPTION
+      state = packageFormReducer(state, { type: 'SET_DESCRIPTION', description: 'Full coverage' });
+      expect(state.formData.description).toBe('Full coverage');
+
+      // ADD_DELIVERABLE
+      state = packageFormReducer(state, { type: 'ADD_DELIVERABLE' });
+      expect(state.formData.includedItems.length).toBe(1);
+      expect(state.formData.includedItems[0]?.position).toBe(0);
+
+      // UPDATE_DELIVERABLE_TITLE
+      state = packageFormReducer(state, {
+        type: 'UPDATE_DELIVERABLE_TITLE',
+        index: 0,
+        title: '8 Hours',
+      });
+      expect(state.formData.includedItems[0]?.title).toBe('8 Hours');
+
+      // UPDATE_DELIVERABLE_DESC
+      state = packageFormReducer(state, {
+        type: 'UPDATE_DELIVERABLE_DESC',
+        index: 0,
+        description: 'Ceremony & reception',
+      });
+      expect(state.formData.includedItems[0]?.description).toBe('Ceremony & reception');
+
+      // UPDATE_DELIVERABLE_QTY
+      state = packageFormReducer(state, {
+        type: 'UPDATE_DELIVERABLE_QTY',
+        index: 0,
+        quantity: 2,
+      });
+      expect(state.formData.includedItems[0]?.quantity).toBe(2);
+
+      // Add second deliverable and test MOVE_DELIVERABLE
+      state = packageFormReducer(state, { type: 'ADD_DELIVERABLE' });
+      state = packageFormReducer(state, {
+        type: 'UPDATE_DELIVERABLE_TITLE',
+        index: 1,
+        title: 'Album',
+      });
+      expect(state.formData.includedItems.length).toBe(2);
+      expect(state.formData.includedItems[0]?.title).toBe('8 Hours');
+      expect(state.formData.includedItems[1]?.title).toBe('Album');
+
+      state = packageFormReducer(state, { type: 'MOVE_DELIVERABLE', from: 0, to: 1 });
+      expect(state.formData.includedItems[0]?.title).toBe('Album');
+      expect(state.formData.includedItems[1]?.title).toBe('8 Hours');
+
+      // REMOVE_DELIVERABLE
+      state = packageFormReducer(state, { type: 'REMOVE_DELIVERABLE', index: 0 });
+      expect(state.formData.includedItems.length).toBe(1);
+      expect(state.formData.includedItems[0]?.title).toBe('8 Hours');
+      expect(state.formData.includedItems[0]?.position).toBe(0);
+
+      // SET_ERRORS & RESET
+      state = packageFormReducer(state, {
+        type: 'SET_ERRORS',
+        errors: { name: 'Name required' },
+      });
+      expect(state.errors.name).toBe('Name required');
+
+      state = packageFormReducer(state, { type: 'RESET', pkg: null });
+      expect(state.formData.name).toBe('');
+      expect(state.errors.name).toBeUndefined();
+
+      // buildPackageSavePayload
+      const payload = buildPackageSavePayload({
+        ...state.formData,
+        name: ' Summer Package ',
+        slug: ' summer-pkg ',
+        basePriceMajor: '1500.50',
+        includedItems: [{ title: ' Item 1 ', description: ' Desc 1 ', quantity: 1, position: 0 }],
+      });
+      expect(payload.name).toBe('Summer Package');
+      expect(payload.slug).toBe('summer-pkg');
+      expect(payload.basePriceMinor).toBe(150050);
+      expect(payload.includedItems[0]?.title).toBe('Item 1');
+    });
+
+    it('AC-1: handleDeliverableFieldChange and handleDeliverableReorderOrRemove dispatch correctly', () => {
+      const dispatched: unknown[] = [];
+      const dispatch = (action: PackageFormAction) => {
+        dispatched.push(action);
+      };
+
+      handleDeliverableFieldChange(dispatch, 0, 'title', 'New Title');
+      handleDeliverableFieldChange(dispatch, 0, 'description', 'New Desc');
+      handleDeliverableFieldChange(dispatch, 0, 'quantity', 3);
+
+      expect(dispatched).toEqual([
+        { type: 'UPDATE_DELIVERABLE_TITLE', index: 0, title: 'New Title' },
+        { type: 'UPDATE_DELIVERABLE_DESC', index: 0, description: 'New Desc' },
+        { type: 'UPDATE_DELIVERABLE_QTY', index: 0, quantity: 3 },
+      ]);
+
+      const reorderDispatched: unknown[] = [];
+      const reorderDispatch = (action: PackageFormAction) => {
+        reorderDispatched.push(action);
+      };
+
+      handleDeliverableReorderOrRemove(reorderDispatch, 'up', 1);
+      handleDeliverableReorderOrRemove(reorderDispatch, 'down', 1);
+      handleDeliverableReorderOrRemove(reorderDispatch, 'remove', 1);
+
+      expect(reorderDispatched).toEqual([
+        { type: 'MOVE_DELIVERABLE', from: 1, to: 0 },
+        { type: 'MOVE_DELIVERABLE', from: 1, to: 2 },
+        { type: 'REMOVE_DELIVERABLE', index: 1 },
+      ]);
+    });
+
+    it('AC-1: createModalDialogHandlers manages open changes and focus restoration', () => {
+      let closed = false;
+      let focused = false;
+      const triggerRef = {
+        current: {
+          focus: () => {
+            focused = true;
+          },
+        },
+      };
+
+      const handlers = createModalDialogHandlers(() => {
+        closed = true;
+      }, triggerRef);
+
+      handlers.onOpenChange(false);
+      expect(closed).toBe(true);
+
+      let prevented = false;
+      handlers.onCloseAutoFocus({
+        preventDefault: () => {
+          prevented = true;
+        },
+      });
+      expect(prevented).toBe(true);
+      expect(focused).toBe(true);
+    });
+
+    it('AC-4: catalogueFormReducer handles all field updates and resets', () => {
+      let state = initCatalogueFormState(null);
+      expect(state.formData.name).toBe('');
+      expect(state.formData.category).toBe('service');
+
+      state = catalogueFormReducer(state, { type: 'SET_NAME', name: 'Drone Photography' });
+      expect(state.formData.name).toBe('Drone Photography');
+      expect(state.formData.slug).toBe('drone-photography');
+
+      state = catalogueFormReducer(state, { type: 'SET_SLUG', slug: 'drone-aerial' });
+      expect(state.formData.slug).toBe('drone-aerial');
+
+      state = catalogueFormReducer(state, { type: 'SET_CATEGORY', category: 'product' });
+      expect(state.formData.category).toBe('product');
+
+      state = catalogueFormReducer(state, { type: 'SET_PRICE', unitPriceMajor: '350' });
+      expect(state.formData.unitPriceMajor).toBe('350');
+
+      state = catalogueFormReducer(state, { type: 'SET_TAX_RATE_PRESET', preset: '1900' });
+      expect(state.formData.taxRateBasisPoints).toBe(1900);
+
+      state = catalogueFormReducer(state, { type: 'SET_TAX_RATE_PRESET', preset: 'custom' });
+      expect(state.formData.taxRateBasisPoints).toBe(1900);
+
+      state = catalogueFormReducer(state, { type: 'SET_CUSTOM_TAX_RATE', percent: '7.7' });
+      expect(state.formData.taxRateBasisPoints).toBe(770);
+
+      state = catalogueFormReducer(state, {
+        type: 'SET_DESCRIPTION',
+        description: '4K aerial shots',
+      });
+      expect(state.formData.description).toBe('4K aerial shots');
+
+      state = catalogueFormReducer(state, { type: 'SET_ACTIVE', isActive: false });
+      expect(state.formData.isActive).toBe(false);
+
+      state = catalogueFormReducer(state, {
+        type: 'SET_ERRORS',
+        errors: { name: 'Name error' },
+      });
+      expect(state.errors.name).toBe('Name error');
+
+      state = catalogueFormReducer(state, { type: 'RESET', item: null });
+      expect(state.formData.name).toBe('');
+
+      const payload = buildCatalogueItemSavePayload({
+        ...state.formData,
+        name: ' Print Album ',
+        slug: ' print-album ',
+        category: 'product',
+        unitPriceMajor: '250',
+        isActive: true,
+      });
+      expect(payload.name).toBe('Print Album');
+      expect(payload.unitPriceMinor).toBe(25000);
+      expect(payload.isActive).toBe(true);
+    });
+
+    it('AC-5: taxSettingsFormReducer handles all tax field updates and presets', () => {
+      const baseRow: StudioSettings = {
+        id: '01920000-0000-7000-8000-000000000001',
+        studio_name: 'Studio Test',
+        tax_number: '12/345/67890',
+        vat_id: 'DE123456789',
+        is_kleinunternehmer: false,
+        kleinunternehmer_notice: null,
+        default_tax_rate_basis_points: 1900,
+        prices_include_tax: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      } as StudioSettings;
+
+      let state = studioSettingsToTaxFormData(baseRow, 'en');
+      expect(state.taxNumber).toBe('12/345/67890');
+
+      state = taxSettingsFormReducer(state, {
+        type: 'SET_TAX_NUMBER',
+        taxNumber: '99/888/77777',
+      });
+      expect(state.taxNumber).toBe('99/888/77777');
+
+      state = taxSettingsFormReducer(state, { type: 'SET_VAT_ID', vatId: 'DE999999999' });
+      expect(state.vatId).toBe('DE999999999');
+
+      state = taxSettingsFormReducer(state, {
+        type: 'TOGGLE_KLEINUNTERNEHMER',
+        isKleinunternehmer: true,
+      });
+      expect(state.isKleinunternehmer).toBe(true);
+
+      state = taxSettingsFormReducer(state, {
+        type: 'SET_NOTICE',
+        notice: 'Custom statutory notice text',
+      });
+      expect(state.kleinunternehmerNotice).toBe('Custom statutory notice text');
+
+      state = taxSettingsFormReducer(state, {
+        type: 'SET_RATE_PRESET',
+        selection: '0',
+      });
+      expect(state.taxRateSelection).toBe('0');
+      expect(state.defaultTaxRateBasisPoints).toBe(0);
+
+      state = taxSettingsFormReducer(state, {
+        type: 'SET_RATE_PRESET',
+        selection: 'custom',
+      });
+      expect(state.taxRateSelection).toBe('custom');
+      expect(state.defaultTaxRateBasisPoints).toBe(1900);
+
+      state = taxSettingsFormReducer(state, {
+        type: 'SET_CUSTOM_RATE',
+        percent: '12.5',
+      });
+      expect(state.defaultTaxRateBasisPoints).toBe(1250);
+
+      state = taxSettingsFormReducer(state, {
+        type: 'TOGGLE_PRICES_INCLUDE_TAX',
+        pricesIncludeTax: false,
+      });
+      expect(state.pricesIncludeTax).toBe(false);
+
+      const payload = buildTaxSettingsSavePayload(state);
+      expect(payload.taxNumber).toBe('99/888/77777');
+      expect(payload.vatId).toBe('DE999999999');
+      expect(payload.isKleinunternehmer).toBe(true);
+      expect(payload.kleinunternehmerNotice).toBe('Custom statutory notice text');
+      expect(payload.defaultTaxRateBasisPoints).toBe(1250);
+      expect(payload.pricesIncludeTax).toBe(false);
+    });
+  });
+
+  describe('Interactive View Handlers & Controllers', () => {
+    it('exercises createDeliverableRowHandlers', () => {
+      const dispatched: unknown[] = [];
+      const dispatch = (action: PackageFormAction) => dispatched.push(action);
+      const handlers = createDeliverableRowHandlers(dispatch, 1);
+
+      handlers.onTitleChange({ target: { value: 'Edited Title' } });
+      handlers.onQtyChange({ target: { value: '3' } });
+      handlers.onDescChange({ target: { value: 'Edited Desc' } });
+      handlers.onMoveUp();
+      handlers.onMoveDown();
+      handlers.onRemove();
+
+      expect(dispatched).toHaveLength(6);
+      expect(dispatched[0]).toEqual({
+        type: 'UPDATE_DELIVERABLE_TITLE',
+        index: 1,
+        title: 'Edited Title',
+      });
+      expect(dispatched[1]).toEqual({ type: 'UPDATE_DELIVERABLE_QTY', index: 1, quantity: 3 });
+      expect(dispatched[2]).toEqual({
+        type: 'UPDATE_DELIVERABLE_DESC',
+        index: 1,
+        description: 'Edited Desc',
+      });
+      expect(dispatched[3]).toEqual({ type: 'MOVE_DELIVERABLE', from: 1, to: 0 });
+      expect(dispatched[4]).toEqual({ type: 'MOVE_DELIVERABLE', from: 1, to: 2 });
+      expect(dispatched[5]).toEqual({ type: 'REMOVE_DELIVERABLE', index: 1 });
+    });
+
+    it('exercises createPackageModalHandlers', async () => {
+      const dispatched: unknown[] = [];
+      const dispatch = (action: PackageFormAction) => dispatched.push(action);
+      const onSave = vi.fn().mockResolvedValue(true);
+      const onClose = vi.fn();
+
+      const invalidFormData: PackageFormData = {
+        name: '',
+        slug: '',
+        projectTypeKey: '',
+        basePriceMajor: '',
+        taxRateBasisPoints: 1900,
+        taxRateCustomPercent: '19',
+        description: '',
+        includedItems: [],
+      };
+
+      const handlers = createPackageModalHandlers(dispatch, invalidFormData, onSave, onClose);
+      handlers.handleTitleChange({ target: { value: 'New Package' } });
+      handlers.handleSlugChange({ target: { value: 'new-package' } });
+      handlers.handleProjectTypeChange({ target: { value: 'wedding' } });
+      handlers.handleBasePriceChange({ target: { value: '1500' } });
+      handlers.handleTaxRatePresetChange({ target: { value: '700' } });
+      handlers.handleCustomTaxRateChange({ target: { value: '12' } });
+      handlers.handleDescriptionChange({ target: { value: 'New Description' } });
+      handlers.handleAddDeliverable();
+
+      expect(dispatched).toHaveLength(8);
+
+      const invalidOk = await handlers.handleSubmit({ preventDefault: vi.fn() });
+      expect(invalidOk).toBe(false);
+      expect(dispatched[8]).toMatchObject({ type: 'SET_ERRORS' });
+      handlers.onSubmit({ preventDefault: vi.fn() });
+
+      const validFormData: PackageFormData = {
+        name: 'Wedding Collection',
+        slug: 'wedding-collection',
+        projectTypeKey: 'wedding',
+        basePriceMajor: '2500',
+        taxRateBasisPoints: 1900,
+        taxRateCustomPercent: '19',
+        description: 'Details',
+        includedItems: [{ title: 'Album', quantity: 1, position: 0 }],
+      };
+
+      const validHandlers = createPackageModalHandlers(dispatch, validFormData, onSave, onClose);
+      const validOk = await validHandlers.handleSubmit();
+      expect(validOk).toBe(true);
+      expect(onSave).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+      validHandlers.onSubmit({ preventDefault: vi.fn() });
+    });
+
+    it('exercises createArchiveDialogHandlers', () => {
+      const onClose = vi.fn();
+      const onConfirm = vi.fn();
+      const trigger = { focus: vi.fn() };
+      const triggerRef = { current: trigger };
+
+      const dummy = { id: 'pkg-1', name: 'Package 1' };
+      const handlers = createArchiveDialogHandlers(onClose, onConfirm, dummy, triggerRef);
+
+      handlers.onOpenChange(false);
+      expect(onClose).toHaveBeenCalled();
+
+      const preventDefault = vi.fn();
+      handlers.onCloseAutoFocus({ preventDefault });
+      expect(preventDefault).toHaveBeenCalled();
+      expect(trigger.focus).toHaveBeenCalled();
+
+      handlers.handleConfirm();
+      expect(onConfirm).toHaveBeenCalledWith(dummy);
+
+      const nullHandlers = createArchiveDialogHandlers(onClose, onConfirm, null);
+      nullHandlers.handleConfirm();
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+    });
+
+    it('exercises createPackagesSectionHandlers', async () => {
+      const triggerRef = { current: null };
+      const setEditingPackage = vi.fn();
+      const setIsModalOpen = vi.fn();
+      const setArchivingPackage = vi.fn();
+      const setIsModalSubmitting = vi.fn();
+      const setIsArchiveSubmitting = vi.fn();
+      const setTypeFilter = vi.fn();
+      const setShowArchived = vi.fn();
+      const onSavePackage = vi.fn().mockResolvedValue(true);
+      const onArchivePackage = vi.fn().mockResolvedValue(true);
+
+      const samplePackage = {
+        id: 'pkg-001',
+        name: 'Test Package',
+        slug: 'test-package',
+        description: null,
+        projectTypeKey: 'wedding',
+        basePriceMinor: 10000,
+        currency: 'EUR',
+        taxRateBasisPoints: 1900,
+        position: 0,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        includedItems: [],
+      };
+
+      const handlers = createPackagesSectionHandlers({
+        triggerRef,
+        setEditingPackage,
+        setIsModalOpen,
+        setArchivingPackage,
+        setIsModalSubmitting,
+        setIsArchiveSubmitting,
+        setTypeFilter,
+        setShowArchived,
+        onSavePackage,
+        onArchivePackage,
+        initialPackages: [samplePackage],
+      });
+
+      const element = {
+        dataset: { pkgId: 'pkg-001' },
+        focus: vi.fn(),
+      } as unknown as HTMLElement;
+
+      handlers.handleOpenCreateModal({ currentTarget: element });
+      expect(setEditingPackage).toHaveBeenCalledWith(null);
+      expect(setIsModalOpen).toHaveBeenCalledWith(true);
+
+      handlers.handleOpenEditModal(samplePackage, { currentTarget: element });
+      expect(setEditingPackage).toHaveBeenCalledWith(samplePackage);
+
+      handlers.handleOpenArchiveDialog(samplePackage, { currentTarget: element });
+      expect(setArchivingPackage).toHaveBeenCalledWith(samplePackage);
+
+      await handlers.handleSaveModal({} as never);
+      expect(onSavePackage).toHaveBeenCalled();
+
+      await handlers.handleConfirmArchive(samplePackage);
+      expect(onArchivePackage).toHaveBeenCalledWith('pkg-001', false);
+
+      handlers.onConfirmArchive(samplePackage);
+      expect(onArchivePackage).toHaveBeenCalledWith('pkg-001', false);
+
+      await handlers.handleRestore('pkg-001');
+      expect(onArchivePackage).toHaveBeenCalledWith('pkg-001', true);
+
+      handlers.onTypeFilterChange({ target: { value: 'portrait' } });
+      expect(setTypeFilter).toHaveBeenCalledWith('portrait');
+
+      handlers.onToggleShowArchived();
+      expect(setShowArchived).toHaveBeenCalled();
+
+      handlers.onCloseModal();
+      expect(setIsModalOpen).toHaveBeenCalledWith(false);
+
+      handlers.onCloseArchiveDialog();
+      expect(setArchivingPackage).toHaveBeenCalledWith(null);
+
+      handlers.onEditPackageClick({ currentTarget: element });
+      expect(setEditingPackage).toHaveBeenCalledWith(samplePackage);
+
+      handlers.onArchivePackageClick({ currentTarget: element });
+      expect(setArchivingPackage).toHaveBeenCalledWith(samplePackage);
+
+      handlers.onRestorePackageClick({ currentTarget: element });
+      expect(onArchivePackage).toHaveBeenCalledWith('pkg-001', true);
+    });
+
+    it('exercises createPackagesViewHandlers tab keyboard roving and clicks', () => {
+      const setActiveTab = vi.fn();
+      const handlers = createPackagesViewHandlers(setActiveTab);
+
+      handlers.onTabClick({ currentTarget: { dataset: { tab: 'catalogue' } } });
+      expect(setActiveTab).toHaveBeenCalledWith('catalogue');
+
+      handlers.onTabKeyDown({ key: 'ArrowRight', currentTarget: { dataset: { index: '0' } } });
+      expect(setActiveTab).toHaveBeenCalledWith('catalogue');
+
+      handlers.onTabKeyDown({ key: 'ArrowLeft', currentTarget: { dataset: { index: '0' } } });
+      expect(setActiveTab).toHaveBeenCalledWith('tax');
+
+      handlers.onTabKeyDown({ key: 'Home', currentTarget: { dataset: { index: '2' } } });
+      expect(setActiveTab).toHaveBeenCalledWith('packages');
+
+      handlers.onTabKeyDown({ key: 'End', currentTarget: { dataset: { index: '0' } } });
+      expect(setActiveTab).toHaveBeenCalledWith('tax');
+
+      handlers.onTabKeyDown({ key: 'Enter', currentTarget: { dataset: { index: '0' } } });
+    });
+
+    it('exercises createPackagesViewActionHandlers', async () => {
+      const setPackagesList = vi.fn(
+        (updater: (prev: PackageWithIncludedItems[]) => PackageWithIncludedItems[]) => updater([]),
+      );
+      const setCatalogueList = vi.fn((updater: (prev: CatalogueItem[]) => CatalogueItem[]) =>
+        updater([]),
+      );
+      const setTaxSettings = vi.fn();
+      const router = { refresh: vi.fn() };
+      const samplePkg = {
+        id: 'pkg-1',
+        name: 'Pkg 1',
+        isActive: true,
+      } as unknown as PackageWithIncludedItems;
+      const sampleCat = { id: 'cat-1', name: 'Cat 1', isActive: true } as unknown as CatalogueItem;
+      const sampleTax = { id: 'tax-1' } as unknown as StudioSettings;
+
+      const savePackageAction = vi.fn().mockResolvedValue({ success: true, data: samplePkg });
+      const archivePackageAction = vi.fn().mockResolvedValue({ success: true });
+      const saveCatalogueItemAction = vi.fn().mockResolvedValue({ success: true, data: sampleCat });
+      const archiveCatalogueItemAction = vi.fn().mockResolvedValue({ success: true });
+      const updateStudioTaxSettingsAction = vi
+        .fn()
+        .mockResolvedValue({ success: true, data: sampleTax });
+
+      const actions = createPackagesViewActionHandlers({
+        setPackagesList,
+        setCatalogueList,
+        setTaxSettings,
+        router,
+        savePackageAction,
+        archivePackageAction,
+        saveCatalogueItemAction,
+        archiveCatalogueItemAction,
+        updateStudioTaxSettingsAction,
+      });
+
+      const ok1 = await actions.handleSavePackage({} as never);
+      expect(ok1).toBe(true);
+      expect(router.refresh).toHaveBeenCalled();
+
+      // Test updating existing package in array
+      const setPackagesListExisting = vi.fn(
+        (updater: (prev: PackageWithIncludedItems[]) => PackageWithIncludedItems[]) =>
+          updater([samplePkg]),
+      );
+      const actions2 = createPackagesViewActionHandlers({
+        setPackagesList: setPackagesListExisting,
+        setCatalogueList,
+        setTaxSettings,
+        router,
+        savePackageAction,
+        archivePackageAction,
+        saveCatalogueItemAction,
+        archiveCatalogueItemAction,
+        updateStudioTaxSettingsAction,
+      });
+      await actions2.handleSavePackage({} as never);
+      expect(setPackagesListExisting).toHaveBeenCalled();
+
+      const ok2 = await actions.handleArchivePackage('pkg-1', false);
+      expect(ok2).toBe(true);
+
+      const ok3 = await actions.handleSaveCatalogueItem({} as never);
+      expect(ok3).toBe(true);
+
+      const setCatalogueListExisting = vi.fn(
+        (updater: (prev: CatalogueItem[]) => CatalogueItem[]) => updater([sampleCat]),
+      );
+      const actions3 = createPackagesViewActionHandlers({
+        setPackagesList,
+        setCatalogueList: setCatalogueListExisting,
+        setTaxSettings,
+        router,
+        savePackageAction,
+        archivePackageAction,
+        saveCatalogueItemAction,
+        archiveCatalogueItemAction,
+        updateStudioTaxSettingsAction,
+      });
+      await actions3.handleSaveCatalogueItem({} as never);
+      expect(setCatalogueListExisting).toHaveBeenCalled();
+
+      const ok4 = await actions.handleArchiveCatalogueItem('cat-1', false);
+      expect(ok4).toBe(true);
+
+      const ok5 = await actions.handleUpdateTaxSettings({});
+      expect(ok5).toBe(true);
+      expect(setTaxSettings).toHaveBeenCalledWith(sampleTax);
+
+      // Exercise failure paths
+      const failActions = createPackagesViewActionHandlers({
+        setPackagesList,
+        setCatalogueList,
+        setTaxSettings,
+        router,
+        savePackageAction: vi.fn().mockResolvedValue({ success: false }),
+        archivePackageAction: vi.fn().mockResolvedValue({ success: false }),
+        saveCatalogueItemAction: vi.fn().mockResolvedValue({ success: false }),
+        archiveCatalogueItemAction: vi.fn().mockResolvedValue({ success: false }),
+        updateStudioTaxSettingsAction: vi.fn().mockResolvedValue({ success: false }),
+      });
+
+      expect(await failActions.handleSavePackage({} as never)).toBe(false);
+      expect(await failActions.handleArchivePackage('pkg-1', false)).toBe(false);
+      expect(await failActions.handleSaveCatalogueItem({} as never)).toBe(false);
+      expect(await failActions.handleArchiveCatalogueItem('cat-1', false)).toBe(false);
+      expect(await failActions.handleUpdateTaxSettings({})).toBe(false);
+
+      // Exercise map non-matching ids in updater callbacks
+      const setPackagesListNonMatching = vi.fn(
+        (updater: (prev: PackageWithIncludedItems[]) => PackageWithIncludedItems[]) =>
+          updater([{ ...samplePkg, id: 'pkg-other' }]),
+      );
+      const setCatalogueListNonMatching = vi.fn(
+        (updater: (prev: CatalogueItem[]) => CatalogueItem[]) =>
+          updater([{ ...sampleCat, id: 'cat-other' }]),
+      );
+      const actionsNonMatching = createPackagesViewActionHandlers({
+        setPackagesList: setPackagesListNonMatching,
+        setCatalogueList: setCatalogueListNonMatching,
+        setTaxSettings,
+        router,
+        savePackageAction,
+        archivePackageAction,
+        saveCatalogueItemAction,
+        archiveCatalogueItemAction,
+        updateStudioTaxSettingsAction,
+      });
+      await actionsNonMatching.handleArchivePackage('pkg-1', false);
+      expect(setPackagesListNonMatching).toHaveBeenCalled();
+      await actionsNonMatching.handleArchiveCatalogueItem('cat-1', false);
+      expect(setCatalogueListNonMatching).toHaveBeenCalled();
+    });
+
+    it('exercises createCatalogueItemModalHandlers', async () => {
+      const dispatched: unknown[] = [];
+      const dispatch = (action: CatalogueFormAction) => dispatched.push(action);
+      const onSave = vi.fn().mockResolvedValue(true);
+      const onClose = vi.fn();
+
+      const invalidFormData: CatalogueItemFormData = {
+        name: '',
+        slug: '',
+        category: 'service',
+        unitPriceMajor: '',
+        taxRateBasisPoints: 1900,
+        taxRateCustomPercent: '19',
+        description: '',
+        isActive: true,
+      };
+
+      const handlers = createCatalogueItemModalHandlers(dispatch, invalidFormData, onSave, onClose);
+      handlers.handleNameChange({ target: { value: 'New Service' } });
+      handlers.handleSlugChange({ target: { value: 'new-service' } });
+      handlers.handleCategoryChange({ target: { value: 'product' } });
+      handlers.handleUnitPriceChange({ target: { value: '75' } });
+      handlers.handleTaxRatePresetChange({ target: { value: '700' } });
+      handlers.handleCustomTaxRateChange({ target: { value: '8.5' } });
+      handlers.handleDescriptionChange({ target: { value: 'Product details' } });
+
+      expect(dispatched).toHaveLength(7);
+
+      const invalidOk = await handlers.handleSubmit();
+      expect(invalidOk).toBe(false);
+      handlers.onSubmit({ preventDefault: vi.fn() });
+
+      const validFormData: CatalogueItemFormData = {
+        name: 'Fine Art Print',
+        slug: 'fine-art-print',
+        category: 'product',
+        unitPriceMajor: '150',
+        taxRateBasisPoints: 1900,
+        taxRateCustomPercent: '19',
+        description: 'Archival print',
+        isActive: true,
+      };
+
+      const validHandlers = createCatalogueItemModalHandlers(
+        dispatch,
+        validFormData,
+        onSave,
+        onClose,
+      );
+      const validOk = await validHandlers.handleSubmit();
+      expect(validOk).toBe(true);
+      expect(onSave).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+      validHandlers.onSubmit({ preventDefault: vi.fn() });
+    });
+
+    it('exercises createCatalogueSectionHandlers', async () => {
+      const triggerRef = { current: null };
+      const setEditingItem = vi.fn();
+      const setIsModalOpen = vi.fn();
+      const setIsModalSubmitting = vi.fn();
+      const setCategoryFilter = vi.fn();
+      const setShowArchived = vi.fn();
+      const onSaveCatalogueItem = vi.fn().mockResolvedValue(true);
+      const onArchiveCatalogueItem = vi.fn().mockResolvedValue(true);
+
+      const sampleItem = {
+        id: 'cat-001',
+        name: 'Extra Hour',
+        slug: 'extra-hour',
+        description: null,
+        category: 'service' as const,
+        unitPriceMinor: 20000,
+        currency: 'EUR',
+        taxRateBasisPoints: 1900,
+        position: 0,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const handlers = createCatalogueSectionHandlers({
+        triggerRef,
+        setEditingItem,
+        setIsModalOpen,
+        setIsModalSubmitting,
+        setCategoryFilter,
+        setShowArchived,
+        onSaveCatalogueItem,
+        onArchiveCatalogueItem,
+        initialItems: [sampleItem],
+      });
+
+      const element = {
+        dataset: { itemId: 'cat-001' },
+        focus: vi.fn(),
+      } as unknown as HTMLElement;
+
+      handlers.handleOpenCreateModal({ currentTarget: element });
+      expect(setEditingItem).toHaveBeenCalledWith(null);
+      expect(setIsModalOpen).toHaveBeenCalledWith(true);
+
+      handlers.handleOpenEditModal(sampleItem, { currentTarget: element });
+      expect(setEditingItem).toHaveBeenCalledWith(sampleItem);
+
+      await handlers.handleSaveModal({} as never);
+      expect(onSaveCatalogueItem).toHaveBeenCalled();
+
+      await handlers.handleToggleArchive(sampleItem);
+      expect(onArchiveCatalogueItem).toHaveBeenCalledWith('cat-001', false);
+
+      handlers.onCategoryFilterChange({ target: { value: 'travel' } });
+      expect(setCategoryFilter).toHaveBeenCalledWith('travel');
+
+      handlers.onShowArchivedChange();
+      expect(setShowArchived).toHaveBeenCalled();
+
+      handlers.handleCloseModal();
+      expect(setIsModalOpen).toHaveBeenCalledWith(false);
+
+      handlers.onEditItemClick({ currentTarget: element });
+      expect(setEditingItem).toHaveBeenCalledWith(sampleItem);
+
+      handlers.onToggleArchiveClick({ currentTarget: element });
+      expect(onArchiveCatalogueItem).toHaveBeenCalledWith('cat-001', false);
+    });
+
+    it('exercises createTaxSettingsHandlers', async () => {
+      const dispatched: unknown[] = [];
+      const dispatch = (action: TaxSettingsFormAction) => dispatched.push(action);
+      const setErrors = vi.fn();
+      const setSaveStatus = vi.fn();
+      const setIsSubmitting = vi.fn();
+      const onUpdateTaxSettings = vi.fn().mockResolvedValue(true);
+
+      const invalidFormData: TaxSettingsFormData = {
+        taxNumber: 'a'.repeat(55),
+        vatId: '',
+        isKleinunternehmer: true,
+        kleinunternehmerNotice: 'b'.repeat(1005),
+        taxRateSelection: 'custom',
+        defaultTaxRateBasisPoints: -1,
+        customTaxRatePercent: '-1',
+        pricesIncludeTax: true,
+      };
+
+      const handlers = createTaxSettingsHandlers({
+        dispatch,
+        formData: invalidFormData,
+        errors: {
+          taxNumber: 'Err',
+          vatId: 'Err',
+          kleinunternehmerNotice: 'Err',
+          defaultTaxRate: 'Err',
+        },
+        setErrors,
+        setSaveStatus,
+        setIsSubmitting,
+        onUpdateTaxSettings,
+      });
+
+      handlers.handleTaxNumberChange({ target: { value: '11/222/33333' } });
+      handlers.handleVatIdChange({ target: { value: 'DE111222333' } });
+      handlers.handleKleinunternehmerToggle({ target: { checked: false } });
+      handlers.handleNoticeChange({ target: { value: 'Statutory Notice' } });
+      handlers.handleTaxRateSelectionChange({ target: { value: 'custom' } });
+      handlers.handleCustomTaxRateChange({ target: { value: '15' } });
+      handlers.handlePricingModeChange({ target: { value: 'net' } });
+
+      expect(dispatched).toHaveLength(7);
+      expect(setSaveStatus).toHaveBeenCalledWith('idle');
+
+      const invalidOk = await handlers.handleSubmit();
+      expect(invalidOk).toBe(false);
+      expect(setErrors).toHaveBeenCalled();
+      handlers.onSubmit({ preventDefault: vi.fn() });
+
+      const validFormData: TaxSettingsFormData = {
+        taxNumber: '11/222/33333',
+        vatId: 'DE111222333',
+        isKleinunternehmer: false,
+        kleinunternehmerNotice: '',
+        taxRateSelection: '1900',
+        defaultTaxRateBasisPoints: 1900,
+        customTaxRatePercent: '19',
+        pricesIncludeTax: true,
+      };
+
+      const validHandlers = createTaxSettingsHandlers({
+        dispatch,
+        formData: validFormData,
+        errors: {},
+        setErrors,
+        setSaveStatus,
+        setIsSubmitting,
+        onUpdateTaxSettings,
+      });
+
+      const validOk = await validHandlers.handleSubmit();
+      expect(validOk).toBe(true);
+      expect(onUpdateTaxSettings).toHaveBeenCalled();
+      expect(setSaveStatus).toHaveBeenCalledWith('success');
+      validHandlers.onSubmit({ preventDefault: vi.fn() });
+
+      // Test when update fails (returns false)
+      const failUpdateHandlers = createTaxSettingsHandlers({
+        dispatch,
+        formData: validFormData,
+        errors: {},
+        setErrors,
+        setSaveStatus,
+        setIsSubmitting,
+        onUpdateTaxSettings: vi.fn().mockResolvedValue(false),
+      });
+      const failOk = await failUpdateHandlers.handleSubmit();
+      expect(failOk).toBe(false);
+      expect(setSaveStatus).toHaveBeenCalledWith('error');
+
+      // Test when update throws
+      const throwHandlers = createTaxSettingsHandlers({
+        dispatch,
+        formData: validFormData,
+        errors: {},
+        setErrors,
+        setSaveStatus,
+        setIsSubmitting,
+        onUpdateTaxSettings: vi.fn().mockRejectedValue(new Error('Network error')),
+      });
+      const throwOk = await throwHandlers.handleSubmit();
+      expect(throwOk).toBe(false);
+      expect(setSaveStatus).toHaveBeenCalledWith('error');
+
+      // Test clearing errors with functional updater
+      let stateErrors: TaxSettingsFormErrors = {
+        taxNumber: 'Err',
+        vatId: 'Err',
+        kleinunternehmerNotice: 'Err',
+        defaultTaxRate: 'Err',
+      };
+      const mockSetErrors = vi.fn(
+        (
+          updater: TaxSettingsFormErrors | ((prev: TaxSettingsFormErrors) => TaxSettingsFormErrors),
+        ) => {
+          if (typeof updater === 'function') {
+            stateErrors = updater(stateErrors);
+          }
+        },
+      );
+      const clearingHandlers = createTaxSettingsHandlers({
+        dispatch,
+        formData: validFormData,
+        errors: {
+          taxNumber: 'Err',
+          vatId: 'Err',
+          kleinunternehmerNotice: 'Err',
+          defaultTaxRate: 'Err',
+        },
+        setErrors: mockSetErrors,
+        setSaveStatus,
+        setIsSubmitting,
+        onUpdateTaxSettings,
+      });
+      clearingHandlers.handleTaxNumberChange({ target: { value: '123' } });
+      clearingHandlers.handleVatIdChange({ target: { value: 'DE123' } });
+      clearingHandlers.handleNoticeChange({ target: { value: 'Notice' } });
+      clearingHandlers.handleTaxRateSelectionChange({ target: { value: '1900' } });
+      clearingHandlers.handleCustomTaxRateChange({ target: { value: '10' } });
+      expect(stateErrors.taxNumber).toBeUndefined();
+      expect(stateErrors.vatId).toBeUndefined();
+      expect(stateErrors.kleinunternehmerNotice).toBeUndefined();
+      expect(stateErrors.defaultTaxRate).toBeUndefined();
+
+      // Test taxSettingsFormReducer RESET
+      const resetResult = taxSettingsFormReducer(validFormData, {
+        type: 'RESET',
+        settings: {
+          id: 'settings-1',
+          studio_name: 'Studio',
+          currency: 'EUR',
+          tax_number: '99/999/99999',
+          vat_id: 'DE999999999',
+          is_kleinunternehmer: false,
+          kleinunternehmer_notice: null,
+          default_tax_rate_basis_points: 1900,
+          prices_include_tax: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+        } as unknown as StudioSettings,
+        locale: 'en',
+      });
+      expect(resetResult.taxNumber).toBe('99/999/99999');
+
+      // Test default branch of taxSettingsFormReducer
+      const defaultTaxResult = taxSettingsFormReducer(validFormData, {
+        type: 'UNKNOWN',
+      } as unknown as Parameters<typeof taxSettingsFormReducer>[1]);
+      expect(defaultTaxResult).toBe(validFormData);
+
+      // Test default branch of packageFormReducer
+      const defaultPkgResult = packageFormReducer(
+        {
+          formData: {
+            name: '',
+            slug: '',
+            projectTypeKey: '',
+            basePriceMajor: '',
+            taxRateBasisPoints: 1900,
+            taxRateCustomPercent: '19',
+            description: '',
+            includedItems: [],
+          },
+          errors: {},
+          isSlugManuallyEdited: false,
+        },
+        { type: 'UNKNOWN' } as unknown as Parameters<typeof packageFormReducer>[1],
+      );
+      expect(defaultPkgResult.isSlugManuallyEdited).toBe(false);
+
+      // Test default branch of catalogueFormReducer
+      const defaultCatResult = catalogueFormReducer(
+        {
+          formData: {
+            name: '',
+            slug: '',
+            category: 'service',
+            unitPriceMajor: '',
+            taxRateBasisPoints: 1900,
+            taxRateCustomPercent: '19',
+            description: '',
+            isActive: true,
+          },
+          errors: {},
+          isSlugManuallyEdited: false,
+        },
+        { type: 'UNKNOWN' } as unknown as Parameters<typeof catalogueFormReducer>[1],
+      );
+      expect(defaultCatResult.isSlugManuallyEdited).toBe(false);
+
+      // Test createPackagesViewHandlers with mock document
+      const mockFocus = vi.fn();
+      const origDoc = (global as Record<string, unknown>).document;
+      (global as Record<string, unknown>).document = {
+        getElementById: vi.fn(() => ({ focus: mockFocus })),
+      };
+      try {
+        const setActiveTab = vi.fn();
+        const docHandlers = createPackagesViewHandlers(setActiveTab);
+        docHandlers.onTabKeyDown({
+          key: 'ArrowRight',
+          currentTarget: { dataset: { index: '0' } },
+        });
+        expect(setActiveTab).toHaveBeenCalledWith('catalogue');
+        expect(mockFocus).toHaveBeenCalled();
+      } finally {
+        if (origDoc !== undefined) {
+          (global as Record<string, unknown>).document = origDoc;
+        } else {
+          delete (global as Record<string, unknown>).document;
+        }
+      }
     });
   });
 });

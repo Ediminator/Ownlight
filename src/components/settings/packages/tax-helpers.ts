@@ -1,5 +1,6 @@
 import type { StudioSettings } from '@/server/db/schema/studio-settings';
 import { DEFAULT_KLEINUNTERNEHMER_NOTICES } from '@/server/studio/tax-settings-schema';
+import { parseTaxRateToBasisPoints } from './packages-helpers';
 
 export interface TaxSettingsFormData {
   taxNumber: string;
@@ -94,5 +95,186 @@ export function validateTaxSettingsForm(data: TaxSettingsFormData): {
   return {
     isValid: Object.keys(errors).length === 0,
     errors,
+  };
+}
+
+export type TaxSettingsFormAction =
+  | { type: 'SET_TAX_NUMBER'; taxNumber: string }
+  | { type: 'SET_VAT_ID'; vatId: string }
+  | { type: 'TOGGLE_KLEINUNTERNEHMER'; isKleinunternehmer: boolean }
+  | { type: 'SET_NOTICE'; notice: string }
+  | { type: 'SET_RATE_PRESET'; selection: '1900' | '700' | '0' | 'custom' }
+  | { type: 'SET_CUSTOM_RATE'; percent: string }
+  | { type: 'TOGGLE_PRICES_INCLUDE_TAX'; pricesIncludeTax: boolean }
+  | { type: 'RESET'; settings: StudioSettings; locale: string };
+
+export function taxSettingsFormReducer(
+  state: TaxSettingsFormData,
+  action: TaxSettingsFormAction,
+): TaxSettingsFormData {
+  switch (action.type) {
+    case 'SET_TAX_NUMBER':
+      return { ...state, taxNumber: action.taxNumber };
+    case 'SET_VAT_ID':
+      return { ...state, vatId: action.vatId };
+    case 'TOGGLE_KLEINUNTERNEHMER':
+      return { ...state, isKleinunternehmer: action.isKleinunternehmer };
+    case 'SET_NOTICE':
+      return { ...state, kleinunternehmerNotice: action.notice };
+    case 'SET_RATE_PRESET': {
+      if (action.selection === 'custom') {
+        return {
+          ...state,
+          taxRateSelection: 'custom',
+          defaultTaxRateBasisPoints: 1900,
+          customTaxRatePercent: '19',
+        };
+      }
+      const bps = parseInt(action.selection, 10);
+      return {
+        ...state,
+        taxRateSelection: action.selection,
+        defaultTaxRateBasisPoints: bps,
+        customTaxRatePercent: (bps / 100).toString(),
+      };
+    }
+    case 'SET_CUSTOM_RATE': {
+      const bps = parseTaxRateToBasisPoints(action.percent);
+      return {
+        ...state,
+        customTaxRatePercent: action.percent,
+        defaultTaxRateBasisPoints: bps ?? -1,
+      };
+    }
+    case 'TOGGLE_PRICES_INCLUDE_TAX':
+      return { ...state, pricesIncludeTax: action.pricesIncludeTax };
+    case 'RESET':
+      return studioSettingsToTaxFormData(action.settings, action.locale);
+    default:
+      return state;
+  }
+}
+
+export function buildTaxSettingsSavePayload(formData: TaxSettingsFormData) {
+  return {
+    taxNumber: formData.taxNumber.trim() ? formData.taxNumber.trim() : null,
+    vatId: formData.vatId.trim() ? formData.vatId.trim() : null,
+    isKleinunternehmer: formData.isKleinunternehmer,
+    kleinunternehmerNotice: formData.isKleinunternehmer
+      ? formData.kleinunternehmerNotice.trim()
+      : null,
+    defaultTaxRateBasisPoints: formData.defaultTaxRateBasisPoints,
+    pricesIncludeTax: formData.pricesIncludeTax,
+  };
+}
+
+export function createTaxSettingsHandlers(params: {
+  dispatch: (action: TaxSettingsFormAction) => void;
+  formData: TaxSettingsFormData;
+  errors: TaxSettingsFormErrors;
+  setErrors: (
+    updater: TaxSettingsFormErrors | ((prev: TaxSettingsFormErrors) => TaxSettingsFormErrors),
+  ) => void;
+  setSaveStatus: (status: 'idle' | 'success' | 'error') => void;
+  setIsSubmitting: (submitting: boolean) => void;
+  onUpdateTaxSettings: (
+    payload: ReturnType<typeof buildTaxSettingsSavePayload>,
+  ) => Promise<boolean>;
+}) {
+  return {
+    handleTaxNumberChange: (e: { target: { value: string } }) => {
+      params.dispatch({ type: 'SET_TAX_NUMBER', taxNumber: e.target.value });
+      if (params.errors.taxNumber) {
+        params.setErrors((prev) => ({ ...prev, taxNumber: undefined }));
+      }
+      params.setSaveStatus('idle');
+    },
+    handleVatIdChange: (e: { target: { value: string } }) => {
+      params.dispatch({ type: 'SET_VAT_ID', vatId: e.target.value });
+      if (params.errors.vatId) {
+        params.setErrors((prev) => ({ ...prev, vatId: undefined }));
+      }
+      params.setSaveStatus('idle');
+    },
+    handleKleinunternehmerToggle: (e: { target: { checked: boolean } }) => {
+      params.dispatch({
+        type: 'TOGGLE_KLEINUNTERNEHMER',
+        isKleinunternehmer: e.target.checked,
+      });
+      params.setSaveStatus('idle');
+    },
+    handleNoticeChange: (e: { target: { value: string } }) => {
+      params.dispatch({ type: 'SET_NOTICE', notice: e.target.value });
+      if (params.errors.kleinunternehmerNotice) {
+        params.setErrors((prev) => ({ ...prev, kleinunternehmerNotice: undefined }));
+      }
+      params.setSaveStatus('idle');
+    },
+    handleTaxRateSelectionChange: (e: { target: { value: string } }) => {
+      params.dispatch({
+        type: 'SET_RATE_PRESET',
+        selection: e.target.value as '1900' | '700' | '0' | 'custom',
+      });
+      if (params.errors.defaultTaxRate) {
+        params.setErrors((prev) => ({ ...prev, defaultTaxRate: undefined }));
+      }
+      params.setSaveStatus('idle');
+    },
+    handleCustomTaxRateChange: (e: { target: { value: string } }) => {
+      params.dispatch({ type: 'SET_CUSTOM_RATE', percent: e.target.value });
+      if (params.errors.defaultTaxRate) {
+        params.setErrors((prev) => ({ ...prev, defaultTaxRate: undefined }));
+      }
+      params.setSaveStatus('idle');
+    },
+    handlePricingModeChange: (e: { target: { value: string } }) => {
+      params.dispatch({
+        type: 'TOGGLE_PRICES_INCLUDE_TAX',
+        pricesIncludeTax: e.target.value === 'gross',
+      });
+      params.setSaveStatus('idle');
+    },
+    handleSubmit: async (e?: { preventDefault: () => void }) => {
+      e?.preventDefault();
+      const validation = validateTaxSettingsForm(params.formData);
+      if (!validation.isValid) {
+        params.setErrors(validation.errors);
+        return false;
+      }
+      params.setIsSubmitting(true);
+      params.setSaveStatus('idle');
+      try {
+        const payload = buildTaxSettingsSavePayload(params.formData);
+        const ok = await params.onUpdateTaxSettings(payload);
+        params.setSaveStatus(ok ? 'success' : 'error');
+        return ok;
+      } catch {
+        params.setSaveStatus('error');
+        return false;
+      } finally {
+        params.setIsSubmitting(false);
+      }
+    },
+    onSubmit: (e?: { preventDefault: () => void }) => {
+      e?.preventDefault();
+      void (async () => {
+        const validation = validateTaxSettingsForm(params.formData);
+        if (!validation.isValid) {
+          params.setErrors(validation.errors);
+          return;
+        }
+        params.setIsSubmitting(true);
+        params.setSaveStatus('idle');
+        try {
+          const payload = buildTaxSettingsSavePayload(params.formData);
+          const ok = await params.onUpdateTaxSettings(payload);
+          params.setSaveStatus(ok ? 'success' : 'error');
+        } catch {
+          params.setSaveStatus('error');
+        } finally {
+          params.setIsSubmitting(false);
+        }
+      })();
+    },
   };
 }

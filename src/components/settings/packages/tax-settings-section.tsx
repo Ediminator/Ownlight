@@ -6,12 +6,11 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2, AlertCircle, Landmark } from 'lucide-react';
 import {
   studioSettingsToTaxFormData,
-  validateTaxSettingsForm,
+  createTaxSettingsHandlers,
+  taxSettingsFormReducer,
   TAX_RATE_PRESETS,
-  type TaxSettingsFormData,
   type TaxSettingsFormErrors,
 } from './tax-helpers';
-import { parseTaxRateToBasisPoints } from './packages-helpers';
 import type { StudioSettings } from '@/server/db/schema/studio-settings';
 
 export interface TaxSettingsSectionProps {
@@ -25,138 +24,37 @@ export interface TaxSettingsSectionProps {
     defaultTaxRateBasisPoints?: number;
     pricesIncludeTax?: boolean;
   }) => Promise<boolean>;
+  initialSaveStatus?: 'idle' | 'success' | 'error';
+  initialErrors?: TaxSettingsFormErrors;
 }
 
 export function TaxSettingsSection({
   initialSettings,
   locale = 'en',
+  initialSaveStatus = 'idle',
+  initialErrors = {},
   onUpdateTaxSettings,
 }: TaxSettingsSectionProps) {
   const t = useTranslations('settings.tax');
 
-  const [formData, setFormData] = React.useState<TaxSettingsFormData>(() =>
-    studioSettingsToTaxFormData(initialSettings, locale),
+  const [formData, dispatch] = React.useReducer(taxSettingsFormReducer, initialSettings, (s) =>
+    studioSettingsToTaxFormData(s, locale),
   );
-  const [errors, setErrors] = React.useState<TaxSettingsFormErrors>({});
+  const [errors, setErrors] = React.useState<TaxSettingsFormErrors>(initialErrors);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [saveStatus, setSaveStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = React.useState<'idle' | 'success' | 'error'>(
+    initialSaveStatus,
+  );
 
-  const handleTaxNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, taxNumber: e.target.value }));
-    if (errors.taxNumber) setErrors((prev) => ({ ...prev, taxNumber: undefined }));
-    setSaveStatus('idle');
-  };
-
-  const handleVatIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, vatId: e.target.value }));
-    if (errors.vatId) setErrors((prev) => ({ ...prev, vatId: undefined }));
-    setSaveStatus('idle');
-  };
-
-  const handleKleinunternehmerToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const isChecked = e.target.checked;
-    setFormData((prev) => ({
-      ...prev,
-      isKleinunternehmer: isChecked,
-      defaultTaxRateBasisPoints: isChecked ? 0 : prev.defaultTaxRateBasisPoints || 1900,
-      taxRateSelection: isChecked
-        ? '0'
-        : prev.taxRateSelection === '0'
-          ? '1900'
-          : prev.taxRateSelection,
-    }));
-    setSaveStatus('idle');
-  };
-
-  const handleNoticeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setFormData((prev) => ({ ...prev, kleinunternehmerNotice: e.target.value }));
-    if (errors.kleinunternehmerNotice) {
-      setErrors((prev) => ({ ...prev, kleinunternehmerNotice: undefined }));
-    }
-    setSaveStatus('idle');
-  };
-
-  const handleTaxRateSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value as '1900' | '700' | '0' | 'custom';
-    if (val === 'custom') {
-      setFormData((prev) => ({
-        ...prev,
-        taxRateSelection: 'custom',
-        defaultTaxRateBasisPoints: 1900,
-        customTaxRatePercent: '19',
-      }));
-    } else {
-      const bps = parseInt(val, 10);
-      setFormData((prev) => ({
-        ...prev,
-        taxRateSelection: val,
-        defaultTaxRateBasisPoints: bps,
-        customTaxRatePercent: (bps / 100).toString(),
-      }));
-    }
-    if (errors.defaultTaxRate) {
-      setErrors((prev) => ({ ...prev, defaultTaxRate: undefined }));
-    }
-    setSaveStatus('idle');
-  };
-
-  const handleCustomTaxRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputVal = e.target.value;
-    const bps = parseTaxRateToBasisPoints(inputVal);
-    setFormData((prev) => ({
-      ...prev,
-      customTaxRatePercent: inputVal,
-      defaultTaxRateBasisPoints: bps ?? -1,
-    }));
-    if (errors.defaultTaxRate) {
-      setErrors((prev) => ({ ...prev, defaultTaxRate: undefined }));
-    }
-    setSaveStatus('idle');
-  };
-
-  const handlePricingModeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({
-      ...prev,
-      pricesIncludeTax: e.target.value === 'gross',
-    }));
-    setSaveStatus('idle');
-  };
-
-  const handleSubmit = async (e: React.SyntheticEvent) => {
-    e.preventDefault();
-
-    const validation = validateTaxSettingsForm(formData);
-    if (!validation.isValid) {
-      setErrors(validation.errors);
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSaveStatus('idle');
-
-    try {
-      const ok = await onUpdateTaxSettings({
-        taxNumber: formData.taxNumber.trim() || null,
-        vatId: formData.vatId.trim() || null,
-        isKleinunternehmer: formData.isKleinunternehmer,
-        kleinunternehmerNotice: formData.isKleinunternehmer
-          ? formData.kleinunternehmerNotice.trim() || null
-          : null,
-        defaultTaxRateBasisPoints: formData.defaultTaxRateBasisPoints,
-        pricesIncludeTax: formData.pricesIncludeTax,
-      });
-
-      if (ok) {
-        setSaveStatus('success');
-      } else {
-        setSaveStatus('error');
-      }
-    } catch {
-      setSaveStatus('error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const handlers = createTaxSettingsHandlers({
+    dispatch,
+    formData,
+    errors,
+    setErrors,
+    setSaveStatus,
+    setIsSubmitting,
+    onUpdateTaxSettings,
+  });
 
   return (
     <div className="space-y-6 max-w-4xl" data-testid="tax-settings-section">
@@ -193,13 +91,7 @@ export function TaxSettingsSection({
         </div>
       )}
 
-      <form
-        noValidate
-        onSubmit={(e) => {
-          void handleSubmit(e);
-        }}
-        className="space-y-6"
-      >
+      <form noValidate onSubmit={handlers.onSubmit} className="space-y-6">
         {/* Tax IDs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 rounded-lg border bg-card p-5 text-card-foreground shadow-xs">
           <div className="space-y-1.5">
@@ -212,7 +104,7 @@ export function TaxSettingsSection({
               type="text"
               data-testid="tax-number-input"
               value={formData.taxNumber}
-              onChange={handleTaxNumberChange}
+              onChange={handlers.handleTaxNumberChange}
               placeholder={t('taxNumberPlaceholder')}
               aria-invalid={Boolean(errors.taxNumber)}
               aria-describedby={errors.taxNumber ? 'tax-number-error' : 'tax-number-help'}
@@ -239,7 +131,7 @@ export function TaxSettingsSection({
               type="text"
               data-testid="vat-id-input"
               value={formData.vatId}
-              onChange={handleVatIdChange}
+              onChange={handlers.handleVatIdChange}
               placeholder={t('vatIdPlaceholder')}
               aria-invalid={Boolean(errors.vatId)}
               aria-describedby={errors.vatId ? 'vat-id-error' : 'vat-id-help'}
@@ -266,7 +158,7 @@ export function TaxSettingsSection({
               type="checkbox"
               data-testid="toggle-kleinunternehmer"
               checked={formData.isKleinunternehmer}
-              onChange={handleKleinunternehmerToggle}
+              onChange={handlers.handleKleinunternehmerToggle}
               className="h-5 w-5 mt-0.5 rounded border-input text-primary focus:ring-primary shrink-0"
             />
             <div className="space-y-1">
@@ -294,7 +186,7 @@ export function TaxSettingsSection({
                 rows={2}
                 data-testid="kleinunternehmer-notice-textarea"
                 value={formData.kleinunternehmerNotice}
-                onChange={handleNoticeChange}
+                onChange={handlers.handleNoticeChange}
                 placeholder={t('statutoryNoticePlaceholder')}
                 aria-describedby="statutory-notice-help"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -319,7 +211,7 @@ export function TaxSettingsSection({
                 name="defaultTaxRate"
                 data-testid="default-tax-rate-select"
                 value={formData.taxRateSelection}
-                onChange={handleTaxRateSelectionChange}
+                onChange={handlers.handleTaxRateSelectionChange}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[36px]"
               >
                 {TAX_RATE_PRESETS.map((preset) => (
@@ -339,7 +231,7 @@ export function TaxSettingsSection({
                   aria-label="Custom VAT rate percentage"
                   data-testid="default-custom-tax-input"
                   value={formData.customTaxRatePercent}
-                  onChange={handleCustomTaxRateChange}
+                  onChange={handlers.handleCustomTaxRateChange}
                   placeholder="%"
                   className="w-24 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[36px]"
                 />
@@ -367,7 +259,7 @@ export function TaxSettingsSection({
                   value="gross"
                   data-testid="pricing-mode-gross"
                   checked={formData.pricesIncludeTax}
-                  onChange={handlePricingModeChange}
+                  onChange={handlers.handlePricingModeChange}
                   className="h-4 w-4 border-input text-primary focus:ring-primary"
                 />
                 <span>{t('displayGross')}</span>
@@ -379,7 +271,7 @@ export function TaxSettingsSection({
                   value="net"
                   data-testid="pricing-mode-net"
                   checked={!formData.pricesIncludeTax}
-                  onChange={handlePricingModeChange}
+                  onChange={handlers.handlePricingModeChange}
                   className="h-4 w-4 border-input text-primary focus:ring-primary"
                 />
                 <span>{t('displayNet')}</span>

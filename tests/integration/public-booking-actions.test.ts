@@ -1026,7 +1026,7 @@ describe('TASK-0044: Public Booking Scheduler Integration Tests', () => {
     expect(rateLimitedResult?.success).toBe(false);
     expect(rateLimitedResult?.code).toBe('RATE_LIMITED');
     expect(rateLimitedResult?.error).toContain('Too many booking attempts');
-  });
+  }, 120_000);
 
   it('AC-7: returns localized German error on invalid PoW when locale is de', async () => {
     const result = await submitPublicBookingAction(

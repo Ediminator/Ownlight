@@ -277,6 +277,7 @@ export function CatalogueSection({
 
       {/* Item Modal */}
       <CatalogueItemModal
+        key={editingItem?.id ?? 'new'}
         item={editingItem}
         isOpen={isModalOpen}
         isSubmitting={isModalSubmitting}

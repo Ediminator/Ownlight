@@ -151,7 +151,7 @@ export function CatalogueItemModal({
               <select
                 id="catalogue-item-category"
                 name="category"
-                data-testid="catalogue-category-select"
+                data-testid="catalogue-item-category-select"
                 value={formData.category}
                 onChange={handlers.handleCategoryChange}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[36px]"
@@ -181,7 +181,7 @@ export function CatalogueItemModal({
                 type="text"
                 inputMode="decimal"
                 required
-                data-testid="catalogue-price-input"
+                data-testid="catalogue-item-price-input"
                 value={formData.unitPriceMajor}
                 onChange={handlers.handleUnitPriceChange}
                 placeholder={t('catalogue.modal.unitPricePlaceholder')}
@@ -267,7 +267,7 @@ export function CatalogueItemModal({
               variant="outline"
               onClick={onClose}
               disabled={isSubmitting}
-              data-testid="cancel-catalogue-item-btn"
+              data-testid="catalogue-item-cancel-btn"
             >
               {t('catalogue.modal.cancel')}
             </Button>

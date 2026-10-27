@@ -334,6 +334,7 @@ export function PackagesSection({
 
       {/* Package Creation & Edit Modal */}
       <PackageModal
+        key={editingPackage?.id ?? 'new'}
         pkg={editingPackage}
         isOpen={isModalOpen}
         isSubmitting={isModalSubmitting}

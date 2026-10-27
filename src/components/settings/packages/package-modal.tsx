@@ -426,7 +426,7 @@ export function PackageModal({
               variant="outline"
               onClick={onClose}
               disabled={isSubmitting}
-              data-testid="cancel-package-btn"
+              data-testid="package-modal-cancel-btn"
             >
               {t('modal.cancel')}
             </Button>

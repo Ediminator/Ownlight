@@ -14,3 +14,4 @@ export * from './leads';
 export * from './email-outbox';
 export * from './projects';
 export * from './calendar';
+export * from './packages';

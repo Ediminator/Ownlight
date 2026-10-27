@@ -487,6 +487,12 @@ describe('Clients Domain & Actions Branch Coverage (Unit)', () => {
         mfa_required: false,
         mfa_postponed_until: null,
         forms_pow_hmac_key: null,
+        tax_number: null,
+        vat_id: null,
+        is_kleinunternehmer: false,
+        kleinunternehmer_notice: null,
+        default_tax_rate_basis_points: 1900,
+        prices_include_tax: true,
       });
       vi.spyOn(clientRepo, 'findDuplicateEmails').mockResolvedValueOnce([]);
       vi.spyOn(clientRepo, 'insertClientWithPrimaryContact').mockResolvedValueOnce({

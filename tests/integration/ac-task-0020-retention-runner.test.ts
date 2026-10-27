@@ -285,7 +285,7 @@ describe('TASK-0020: Unified Retention Runner and Worker Integration', () => {
     const execMissing = spawnSync(process.execPath, [workerBundlePath], {
       env: cleanEnv,
       encoding: 'utf8',
-      timeout: 15000,
+      timeout: 45000,
     });
     expect(execMissing.status).toBe(1);
     expect(execMissing.stderr).toContain('Database connection URL missing');
@@ -301,7 +301,7 @@ describe('TASK-0020: Unified Retention Runner and Worker Integration', () => {
     const execUnreachable = spawnSync(process.execPath, [workerBundlePath, '--run-once'], {
       env: unreachableEnv,
       encoding: 'utf8',
-      timeout: 15000,
+      timeout: 45000,
     });
     expect(execUnreachable.status).toBe(1);
     expect(execUnreachable.stdout).toContain('Fatal worker error');

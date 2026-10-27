@@ -13,6 +13,12 @@ export const DEFAULT_STUDIO_SETTINGS: Omit<StudioSettings, 'id' | 'created_at' |
   mfa_required: false,
   mfa_postponed_until: null,
   forms_pow_hmac_key: null,
+  tax_number: null,
+  vat_id: null,
+  is_kleinunternehmer: false,
+  kleinunternehmer_notice: null,
+  default_tax_rate_basis_points: 1900,
+  prices_include_tax: true,
 };
 
 // Generic database interface compatible with both PostgresJsDatabase and PgliteDatabase

@@ -7,7 +7,6 @@ import { db as defaultDb, type DbClient } from '@/server/db/client';
 import { requireOwner, ForbiddenError, type AuthContext } from '@/server/auth/guards';
 import { logger } from '@/server/log';
 import {
-  catalogueCategorySchema,
   saveCatalogueItemActionInputSchema,
   archiveCatalogueItemActionInputSchema,
   type SaveCatalogueItemActionInput,

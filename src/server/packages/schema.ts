@@ -135,3 +135,52 @@ export const updatePackageSchema = z
 
 export type UpdatePackageInput = z.input<typeof updatePackageSchema>;
 export type ParsedUpdatePackageInput = z.output<typeof updatePackageSchema>;
+
+export const savePackageActionInputSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    name: z.string().trim().min(1, 'Package title is required').max(150).optional(),
+    title: z.string().trim().min(1, 'Package title is required').max(150).optional(),
+    slug: z
+      .string()
+      .trim()
+      .min(1, 'Slug is required')
+      .max(100)
+      .regex(
+        SLUG_REGEX,
+        'Slug must be kebab-case (lowercase letters, numbers, and single hyphens)',
+      ),
+    description: z.string().trim().nullable().optional(),
+    projectTypeKey: z.string().trim().max(40).nullable().optional(),
+    basePriceMinor: z
+      .number()
+      .int('basePriceMinor must be an integer')
+      .min(0, 'Base price cannot be negative')
+      .default(0),
+    currency: z.string().length(3, 'Currency must be 3 characters').default('EUR'),
+    taxRateBasisPoints: z
+      .number()
+      .int('taxRateBasisPoints must be an integer')
+      .min(0, 'Tax rate cannot be negative')
+      .max(10000, 'Tax rate cannot exceed 100%')
+      .default(1900),
+    position: z.number().int().min(0).default(0),
+    isActive: z.boolean().default(true),
+    includedItems: z.array(packageIncludedItemInputSchema).optional().default([]),
+  })
+  .strict()
+  .refine((data) => Boolean(data.name ?? data.title), {
+    message: 'Package title is required',
+    path: ['title'],
+  });
+
+export type SavePackageActionInput = z.infer<typeof savePackageActionInputSchema>;
+
+export const archivePackageActionInputSchema = z
+  .object({
+    id: z.string().uuid('Valid package ID is required'),
+    isActive: z.boolean().optional().default(false),
+  })
+  .strict();
+
+export type ArchivePackageActionInput = z.infer<typeof archivePackageActionInputSchema>;

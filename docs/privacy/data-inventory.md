@@ -6,13 +6,15 @@ This register documents all personal data processed by the application, its lawf
 
 ## 1. Studio Owner Personal Data
 
-| Data Field / Entity               | Purpose                                                   | Lawful Basis (GDPR)                        | Retention Period                      | Deletion / Export                                                   |
-| --------------------------------- | --------------------------------------------------------- | ------------------------------------------ | ------------------------------------- | ------------------------------------------------------------------- |
-| `owner.name`, `owner.email`       | Account identification & administration                   | Art. 6(1)(b) Contract / System Operation   | Account lifetime                      | Deleted on instance reset / factory purge; included in Owner Export |
-| `owner.password_hash`             | Authentication security                                   | Art. 6(1)(f) Legitimate Interest / Art. 32 | Account lifetime                      | Overwritten on reset                                                |
-| `owner.mfa_secret`                | Two-factor authentication (encrypted at rest)             | Art. 32 Security of processing             | Account lifetime / until MFA disabled | Purged on disable                                                   |
-| `studio_settings.studio_name`     | Business identification (may identify sole trader)        | Art. 6(1)(b)/(f) Operation & Owner Data    | Instance lifetime                     | Exported with settings                                              |
-| `studio_settings.lexware_api_key` | Lexware Office integration secret (AES-256-GCM encrypted) | Art. 6(1)(c) Compliance / Art. 32          | Until integration removed             | Purged on disconnect                                                |
+| Data Field / Entity               | Purpose                                                              | Lawful Basis (GDPR)                        | Retention Period                      | Deletion / Export                                                   |
+| --------------------------------- | -------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------- | ------------------------------------------------------------------- |
+| `owner.name`, `owner.email`       | Account identification & administration                              | Art. 6(1)(b) Contract / System Operation   | Account lifetime                      | Deleted on instance reset / factory purge; included in Owner Export |
+| `owner.password_hash`             | Authentication security                                              | Art. 6(1)(f) Legitimate Interest / Art. 32 | Account lifetime                      | Overwritten on reset                                                |
+| `owner.mfa_secret`                | Two-factor authentication (encrypted at rest)                        | Art. 32 Security of processing             | Account lifetime / until MFA disabled | Purged on disable                                                   |
+| `studio_settings.studio_name`     | Business identification (may identify sole trader)                   | Art. 6(1)(b)/(f) Operation & Owner Data    | Instance lifetime                     | Exported with settings                                              |
+| `studio_settings.tax_number`      | Commercial studio operations, statutory invoice notices per §14 UStG | Art. 6(1)(f) GDPR / §14 UStG               | Instance lifetime                     | Exported with settings                                              |
+| `studio_settings.vat_id`          | Commercial studio operations, statutory VAT ID notices per §27a UStG | Art. 6(1)(c) Compliance / §27a UStG        | Instance lifetime                     | Exported with settings                                              |
+| `studio_settings.lexware_api_key` | Lexware Office integration secret (AES-256-GCM encrypted)            | Art. 6(1)(c) Compliance / Art. 32          | Until integration removed             | Purged on disconnect                                                |
 
 ---
 

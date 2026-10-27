@@ -103,3 +103,46 @@ export const updateCatalogueItemSchema = z
 
 export type UpdateCatalogueItemInput = z.input<typeof updateCatalogueItemSchema>;
 export type ParsedUpdateCatalogueItemInput = z.output<typeof updateCatalogueItemSchema>;
+
+export const saveCatalogueItemActionInputSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    name: z.string().trim().min(1, 'Catalogue item name is required').max(150),
+    slug: z
+      .string()
+      .trim()
+      .min(1, 'Slug is required')
+      .max(100)
+      .regex(
+        SLUG_REGEX,
+        'Slug must be kebab-case (lowercase letters, numbers, and single hyphens)',
+      ),
+    description: z.string().trim().nullable().optional(),
+    category: catalogueCategorySchema.default('service'),
+    unitPriceMinor: z
+      .number()
+      .int('unitPriceMinor must be an integer')
+      .min(0, 'Unit price cannot be negative')
+      .default(0),
+    currency: z.string().length(3, 'Currency must be 3 characters').default('EUR'),
+    taxRateBasisPoints: z
+      .number()
+      .int('taxRateBasisPoints must be an integer')
+      .min(0, 'Tax rate cannot be negative')
+      .max(10000, 'Tax rate cannot exceed 100%')
+      .default(1900),
+    position: z.number().int().min(0).default(0),
+    isActive: z.boolean().default(true),
+  })
+  .strict();
+
+export type SaveCatalogueItemActionInput = z.infer<typeof saveCatalogueItemActionInputSchema>;
+
+export const archiveCatalogueItemActionInputSchema = z
+  .object({
+    id: z.string().uuid('Valid catalogue item ID is required'),
+    isActive: z.boolean().optional().default(false),
+  })
+  .strict();
+
+export type ArchiveCatalogueItemActionInput = z.infer<typeof archiveCatalogueItemActionInputSchema>;

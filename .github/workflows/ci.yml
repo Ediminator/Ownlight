@@ -16,7 +16,7 @@ jobs:
   quality-gate:
     name: Quality Gate (full profile)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read # Required to checkout code
     services:

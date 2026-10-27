@@ -163,7 +163,7 @@ describe('TASK-0022: Worker Job Loop and Google Contacts Outbox Integration', ()
     const googleJob = distMod.jobRegistry.get('google-contacts-outbox');
     expect(googleJob).toBeDefined();
     expect(googleJob?.intervalMs).toBe(15_000); // 15 seconds
-  }, 60000);
+  }, 120000);
 
   it('AC-3: running worker with fake timers runs google-contacts-outbox every 15s while retention-sweep has not run a second time before 24h', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'] });

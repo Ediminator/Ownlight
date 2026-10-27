@@ -145,10 +145,13 @@ test.describe('TASK-0047: Epic E4 Automated Journey Regression Test', () => {
     const slotsList = page.locator('[data-testid="slots-list"]');
     await expect(slotsList).toBeVisible({ timeout: 10000 });
 
+    const selectedDayBtn = page.locator('button[data-testid^="calendar-day-"].bg-primary');
+    const bookedDayTestId = (await selectedDayBtn.getAttribute('data-testid')) ?? '';
+
     const slotButtons = slotsList.locator('button');
     const firstSlot = slotButtons.first();
     await expect(firstSlot).toBeVisible();
-    const bookedSlotText = (await firstSlot.textContent())?.trim() ?? '';
+    const bookedSlotTestId = (await firstSlot.getAttribute('data-testid')) ?? '';
     await firstSlot.click();
 
     // Fill attendee details
@@ -179,11 +182,23 @@ test.describe('TASK-0047: Epic E4 Automated Journey Regression Test', () => {
     // -------------------------------------------------------------
     await page.goto('/en/book/discovery-consultation');
     await expect(page.locator('[data-testid="slots-list"]')).toBeVisible({ timeout: 10000 });
-    const remainingSlots = await page
-      .locator('[data-testid="slots-list"] button')
-      .allTextContents();
-    if (bookedSlotText) {
-      expect(remainingSlots).not.toContain(bookedSlotText);
+    // Use auto-retrying assertions with timeout to prevent hydration/latency race conditions on CI (I2-C01)
+    if (bookedSlotTestId) {
+      await expect(page.locator(`[data-testid="${bookedSlotTestId}"]`)).toHaveCount(0, {
+        timeout: 10000,
+      });
+
+      // If the day where the slot was booked still has remaining slots, select it and verify
+      // that the specific booked slot is absent from that day's slot list.
+      if (bookedDayTestId) {
+        const bookedDayBtn = page.locator(`[data-testid="${bookedDayTestId}"]`);
+        if ((await bookedDayBtn.count()) > 0 && (await bookedDayBtn.isEnabled())) {
+          await bookedDayBtn.click();
+          await expect(page.locator(`[data-testid="${bookedSlotTestId}"]`)).toHaveCount(0, {
+            timeout: 10000,
+          });
+        }
+      }
     }
 
     // -------------------------------------------------------------

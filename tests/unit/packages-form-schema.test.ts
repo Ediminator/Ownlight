@@ -2068,5 +2068,11 @@ describe('TASK-0057: Packages and Catalogue Studio Settings Form Schemas & Helpe
       expect(content).toContain('§14 UStG');
       expect(content).toContain('§27a UStG');
     });
+
+    it('I3-Q01 regression: parseTaxRateToBasisPoints removes all percent characters with replaceAll', () => {
+      expect(parseTaxRateToBasisPoints('19%%')).toBe(1900);
+      expect(parseTaxRateToBasisPoints(' % 7,5 % ')).toBe(750);
+      expect(parseTaxRateToBasisPoints('%%% 0 %%%')).toBe(0);
+    });
   });
 });

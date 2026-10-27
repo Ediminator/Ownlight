@@ -49,7 +49,7 @@ export function parseTaxRateToBasisPoints(
     if (!Number.isFinite(value) || value < 0 || value > 100) return null;
     return Math.round(value * 100);
   }
-  const trimmed = value.trim().replace('%', '').replace(',', '.');
+  const trimmed = value.trim().replaceAll('%', '').replace(',', '.');
   if (trimmed === '') return null;
   const num = parseFloat(trimmed);
   if (Number.isNaN(num) || !Number.isFinite(num) || num < 0 || num > 100) {

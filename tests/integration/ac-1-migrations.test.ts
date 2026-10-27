@@ -63,6 +63,12 @@ describe('AC-1: Database migrations and drift detection', () => {
         'mfa_required',
         'mfa_postponed_until',
         'forms_pow_hmac_key',
+        'tax_number',
+        'vat_id',
+        'is_kleinunternehmer',
+        'kleinunternehmer_notice',
+        'default_tax_rate_basis_points',
+        'prices_include_tax',
       ]);
 
       // Verify MFA tables and PoW tables exist
@@ -74,6 +80,9 @@ describe('AC-1: Database migrations and drift detection', () => {
       expect(tableNames).toContain('recovery_code');
       expect(tableNames).toContain('passkey_credential');
       expect(tableNames).toContain('inquiry_pow_replays');
+      expect(tableNames).toContain('packages');
+      expect(tableNames).toContain('package_included_items');
+      expect(tableNames).toContain('catalogue_items');
     } finally {
       await client.close();
     }

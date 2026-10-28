@@ -1086,6 +1086,9 @@
         "shoot_scheduled": "Shooting geplant",
         "appointment_scheduled": "Termin vereinbart",
         "appointment_cancelled": "Termin abgesagt",
+        "proposal_sent": "Angebot gesendet",
+        "proposal_accepted": "Angebot angenommen",
+        "proposal_declined": "Angebot abgelehnt",
         "deleted_item": "Gelöschter Eintrag"
       },
       "note": {

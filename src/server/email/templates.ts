@@ -9,6 +9,7 @@ export interface RenderAutoReplyParams {
 export interface RenderedEmail {
   subject: string;
   text: string;
+  html?: string;
 }
 
 /**
@@ -61,3 +62,8 @@ export function renderAutoReplyEmail({
 
   return { subject, text };
 }
+
+export * from './templates/proposal';
+export * from './templates/proposal-sent';
+export * from './templates/proposal-accepted-client';
+export * from './templates/proposal-accepted-owner';

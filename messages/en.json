@@ -1904,6 +1904,46 @@
         "in_person": "In Person",
         "phone": "Phone Call"
       }
+    },
+    "proposal": {
+      "sent": {
+        "subject": "Proposal: {title} from {studioName}",
+        "greeting": "Hello {clientName},",
+        "intro": "You have received a new proposal from {studioName}.",
+        "proposalTitle": "Proposal: {title}",
+        "totalAmount": "Total Quote: {amount}",
+        "validUntil": "Valid until: {date}",
+        "buttonText": "View Proposal",
+        "linkText": "Open this link to view and accept your proposal: {url}",
+        "contactInfo": "If you have any questions or would like adjustments, please reach out to {studioName}.",
+        "footer": "This is an automated transactional notification."
+      },
+      "acceptedClient": {
+        "subject": "Confirmation: Proposal accepted — {title}",
+        "greeting": "Hello {clientName},",
+        "intro": "Thank you for accepting our proposal. We are delighted to work with you!",
+        "proposalTitle": "Proposal: {title}",
+        "packageTitle": "Accepted Package: {packageName}",
+        "includedItems": "Included Deliverables:",
+        "addonsTitle": "Selected Add-ons:",
+        "noAddons": "None",
+        "totalAmount": "Total Amount: {amount}",
+        "nextSteps": "Next Steps: We are preparing your booking contract. You will receive an invitation to review and sign shortly.",
+        "contactInfo": "If you have any questions in the meantime, please contact {studioName}.",
+        "footer": "This is an automated transactional notification."
+      },
+      "acceptedOwner": {
+        "subject": "Proposal Accepted: {title}",
+        "greeting": "Hello {studioName},",
+        "intro": "Great news! The proposal \"{title}\" has been accepted by {clientName}.",
+        "proposalTitle": "Proposal: {title}",
+        "packageTitle": "Package: {packageName}",
+        "totalAmount": "Total Amount: {amount}",
+        "acceptedBy": "Accepted by: {acceptedByName} ({acceptedByEmail})",
+        "buttonText": "View Project",
+        "linkText": "View this project in your studio workspace: {url}",
+        "footer": "This is an automated transactional notification."
+      }
     }
   },
   "calendar": {

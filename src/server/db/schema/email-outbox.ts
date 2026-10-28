@@ -4,6 +4,7 @@ import {
   varchar,
   integer,
   timestamp,
+  jsonb,
   index,
   check,
   type AnyPgColumn,
@@ -11,13 +12,16 @@ import {
 import { sql } from 'drizzle-orm';
 import { generateUuidV7 } from '@/lib/id';
 import { leads } from './leads';
-
 import { appointments } from './calendar';
+import { proposals } from './proposals';
 
 export const EMAIL_OUTBOX_KINDS = [
   'lead_auto_reply',
   'appointment_confirmation',
   'appointment_cancellation',
+  'proposal_sent',
+  'proposal_accepted_client',
+  'proposal_accepted_owner',
 ] as const;
 export type EmailOutboxKind = (typeof EMAIL_OUTBOX_KINDS)[number];
 
@@ -25,7 +29,7 @@ export const EMAIL_OUTBOX_STATUSES = ['PENDING', 'PROCESSING', 'FAILED'] as cons
 export type EmailOutboxStatus = (typeof EMAIL_OUTBOX_STATUSES)[number];
 
 /**
- * Transactional Email Outbox table (TASK-0030 / TASK-0041 / ADR-0015 §7).
+ * Transactional Email Outbox table (TASK-0030 / TASK-0041 / TASK-0060 / ADR-0015 §7 / ADR-0018 §5).
  * Ephemeral queue for transactional email dispatch with zero copied PII.
  */
 export const emailOutbox = pgTable(
@@ -39,7 +43,11 @@ export const emailOutbox = pgTable(
     appointmentId: uuid('appointment_id').references((): AnyPgColumn => appointments.id, {
       onDelete: 'cascade',
     }),
+    proposalId: uuid('proposal_id').references((): AnyPgColumn => proposals.id, {
+      onDelete: 'cascade',
+    }),
     recipient: varchar('recipient', { length: 255 }),
+    payload: jsonb('payload').$type<Record<string, unknown> | null>(),
     status: varchar('status', { length: 20 })
       .notNull()
       .default('PENDING')
@@ -55,11 +63,12 @@ export const emailOutbox = pgTable(
   (table) => [
     check(
       'email_outbox_kind_check',
-      sql`kind IN ('lead_auto_reply', 'appointment_confirmation', 'appointment_cancellation')`,
+      sql`kind IN ('lead_auto_reply', 'appointment_confirmation', 'appointment_cancellation', 'proposal_sent', 'proposal_accepted_client', 'proposal_accepted_owner')`,
     ),
     check('email_outbox_status_check', sql`status IN ('PENDING', 'PROCESSING', 'FAILED')`),
     index('email_outbox_status_next_attempt_idx').on(table.status, table.nextAttemptAt),
     index('email_outbox_appointment_id_idx').on(table.appointmentId),
+    index('email_outbox_proposal_id_idx').on(table.proposalId),
   ],
 );
 

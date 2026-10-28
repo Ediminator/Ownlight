@@ -13,6 +13,7 @@ import { resolveRepoAuth, type RepoAuthInput } from '@/server/auth/repo-auth';
 import { audit } from '@/server/audit';
 import { recordTimelineEvent } from '@/server/timeline/service';
 import { calculateProposalTotals } from './calculator';
+import { enqueueProposalAcceptedEmails } from '@/server/email/templates/proposal';
 import {
   assertProposalTransitionAllowed,
   assertProposalEditable,
@@ -667,6 +668,9 @@ export async function transitionProposalStatus(
         },
         tx,
       );
+
+      // Enqueue transactional acceptance emails for client and studio owner (ADR-0018 §5 / TASK-0060 AC-4)
+      await enqueueProposalAcceptedEmails(acceptedProposal.id, tx);
 
       return {
         ...acceptedProposal,

@@ -114,3 +114,4 @@ export async function getFailedEmailOutboxCount(client: DbClient = defaultDb): P
 }
 
 export { enqueueAppointmentEmail } from './templates/appointment';
+export { enqueueProposalEmail, enqueueProposalAcceptedEmails } from './templates/proposal';

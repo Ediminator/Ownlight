@@ -1,6 +1,6 @@
 import 'server-only';
 import crypto from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { eq, desc, asc } from 'drizzle-orm';
 import type { Transporter } from 'nodemailer';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
 import { audit } from '@/server/audit';
@@ -23,13 +23,21 @@ import {
 } from './outbox';
 import { renderAutoReplyEmail } from './templates';
 import { appointments } from '@/server/db/schema/calendar';
-import { clients } from '@/server/db/schema/clients';
+import { clients, clientContacts } from '@/server/db/schema/clients';
 import { leads } from '@/server/db/schema/leads';
+import { proposals } from '@/server/db/schema/proposals';
 import {
   renderAppointmentConfirmationEmail,
   renderAppointmentCancellationEmail,
   getAppointmentEmailHeaders,
 } from './templates/appointment';
+import {
+  renderProposalSentEmail,
+  renderProposalAcceptedClientEmail,
+  renderProposalAcceptedOwnerEmail,
+  getProposalEmailHeaders,
+} from './templates';
+import { getAcceptedProposalForProject } from '@/server/proposals/service';
 
 export interface EmailOutboxBatchOptions {
   batchSize?: number;
@@ -232,7 +240,198 @@ export async function processEmailOutboxBatch(
         continue;
       }
 
-      // Branch B: Lead auto-reply
+      // Branch B: Proposal transactional emails (TASK-0060 / AC-1, AC-2, AC-4)
+      if (
+        item.kind === 'proposal_sent' ||
+        item.kind === 'proposal_accepted_client' ||
+        item.kind === 'proposal_accepted_owner'
+      ) {
+        if (!item.proposalId) {
+          await deleteEmailOutboxItem(item.id, dbClient);
+          suppressedCount += 1;
+          continue;
+        }
+
+        const [proposal] = await dbClient
+          .select()
+          .from(proposals)
+          .where(eq(proposals.id, item.proposalId))
+          .limit(1);
+
+        if (!proposal) {
+          await deleteEmailOutboxItem(item.id, dbClient);
+          suppressedCount += 1;
+          continue;
+        }
+
+        const [clientRow] = await dbClient
+          .select()
+          .from(clients)
+          .where(eq(clients.id, proposal.clientId))
+          .limit(1);
+
+        let studioName = 'Photo Studio';
+        let defaultLocale = 'en';
+        try {
+          const settings = await getStudioSettings(dbClient);
+          studioName = settings.studio_name;
+          defaultLocale = settings.default_locale;
+        } catch {
+          studioName = 'Photo Studio';
+        }
+
+        const clientLocale = clientRow?.preferredLocale ?? defaultLocale;
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+
+        let recipientEmail: string | null | undefined = item.recipient;
+        if (!recipientEmail) {
+          if (item.kind === 'proposal_sent') {
+            const [contact] = await dbClient
+              .select({ email: clientContacts.email })
+              .from(clientContacts)
+              .where(eq(clientContacts.clientId, proposal.clientId))
+              .orderBy(desc(clientContacts.isPrimary), asc(clientContacts.createdAt))
+              .limit(1);
+            recipientEmail = contact?.email;
+          } else if (item.kind === 'proposal_accepted_client') {
+            if (proposal.acceptedByEmail) {
+              recipientEmail = proposal.acceptedByEmail;
+            } else {
+              const [contact] = await dbClient
+                .select({ email: clientContacts.email })
+                .from(clientContacts)
+                .where(eq(clientContacts.clientId, proposal.clientId))
+                .orderBy(desc(clientContacts.isPrimary), asc(clientContacts.createdAt))
+                .limit(1);
+              recipientEmail = contact?.email;
+            }
+          } else {
+            recipientEmail = process.env.SMTP_FROM ?? 'owner@example.org';
+          }
+        }
+
+        if (!recipientEmail) {
+          await deleteEmailOutboxItem(item.id, dbClient);
+          suppressedCount += 1;
+          continue;
+        }
+
+        let rendered;
+        if (item.kind === 'proposal_sent') {
+          const payload = item.payload as { token?: string; tokenUrl?: string } | null | undefined;
+          const payloadToken = payload?.token;
+          const payloadTokenUrl = payload?.tokenUrl;
+          rendered = renderProposalSentEmail({
+            proposal: {
+              id: proposal.id,
+              title: proposal.title,
+              totalMinor: proposal.totalMinor,
+              currency: proposal.currency,
+              validUntil: proposal.validUntil,
+              token: payloadToken,
+              tokenUrl: payloadTokenUrl,
+            },
+            clientName: clientRow?.displayName ?? 'Client',
+            studioName,
+            locale: clientLocale,
+            baseUrl,
+          });
+        } else if (item.kind === 'proposal_accepted_client') {
+          const summary = await getAcceptedProposalForProject(proposal.projectId, dbClient);
+          rendered = renderProposalAcceptedClientEmail({
+            proposal: {
+              id: proposal.id,
+              title: proposal.title,
+              packageName: summary?.packageName,
+              includedItems: summary?.includedItems,
+              selectedAddons: summary?.selectedAddons,
+              totalMinor: proposal.totalMinor,
+              currency: proposal.currency,
+            },
+            clientName: proposal.acceptedByName ?? clientRow?.displayName ?? 'Client',
+            studioName,
+            locale: clientLocale,
+          });
+        } else {
+          // proposal_accepted_owner
+          const summary = await getAcceptedProposalForProject(proposal.projectId, dbClient);
+          rendered = renderProposalAcceptedOwnerEmail({
+            proposal: {
+              id: proposal.id,
+              projectId: proposal.projectId,
+              title: proposal.title,
+              packageName: summary?.packageName,
+              totalMinor: proposal.totalMinor,
+              currency: proposal.currency,
+              acceptedByName: proposal.acceptedByName,
+              acceptedByEmail: proposal.acceptedByEmail,
+            },
+            clientName: clientRow?.displayName ?? 'Client',
+            studioName,
+            locale: defaultLocale,
+            baseUrl,
+          });
+        }
+
+        const headers = getProposalEmailHeaders();
+
+        try {
+          await sendEmail({
+            to: { address: recipientEmail },
+            subject: rendered.subject,
+            text: rendered.text,
+            html: rendered.html,
+            headers,
+            transporter: options.transporter,
+          });
+
+          await deleteEmailOutboxItem(item.id, dbClient);
+
+          logger.info(
+            {
+              proposalId: proposal.id,
+              outboxId: item.id,
+              kind: item.kind,
+            },
+            'Proposal transactional email sent successfully',
+          );
+
+          sentCount += 1;
+        } catch (err) {
+          failedCount += 1;
+          const newAttempts = item.attempts + 1;
+          const isTerminal = isTerminalRetry(newAttempts);
+          const nextAttemptAt = calculateNextAttemptDate(newAttempts, options.backoffOptions);
+
+          const rawMsg = err instanceof Error ? err.message : String(err);
+          const errorClass = err instanceof Error ? err.constructor.name : 'Error';
+          const sanitizedError = sanitizeOutboxError(rawMsg, errorClass);
+
+          logger.warn(
+            {
+              outboxId: item.id,
+              proposalId: proposal.id,
+              attempts: newAttempts,
+              isTerminal,
+              errorClass,
+            },
+            'Proposal transactional email sending failed',
+          );
+
+          await updateEmailOutboxRetry(
+            item.id,
+            newAttempts,
+            nextAttemptAt,
+            sanitizedError,
+            isTerminal,
+            dbClient,
+          );
+        }
+
+        continue;
+      }
+
+      // Branch C: Lead auto-reply
       if (!item.leadId) {
         await deleteEmailOutboxItem(item.id, dbClient);
         suppressedCount += 1;

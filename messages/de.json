@@ -1904,6 +1904,46 @@
         "in_person": "Vor Ort",
         "phone": "Telefonat"
       }
+    },
+    "proposal": {
+      "sent": {
+        "subject": "Angebot: {title} von {studioName}",
+        "greeting": "Hallo {clientName},",
+        "intro": "Sie haben ein neues Angebot von {studioName} erhalten.",
+        "proposalTitle": "Angebot: {title}",
+        "totalAmount": "Gesamtbetrag: {amount}",
+        "validUntil": "Gültig bis: {date}",
+        "buttonText": "Angebot ansehen",
+        "linkText": "Öffnen Sie folgenden Link, um Ihr Angebot anzusehen und anzunehmen: {url}",
+        "contactInfo": "Bei Fragen oder Änderungswünschen wenden Sie sich bitte an {studioName}.",
+        "footer": "Dies ist eine automatisierte Benachrichtigung."
+      },
+      "acceptedClient": {
+        "subject": "Bestätigung: Angebot angenommen — {title}",
+        "greeting": "Hallo {clientName},",
+        "intro": "Vielen Dank für die Annahme unseres Angebots. Wir freuen uns sehr auf die Zusammenarbeit!",
+        "proposalTitle": "Angebot: {title}",
+        "packageTitle": "Angenommenes Paket: {packageName}",
+        "includedItems": "Enthaltene Leistungen:",
+        "addonsTitle": "Ausgewählte Zusatzleistungen:",
+        "noAddons": "Keine",
+        "totalAmount": "Gesamtbetrag: {amount}",
+        "nextSteps": "Nächste Schritte: Wir bereiten Ihren Buchungsvertrag vor. Sie erhalten in Kürze eine Einladung zur Prüfung und Unterzeichnung.",
+        "contactInfo": "Bei Fragen wenden Sie sich bitte an {studioName}.",
+        "footer": "Dies ist eine automatisierte Benachrichtigung."
+      },
+      "acceptedOwner": {
+        "subject": "Angebot angenommen: {title}",
+        "greeting": "Hallo {studioName},",
+        "intro": "Gute Neuigkeiten! Das Angebot „{title}“ wurde von {clientName} angenommen.",
+        "proposalTitle": "Angebot: {title}",
+        "packageTitle": "Paket: {packageName}",
+        "totalAmount": "Gesamtbetrag: {amount}",
+        "acceptedBy": "Angenommen von: {acceptedByName} ({acceptedByEmail})",
+        "buttonText": "Projekt ansehen",
+        "linkText": "Projekt in Ihrem Studio-Arbeitsbereich ansehen: {url}",
+        "footer": "Dies ist eine automatisierte Benachrichtigung."
+      }
     }
   },
   "calendar": {

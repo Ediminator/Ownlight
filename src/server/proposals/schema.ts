@@ -92,3 +92,60 @@ export const transitionProposalStatusSchema = z
 
 export type TransitionProposalStatusInput = z.input<typeof transitionProposalStatusSchema>;
 export type TransitionProposalStatusOutput = z.output<typeof transitionProposalStatusSchema>;
+
+/**
+ * Schema for saving (creating or updating) a draft proposal (TASK-0060).
+ */
+export const saveDraftProposalSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    projectId: z.string().uuid('Project ID must be a valid UUID'),
+    clientId: z.string().uuid('Client ID must be a valid UUID').optional(),
+    title: z
+      .string()
+      .trim()
+      .min(1, 'Proposal title is required')
+      .max(200, 'Proposal title too long'),
+    currency: z.string().length(3, 'Currency must be 3 characters').default('EUR'),
+    pricesIncludeTax: z.boolean().default(true),
+    isKleinunternehmer: z.boolean().default(false),
+    taxNotice: z.string().max(1000).nullable().optional(),
+    validUntil: z.coerce.date().nullable().optional(),
+    internalNotes: z.string().max(5000).nullable().optional(),
+    lineItems: z.array(proposalLineItemInputSchema).default([]),
+  })
+  .strict();
+
+export type SaveDraftProposalInput = z.input<typeof saveDraftProposalSchema>;
+export type SaveDraftProposalOutput = z.output<typeof saveDraftProposalSchema>;
+
+/**
+ * Schema for sending a proposal to a client (TASK-0060).
+ */
+export const sendProposalSchema = z
+  .object({
+    proposalId: z.string().uuid('Proposal ID must be a valid UUID'),
+    validUntil: z.coerce
+      .date({ message: 'Valid expiration date is required' })
+      .refine((date) => date.getTime() > Date.now(), {
+        message: 'Expiration date must be in the future',
+      })
+      .optional(),
+    recipientEmail: z.string().trim().email('Invalid recipient email address').max(255).optional(),
+  })
+  .strict();
+
+export type SendProposalInput = z.input<typeof sendProposalSchema>;
+export type SendProposalOutput = z.output<typeof sendProposalSchema>;
+
+/**
+ * Schema for revoking a proposal's public token (TASK-0060).
+ */
+export const revokeProposalTokenSchema = z
+  .object({
+    proposalId: z.string().uuid('Proposal ID must be a valid UUID'),
+  })
+  .strict();
+
+export type RevokeProposalTokenInput = z.input<typeof revokeProposalTokenSchema>;
+export type RevokeProposalTokenOutput = z.output<typeof revokeProposalTokenSchema>;

@@ -259,4 +259,36 @@ describe('TASK-0060: Downstream Contract & Accounting Export Query (AC-9)', () =
     expect(summary?.includedItems).toEqual([]);
     expect(summary?.totalMinor).toBe(178500);
   });
+
+  it('AC-9: handles fallback values when accepted proposal has no base package item or nullable acceptance details', async () => {
+    const proposalId = generateUuidV7();
+    const now = new Date();
+
+    await dbClient.insert(proposals).values({
+      id: proposalId,
+      projectId: testProjectId,
+      clientId: testClientId,
+      title: 'A La Carte Only Proposal',
+      status: 'accepted',
+      currency: 'EUR',
+      subtotalMinor: 50000,
+      taxMinor: 9500,
+      totalMinor: 59500,
+      tokenHash: 'dummy-sha256-hash-alacarte',
+      acceptedAt: null,
+      acceptedByName: null,
+      acceptedByEmail: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const summary = await getAcceptedProposalForProject(testProjectId, dbClient);
+
+    expect(summary).toBeDefined();
+    expect(summary?.packageName).toBe('A La Carte Only Proposal');
+    expect(summary?.includedItems).toEqual([]);
+    expect(summary?.acceptedByName).toBe('');
+    expect(summary?.acceptedByEmail).toBe('');
+    expect(summary?.acceptedAt).toEqual(now);
+  });
 });

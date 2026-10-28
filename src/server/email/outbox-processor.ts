@@ -37,7 +37,7 @@ import {
   renderProposalAcceptedOwnerEmail,
   getProposalEmailHeaders,
 } from './templates';
-import { getAcceptedProposalForProject } from '@/server/proposals/service';
+import { getAcceptedProposalForProject } from '@/server/proposals/accepted-summary';
 
 export interface EmailOutboxBatchOptions {
   batchSize?: number;

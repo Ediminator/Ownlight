@@ -32,7 +32,7 @@ describe('TASK-0060: Proposal Email Templates Unit Tests (AC-2, AC-4, AC-6)', ()
           totalMinor: 250000,
           currency: 'EUR',
           validUntil: new Date('2026-12-31T12:00:00Z'),
-          token: 'secure-token-123',
+          token: 'tok-123',
         },
         clientName: 'Emma Watson',
         studioName: 'Lumos Photography',
@@ -51,7 +51,7 @@ describe('TASK-0060: Proposal Email Templates Unit Tests (AC-2, AC-4, AC-6)', ()
       expect(rendered.text).toContain('Proposal: Wedding Photography — Emma & Liam');
       expect(rendered.text).toContain('€2,500.00');
       expect(rendered.text).toContain('December 31, 2026');
-      expect(rendered.text).toContain('https://studio.example.org/p/secure-token-123');
+      expect(rendered.text).toContain('https://studio.example.org/p/tok-123');
       expect(rendered.text).toContain('This is an automated transactional notification.');
 
       // HTML
@@ -61,7 +61,7 @@ describe('TASK-0060: Proposal Email Templates Unit Tests (AC-2, AC-4, AC-6)', ()
       expect(rendered.html).toContain('Lumos Photography');
       expect(rendered.html).toContain('Hello Emma Watson,');
       expect(rendered.html).toContain('€2,500.00');
-      expect(rendered.html).toContain('https://studio.example.org/p/secure-token-123');
+      expect(rendered.html).toContain('https://studio.example.org/p/tok-123');
       expect(rendered.html).toContain('View Proposal');
     });
 
@@ -73,7 +73,7 @@ describe('TASK-0060: Proposal Email Templates Unit Tests (AC-2, AC-4, AC-6)', ()
           totalMinor: 320000,
           currency: 'EUR',
           validUntil: new Date('2026-11-15T12:00:00Z'),
-          token: 'token-de-456',
+          token: 'tok-456',
         },
         clientName: 'Anna Schmidt',
         studioName: 'Lichtwerk Fotostudio',
@@ -94,7 +94,7 @@ describe('TASK-0060: Proposal Email Templates Unit Tests (AC-2, AC-4, AC-6)', ()
       expect(rendered.text).toContain('Angebot: Hochzeitsfotografie — Anna & Max');
       expect(rendered.text).toContain('3.200,00');
       expect(rendered.text).toContain('15. November 2026');
-      expect(rendered.text).toContain('https://lichtwerk.example.de/p/token-de-456');
+      expect(rendered.text).toContain('https://lichtwerk.example.de/p/tok-456');
 
       // HTML
       expect(rendered.html).toContain('lang="de"');

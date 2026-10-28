@@ -97,7 +97,7 @@ describe('TASK-0060: Proposals Email Outbox, Templates, Send & Revoke Actions In
       .values({
         id: generateUuidV7(),
         name: 'Studio Owner',
-        email: 'owner@solsticelight.com',
+        email: 'owner@example.org',
         role: 'owner',
         emailVerified: true,
         createdAt: new Date(),
@@ -600,7 +600,7 @@ describe('TASK-0060: Proposals Email Outbox, Templates, Send & Revoke Actions In
       expect(clientItem?.status).toBe('PENDING');
 
       expect(ownerItem).toBeDefined();
-      expect(ownerItem?.recipient).toBe('owner@solsticelight.com');
+      expect(ownerItem?.recipient).toBe('owner@example.org');
       expect(ownerItem?.status).toBe('PENDING');
 
       // 4. Process outbox items and verify email content and RFC 3834 headers
@@ -630,7 +630,7 @@ describe('TASK-0060: Proposals Email Outbox, Templates, Send & Revoke Actions In
         (m) => (m.to as { address: string }).address === 'sophia.accepted@example.com',
       );
       const ownerMail = sentMails.find(
-        (m) => (m.to as { address: string }).address === 'owner@solsticelight.com',
+        (m) => (m.to as { address: string }).address === 'owner@example.org',
       );
 
       expect(clientMail).toBeDefined();
@@ -808,7 +808,7 @@ describe('TASK-0060: Proposals Email Outbox, Templates, Send & Revoke Actions In
         .values({
           id: generateUuidV7(),
           name: 'Staff Member',
-          email: 'staff@solsticelight.com',
+          email: 'staff@example.org',
           role: 'member',
           emailVerified: true,
           createdAt: new Date(),

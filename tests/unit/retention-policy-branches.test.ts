@@ -87,7 +87,7 @@ describe('Retention policy utility and definition branches', () => {
 
   it('createDefaultPolicies constructs policies that exercise getCandidates and deleteBatch branches', async () => {
     const policies = createDefaultPolicies();
-    expect(policies).toHaveLength(9);
+    expect(policies).toHaveLength(10);
 
     const [
       auditPolicy,
@@ -99,6 +99,7 @@ describe('Retention policy utility and definition branches', () => {
       spamLeadsPolicy,
       expiredPowReplaysPolicy,
       failedEmailOutboxPolicy,
+      unacceptedProposalsPolicy,
     ] = policies;
     expect(auditPolicy).toBeDefined();
     expect(sessionPolicy).toBeDefined();
@@ -109,6 +110,7 @@ describe('Retention policy utility and definition branches', () => {
     expect(spamLeadsPolicy).toBeDefined();
     expect(expiredPowReplaysPolicy).toBeDefined();
     expect(failedEmailOutboxPolicy).toBeDefined();
+    expect(unacceptedProposalsPolicy).toBeDefined();
 
     // Mock DB client
     let deletedCount = 0;

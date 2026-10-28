@@ -106,5 +106,81 @@ describe('TASK-0058: Timeline Registry & Audit Allowlist (AC-8)', () => {
         }),
       ).toThrow(AuditMetadataValidationError);
     });
+
+    it('I1-S01: regression - proposal.accepted audit metadata allowlist does not permit personal names', () => {
+      const allowedKeys = ACTION_METADATA_ALLOWLIST.get('proposal.accepted');
+      expect(allowedKeys).toBeDefined();
+      expect(allowedKeys).not.toContain('accepted_by_name');
+      expect(allowedKeys).toEqual([
+        'proposal_id',
+        'project_id',
+        'client_id',
+        'total_minor',
+        'currency',
+      ]);
+
+      // Attempting to pass customer name in audit metadata must be rejected
+      expect(() =>
+        validateAndSanitizeMetadata('proposal.accepted', 'owner', {
+          proposal_id: '01920000-0000-7000-8000-000000000201',
+          project_id: '01920000-0000-7000-8000-000000000071',
+          client_id: '01920000-0000-7000-8000-000000000081',
+          total_minor: 280000,
+          currency: 'EUR',
+          accepted_by_name: 'Emma Watson',
+        }),
+      ).toThrow(AuditMetadataValidationError);
+    });
+
+    it('I1-S02: regression - proposal.declined audit metadata allowlist replaces free-text decline_reason with boolean has_decline_reason', () => {
+      const allowedKeys = ACTION_METADATA_ALLOWLIST.get('proposal.declined');
+      expect(allowedKeys).toBeDefined();
+      expect(allowedKeys).not.toContain('decline_reason');
+      expect(allowedKeys).toContain('has_decline_reason');
+      expect(allowedKeys).toEqual([
+        'proposal_id',
+        'project_id',
+        'client_id',
+        'total_minor',
+        'currency',
+        'has_decline_reason',
+      ]);
+
+      // Free-text message string must be rejected from audit metadata
+      expect(() =>
+        validateAndSanitizeMetadata('proposal.declined', 'owner', {
+          proposal_id: '01920000-0000-7000-8000-000000000201',
+          project_id: '01920000-0000-7000-8000-000000000071',
+          client_id: '01920000-0000-7000-8000-000000000081',
+          total_minor: 280000,
+          currency: 'EUR',
+          decline_reason: 'Too expensive for our budget',
+        }),
+      ).toThrow(AuditMetadataValidationError);
+    });
+
+    it('I1-S03: regression - docs/privacy/data-inventory.md catalogues all proposals personal data fields under section 9', () => {
+      const dataInventoryPath = path.resolve(
+        import.meta.dirname,
+        '../../docs/privacy/data-inventory.md',
+      );
+      expect(fs.existsSync(dataInventoryPath)).toBe(true);
+      const content = fs.readFileSync(dataInventoryPath, 'utf8');
+
+      expect(content).toContain(
+        '## 9. Proposals & Commercial Quotations Data (TASK-0058, ADR-0018)',
+      );
+      expect(content).toContain('proposals.client_id');
+      expect(content).toContain('proposals.accepted_by_name');
+      expect(content).toContain('proposals.accepted_by_email');
+      expect(content).toContain('proposals.acceptance_ip_anonymized');
+      expect(content).toContain('proposals.acceptance_user_agent');
+      expect(content).toContain('proposals.accepted_options_snapshot');
+      expect(content).toContain('proposals.decline_reason');
+      expect(content).toContain('proposals.internal_notes');
+      expect(content).toContain('proposal_line_items.*');
+      expect(content).toContain('§147 AO');
+      expect(content).toContain('TASK-0059');
+    });
   });
 });

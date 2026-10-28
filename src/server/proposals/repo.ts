@@ -275,6 +275,7 @@ export async function getProposalByTokenHash(
 
   return {
     ...proposal,
+    internalNotes: null,
     lineItems: items,
   };
 }
@@ -662,7 +663,6 @@ export async function transitionProposalStatus(
             client_id: acceptedProposal.clientId,
             total_minor: acceptedProposal.totalMinor,
             currency: acceptedProposal.currency,
-            accepted_by_name: acceptedProposal.acceptedByName ?? null,
           },
         },
         tx,
@@ -765,7 +765,7 @@ export async function transitionProposalStatus(
             client_id: declinedProposal.clientId,
             total_minor: declinedProposal.totalMinor,
             currency: declinedProposal.currency,
-            decline_reason: declinedProposal.declineReason ?? null,
+            has_decline_reason: Boolean(declinedProposal.declineReason),
           },
         },
         tx,

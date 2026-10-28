@@ -352,6 +352,20 @@ describe('TASK-0058: Proposals Repository Integration Tests (AC-1, AC-5, AC-6, A
       expect(timelineEvents).toHaveLength(1);
       expect(timelineEvents[0]?.clientId).toBe(testClientId);
 
+      // I1-S01: regression - audit log must NOT record customer name in metadata
+      const acceptedAudit = await dbClient
+        .select()
+        .from(auditEvents)
+        .where(eq(auditEvents.action, 'proposal.accepted'));
+      expect(acceptedAudit).toHaveLength(1);
+      expect(acceptedAudit[0]?.metadata).toEqual(
+        expect.objectContaining({
+          proposal_id: created.id,
+          total_minor: 300000,
+        }),
+      );
+      expect(acceptedAudit[0]?.metadata).not.toHaveProperty('accepted_by_name');
+
       // AC-6 Immutability: attempting to modify line items must throw ProposalImmutableError
       await expect(
         setProposalLineItems(
@@ -491,6 +505,7 @@ describe('TASK-0058: Proposals Repository Integration Tests (AC-1, AC-5, AC-6, A
           projectId: testProjectId,
           clientId: testClientId,
           title: 'Token Resolvable Proposal',
+          internalNotes: 'Top secret studio pricing strategy',
           lineItems: [
             {
               name: 'Session Package',
@@ -509,11 +524,18 @@ describe('TASK-0058: Proposals Repository Integration Tests (AC-1, AC-5, AC-6, A
       expect(byHash).toBeDefined();
       expect(byHash?.id).toBe(created.id);
       expect(byHash?.lineItems).toHaveLength(1);
+      // I1-S04: regression - internalNotes must be redacted to null on public token lookup
+      expect(byHash?.internalNotes).toBeNull();
 
       // Public lookup by raw token
       const byRaw = await getProposalByRawToken(created.rawToken, dbClient);
       expect(byRaw).toBeDefined();
       expect(byRaw?.id).toBe(created.id);
+      expect(byRaw?.internalNotes).toBeNull();
+
+      // Owner lookup must still preserve full internalNotes
+      const byOwner = await getProposalById(created.id, ownerAuth, dbClient);
+      expect(byOwner?.internalNotes).toBe('Top secret studio pricing strategy');
     });
 
     it('lists proposals by project ordered newest first', async () => {
@@ -617,6 +639,19 @@ describe('TASK-0058: Proposals Repository Integration Tests (AC-1, AC-5, AC-6, A
         .from(clientTimelineEvents)
         .where(eq(clientTimelineEvents.type, 'proposal.declined'));
       expect(declinedEvents.length).toBeGreaterThanOrEqual(1);
+
+      // I1-S02: regression - audit log must record has_decline_reason boolean, NOT raw free-text decline_reason
+      const declinedAudit = await dbClient
+        .select()
+        .from(auditEvents)
+        .where(eq(auditEvents.action, 'proposal.declined'));
+      expect(declinedAudit.length).toBeGreaterThanOrEqual(1);
+      expect(declinedAudit[0]?.metadata).toEqual(
+        expect.objectContaining({
+          has_decline_reason: true,
+        }),
+      );
+      expect(declinedAudit[0]?.metadata).not.toHaveProperty('decline_reason');
     });
 
     it('handles not found and empty list conditions gracefully', async () => {

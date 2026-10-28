@@ -220,13 +220,10 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
     'proposal.sent',
     ['proposal_id', 'project_id', 'client_id', 'total_minor', 'currency', 'valid_until'],
   ],
-  [
-    'proposal.accepted',
-    ['proposal_id', 'project_id', 'client_id', 'total_minor', 'currency', 'accepted_by_name'],
-  ],
+  ['proposal.accepted', ['proposal_id', 'project_id', 'client_id', 'total_minor', 'currency']],
   [
     'proposal.declined',
-    ['proposal_id', 'project_id', 'client_id', 'total_minor', 'currency', 'decline_reason'],
+    ['proposal_id', 'project_id', 'client_id', 'total_minor', 'currency', 'has_decline_reason'],
   ],
   ['proposal.revoked', ['proposal_id', 'project_id', 'client_id', 'reason']],
 ]);

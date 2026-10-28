@@ -17,6 +17,7 @@ export interface CliExecutionResult extends SweepSummary {
   inactiveClients?: { scanned: number; deleted: number; held: number };
   unconvertedLeads?: { scanned: number; deleted: number; held: number };
   spamLeads?: { scanned: number; deleted: number; held: number };
+  unacceptedProposals?: { scanned: number; deleted: number; held: number };
 }
 
 /**
@@ -75,6 +76,9 @@ export async function executeRetentionSweep(options: CliOptions = {}): Promise<C
     );
     const unconvertedLeadsPolicy = summary.policies.find((p) => p.policyId === 'unconverted-leads');
     const spamLeadsPolicy = summary.policies.find((p) => p.policyId === 'spam-leads');
+    const unacceptedProposalsPolicy = summary.policies.find(
+      (p) => p.policyId === 'unaccepted-proposals' || p.entity === 'proposals',
+    );
 
     return {
       ...summary,
@@ -107,6 +111,11 @@ export async function executeRetentionSweep(options: CliOptions = {}): Promise<C
         scanned: spamLeadsPolicy?.scannedCount ?? 0,
         deleted: spamLeadsPolicy?.deletedCount ?? 0,
         held: spamLeadsPolicy?.heldCount ?? 0,
+      },
+      unacceptedProposals: {
+        scanned: unacceptedProposalsPolicy?.scannedCount ?? 0,
+        deleted: unacceptedProposalsPolicy?.deletedCount ?? 0,
+        held: unacceptedProposalsPolicy?.heldCount ?? 0,
       },
     };
   } finally {

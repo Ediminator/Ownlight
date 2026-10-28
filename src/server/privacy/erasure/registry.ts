@@ -10,6 +10,7 @@ import type { ErasureProvider, ErasureHoldProvider } from './types';
 import { googleContactsErasureProvider } from '@/server/integrations/google/erasure-provider';
 import { projectsErasureProvider, projectsHoldProvider } from '@/server/projects/privacy';
 import { appointmentsErasureProvider } from './appointments';
+import { proposalsErasureProvider, proposalsHoldProvider } from '@/server/proposals/privacy';
 
 const erasureProviders = new Map<string, ErasureProvider>();
 const holdProviders = new Map<string, ErasureHoldProvider>();
@@ -280,6 +281,7 @@ export const DEFAULT_ERASURE_PROVIDERS: ErasureProvider[] = [
     },
   },
   googleContactsErasureProvider,
+  proposalsErasureProvider,
   projectsErasureProvider,
   appointmentsErasureProvider,
   {
@@ -509,6 +511,7 @@ export const DEFAULT_HOLD_PROVIDERS: ErasureHoldProvider[] = [
     },
   },
   projectsHoldProvider,
+  proposalsHoldProvider,
 ];
 
 function initDefaultProviders(): void {

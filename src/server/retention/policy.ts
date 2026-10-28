@@ -8,6 +8,7 @@ import { clients } from '@/server/db/schema/clients';
 import { leads } from '@/server/db/schema/leads';
 import { inquiryPowReplays } from '@/server/db/schema/inquiry-forms';
 import { emailOutbox } from '@/server/db/schema/email-outbox';
+import { proposals, proposalLineItems } from '@/server/db/schema/proposals';
 import { findActiveClientIds } from '@/server/clients/activity';
 import { env } from '@/env';
 
@@ -576,6 +577,54 @@ export function createDefaultPolicies(): RetentionPolicy[] {
     },
   });
 
+  // 10. Unaccepted or declined proposals older than 12 months where no project was booked (ADR-0018 §6, TASK-0059 AC-5)
+  const unacceptedProposalsPolicy = defineRetentionPolicy<{ id: string }>({
+    id: 'unaccepted-proposals',
+    entity: 'proposals',
+    description:
+      'Purges unaccepted or declined proposals older than 12 months where no project was booked',
+    after: { months: 12 },
+    action: 'delete',
+    batchSize: 500,
+    getCandidates: async (client, cutoff, limit, excludedIds) => {
+      const unbookedCondition = sql`NOT EXISTS (
+        SELECT 1 FROM projects p
+        INNER JOIN pipeline_stages ps ON p.stage_id = ps.id
+        WHERE p.id = ${proposals.projectId}
+          AND ps.category IN ('booked', 'in_progress', 'review', 'completed')
+      ) AND NOT EXISTS (
+        SELECT 1 FROM proposals p2
+        WHERE p2.project_id = ${proposals.projectId}
+          AND p2.status = 'accepted'
+      )`;
+
+      const basePredicate = and(
+        inArray(proposals.status, ['draft', 'sent', 'declined', 'expired', 'superseded']),
+        lt(proposals.updatedAt, cutoff),
+        unbookedCondition,
+        excludedIds.length > 0 ? notInArray(proposals.id, excludedIds) : undefined,
+      );
+
+      const rows = await client
+        .select({
+          id: proposals.id,
+        })
+        .from(proposals)
+        .where(basePredicate)
+        .orderBy(asc(proposals.updatedAt), asc(proposals.id))
+        .limit(limit);
+
+      return rows;
+    },
+    deleteBatch: async (client, ids) => {
+      if (ids.length === 0) return;
+      // 1. Delete associated line items
+      await client.delete(proposalLineItems).where(inArray(proposalLineItems.proposalId, ids));
+      // 2. Delete proposals
+      await client.delete(proposals).where(inArray(proposals.id, ids));
+    },
+  });
+
   return [
     auditEventsPolicy as unknown as RetentionPolicy,
     expiredSessionsPolicy as unknown as RetentionPolicy,
@@ -586,6 +635,7 @@ export function createDefaultPolicies(): RetentionPolicy[] {
     spamLeadsPolicy,
     expiredPowReplaysPolicy,
     failedEmailOutboxPolicy,
+    unacceptedProposalsPolicy,
   ];
 }
 

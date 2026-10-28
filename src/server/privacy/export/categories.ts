@@ -489,6 +489,39 @@ export const INITIAL_CATEGORIES: readonly CategoryDefinition[] = [
       de: 'Von der teilnehmenden Person bei der Terminvereinbarung angegeben.',
     },
   },
+  {
+    id: 'proposals',
+    titleKey: 'privacy.export.categories.proposals.title',
+    purposeKey: 'privacy.export.categories.proposals.purpose',
+    lawfulBasisKey: 'privacy.export.categories.proposals.lawful_basis',
+    retentionKey: 'privacy.export.categories.proposals.retention',
+    recipientsKey: 'privacy.export.categories.proposals.recipients',
+    sourceKey: 'privacy.export.categories.proposals.source',
+    title: {
+      en: 'Proposals & Quotes',
+      de: 'Angebote & Kostenvoranschläge',
+    },
+    purpose: {
+      en: 'Preparation, submission, negotiation, and formal acceptance of service proposals and fee quotes.',
+      de: 'Erstellung, Übermittlung, Verhandlung und formelle Annahme von Angeboten und Kostenvoranschlägen.',
+    },
+    lawfulBasis: {
+      en: 'Art. 6(1)(b) GDPR (Performance of a contract / pre-contractual measures) and § 147 AO / § 257 HGB (Statutory accounting & tax obligations for accepted proposals).',
+      de: 'Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung / vorvertragliche Maßnahmen) und § 147 AO / § 257 HGB (Steuer- und handelsrechtliche Aufbewahrungspflichten für angenommene Angebote).',
+    },
+    retention: {
+      en: 'Unaccepted/declined proposals are pruned after 12 months; accepted proposals are retained for 10 years pursuant to § 147 AO and § 257 HGB.',
+      de: 'Nicht angenommene/abgelehnte Angebote werden nach 12 Monaten gelöscht; angenommene Angebote werden 10 Jahre gemäß § 147 AO und § 257 HGB aufbewahrt.',
+    },
+    recipients: {
+      en: 'None (stored locally on the self-hosted studio instance).',
+      de: 'Keine (ausschließlich lokale Speicherung auf der selbst gehosteten Studio-Instanz).',
+    },
+    source: {
+      en: 'Provided by the studio owner and client during proposal negotiation and acceptance.',
+      de: 'Vom Studioinhaber und Kunden im Rahmen der Angebotsverhandlung und -annahme bereitgestellt.',
+    },
+  },
 ];
 
 const categoryRegistry = new Map<string, CategoryDefinition>();

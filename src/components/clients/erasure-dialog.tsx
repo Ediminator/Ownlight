@@ -263,7 +263,12 @@ export function ErasureDialogInner({
             <ul className="space-y-2 pt-2 border-t border-amber-200/60 dark:border-amber-800/40 text-xs text-foreground">
               {holds.map((h, idx) => {
                 const manualKey = h.reason.startsWith('manual.') ? h.reason.slice(7) : null;
-                const localizedReason = manualKey ? tHolds(`manual.${manualKey}`) : h.reason;
+                const statutoryKey = h.reason.startsWith('statutory.') ? h.reason.slice(10) : null;
+                const localizedReason = manualKey
+                  ? tHolds(`manual.${manualKey}`)
+                  : statutoryKey
+                    ? tHolds(`statutory.${statutoryKey}`)
+                    : h.reason;
                 return (
                   <li
                     key={idx}

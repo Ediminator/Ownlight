@@ -115,6 +115,25 @@ async function resolveSubject(
 }
 
 /**
+ * Evaluates all registered erasure hold providers for the given subject.
+ * Returns an array of active holds. If array is empty, erasure may proceed.
+ */
+export async function checkErasureHolds(
+  subject: ErasureSubject,
+  client: DbClient = defaultDb,
+): Promise<ErasureHold[]> {
+  const holdProviders = getErasureHoldProviders();
+  const holds: ErasureHold[] = [];
+  for (const hp of holdProviders) {
+    const provHolds = await hp.holds(subject, client);
+    if (provHolds.length > 0) {
+      holds.push(...provHolds);
+    }
+  }
+  return holds;
+}
+
+/**
  * Plans erasure of a client or contact.
  * Aggregates counts across all erasure providers, evaluates holds,
  * and flags notesMayMentionPerson for contact erasure on multi-contact clients.
@@ -131,14 +150,7 @@ export async function planErasure(
   const { effectiveSubject, clientDisplayName, isMultiContact } = resolved;
 
   // 1. Evaluate holds across all registered hold providers
-  const holdProviders = getErasureHoldProviders();
-  const holds: ErasureHold[] = [];
-  for (const hp of holdProviders) {
-    const provHolds = await hp.holds(effectiveSubject, client);
-    if (provHolds.length > 0) {
-      holds.push(...provHolds);
-    }
-  }
+  const holds = await checkErasureHolds(effectiveSubject, client);
 
   // 2. Aggregate category counts from erasure providers
   const providers = getErasureProviders();
@@ -203,14 +215,7 @@ export async function eraseSubject(
     const { effectiveSubject } = resolved;
 
     // 2. Re-evaluate holds inside transaction (TOCTOU protection, AC-5)
-    const holdProviders = getErasureHoldProviders();
-    const holds: ErasureHold[] = [];
-    for (const hp of holdProviders) {
-      const provHolds = await hp.holds(effectiveSubject, tx);
-      if (provHolds.length > 0) {
-        holds.push(...provHolds);
-      }
-    }
+    const holds = await checkErasureHolds(effectiveSubject, tx);
 
     const targetUuid =
       effectiveSubject.kind === 'client'

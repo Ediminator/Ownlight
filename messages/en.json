@@ -2147,5 +2147,123 @@
       "powFailed": "Security check failed. Please refresh and try again.",
       "general": "Something went wrong. Please try again."
     }
+  },
+  "proposals": {
+    "builder": {
+      "title": "Proposal Composer",
+      "editTitle": "Edit Proposal",
+      "breadcrumb": "Proposals",
+      "newProposal": "New Proposal",
+      "projectLabel": "Project",
+      "clientLabel": "Client",
+      "proposalTitleLabel": "Proposal Title",
+      "proposalTitlePlaceholder": "e.g. Wedding Photography Proposal — Emma & Liam",
+      "currencyLabel": "Currency",
+      "pricingModeLabel": "Tax Mode",
+      "pricingModeGross": "Gross (VAT included)",
+      "pricingModeNet": "Net (VAT added)",
+      "kleinunternehmerBadge": "§ 19 UStG (Small Business)",
+      "status": {
+        "draft": "Draft",
+        "sent": "Sent",
+        "accepted": "Accepted",
+        "declined": "Declined",
+        "expired": "Expired",
+        "superseded": "Superseded"
+      },
+      "packageSection": {
+        "title": "1. Base Service Package",
+        "subtitle": "Select a base package from your studio catalogue or start with custom deliverables.",
+        "selectPlaceholder": "Choose a studio package...",
+        "noPackages": "No packages found",
+        "filterAll": "All Project Types",
+        "includedDeliverablesTitle": "Included Bundled Deliverables",
+        "deliverablesSubtitle": "Deliverables included in this package. You can customize them for this proposal.",
+        "addDeliverable": "Add Deliverable",
+        "deliverableTitlePlaceholder": "Deliverable title",
+        "deliverableQty": "Qty",
+        "removeDeliverable": "Remove deliverable",
+        "customBasePackage": "Custom Package (No catalogue link)",
+        "basePriceLabel": "Base Price",
+        "taxRateLabel": "VAT Rate"
+      },
+      "addonSection": {
+        "title": "2. Add-on Options & Custom Items",
+        "subtitle": "Attach modular add-on products from your catalogue or add one-off custom line items.",
+        "cataloguePlaceholder": "Select a catalogue add-on...",
+        "addCatalogueAddon": "Add Catalogue Add-on",
+        "addCustomItem": "Add Custom Item",
+        "noAddonsAttached": "No add-on options or custom line items attached yet.",
+        "table": {
+          "item": "Item",
+          "type": "Type",
+          "price": "Unit Price",
+          "quantity": "Quantity",
+          "maxQuantity": "Max Qty",
+          "taxRate": "VAT Rate",
+          "optional": "Optional for Client",
+          "actions": "Actions"
+        },
+        "types": {
+          "base_package": "Base Package",
+          "addon": "Catalogue Add-on",
+          "custom": "Custom Item"
+        },
+        "optionalBadge": "Client-Optional",
+        "mandatoryBadge": "Mandatory",
+        "moveUp": "Move line item up",
+        "moveDown": "Move line item down",
+        "removeItem": "Remove line item",
+        "namePlaceholder": "Item name",
+        "descriptionPlaceholder": "Optional description for client..."
+      },
+      "financialSection": {
+        "title": "3. Commercial Summary & Dispatch",
+        "subtitle": "Real-time calculation in integer minor units according to your studio tax configuration.",
+        "subtotal": "Subtotal",
+        "netSubtotal": "Net Subtotal",
+        "grossSubtotal": "Gross Total",
+        "tax": "VAT",
+        "total": "Total Amount",
+        "taxBreakdown": "VAT Breakdown",
+        "taxAtRate": "VAT at {rate}%",
+        "kleinunternehmerNotice": "Small Business Notice (§ 19 UStG):",
+        "saveDraft": "Save Draft",
+        "saving": "Saving Draft...",
+        "sendProposal": "Send Proposal to Client",
+        "saveSuccess": "Proposal draft saved successfully.",
+        "statusBanner": "Status: {status}"
+      },
+      "sendModal": {
+        "title": "Send Proposal to Client",
+        "description": "Generate a secure, cookieless token link and send the proposal notification email to the client.",
+        "recipientEmailLabel": "Recipient Email Address",
+        "recipientEmailPlaceholder": "client@example.com",
+        "validUntilLabel": "Validity Expiration Date",
+        "validUntilHelp": "Proposals default to 14 days of validity. After this date, interactive acceptance is locked.",
+        "submitButton": "Send Proposal & Queue Email",
+        "sending": "Sending...",
+        "cancelButton": "Cancel"
+      },
+      "linkCopied": {
+        "title": "Proposal Sent Successfully!",
+        "description": "The proposal was marked as sent and the email notification was queued for delivery.",
+        "urlLabel": "Client Proposal Link",
+        "copyButton": "Copy Link",
+        "copied": "Copied to clipboard!",
+        "close": "Done"
+      },
+      "validation": {
+        "titleRequired": "Proposal title is required",
+        "titleTooLong": "Proposal title cannot exceed 200 characters",
+        "negativePrice": "Price cannot be negative",
+        "invalidPrice": "Please enter a valid price",
+        "nameRequired": "Item name is required",
+        "dateInPast": "Expiration date must be in the future",
+        "invalidEmail": "Please enter a valid email address",
+        "quantityMin": "Quantity must be at least 0",
+        "maxQuantityMin": "Max quantity must be at least 1"
+      }
+    }
   }
 }

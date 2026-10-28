@@ -2147,5 +2147,123 @@
       "powFailed": "Sicherheitsüberprüfung fehlgeschlagen. Bitte aktualisieren und erneut versuchen.",
       "general": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
     }
+  },
+  "proposals": {
+    "builder": {
+      "title": "Angebots-Editor",
+      "editTitle": "Angebot bearbeiten",
+      "breadcrumb": "Angebote",
+      "newProposal": "Neues Angebot",
+      "projectLabel": "Projekt",
+      "clientLabel": "Kunde",
+      "proposalTitleLabel": "Angebotstitel",
+      "proposalTitlePlaceholder": "z. B. Hochzeitsfotografie-Angebot — Emma & Liam",
+      "currencyLabel": "Währung",
+      "pricingModeLabel": "Preismodus",
+      "pricingModeGross": "Brutto (inkl. USt.)",
+      "pricingModeNet": "Netto (zzgl. USt.)",
+      "kleinunternehmerBadge": "§ 19 UStG (Kleinunternehmer)",
+      "status": {
+        "draft": "Entwurf",
+        "sent": "Versendet",
+        "accepted": "Angenommen",
+        "declined": "Abgelehnt",
+        "expired": "Abgelaufen",
+        "superseded": "Ersetzt"
+      },
+      "packageSection": {
+        "title": "1. Basispaket",
+        "subtitle": "Wählen Sie ein Basispaket aus Ihrem Studiokatalog oder starten Sie mit individuellen Leistungen.",
+        "selectPlaceholder": "Studiopaket auswählen...",
+        "noPackages": "Keine Pakete gefunden",
+        "filterAll": "Alle Projekttypen",
+        "includedDeliverablesTitle": "Enthaltene Leistungen",
+        "deliverablesSubtitle": "In diesem Paket enthaltene Leistungen. Sie können diese für dieses Angebot anpassen.",
+        "addDeliverable": "Leistung hinzufügen",
+        "deliverableTitlePlaceholder": "Leistungsbezeichnung",
+        "deliverableQty": "Menge",
+        "removeDeliverable": "Leistung entfernen",
+        "customBasePackage": "Individuelles Paket (ohne Katalogverknüpfung)",
+        "basePriceLabel": "Grundpreis",
+        "taxRateLabel": "USt-Satz"
+      },
+      "addonSection": {
+        "title": "2. Zusatzoptionen & Individuelle Positionen",
+        "subtitle": "Fügen Sie modulare Zusatzleistungen aus Ihrem Katalog oder individuelle Positionen hinzu.",
+        "cataloguePlaceholder": "Zusatzleistung aus Katalog auswählen...",
+        "addCatalogueAddon": "Zusatzleistung hinzufügen",
+        "addCustomItem": "Individuelle Position hinzufügen",
+        "noAddonsAttached": "Bisher keine Zusatzoptionen oder individuellen Positionen angehängt.",
+        "table": {
+          "item": "Position",
+          "type": "Typ",
+          "price": "Einzelpreis",
+          "quantity": "Menge",
+          "maxQuantity": "Max. Menge",
+          "taxRate": "USt-Satz",
+          "optional": "Optional für Kunden",
+          "actions": "Aktionen"
+        },
+        "types": {
+          "base_package": "Basispaket",
+          "addon": "Katalog-Zusatzoption",
+          "custom": "Individuelle Position"
+        },
+        "optionalBadge": "Vom Kunden wählbar",
+        "mandatoryBadge": "Verbindlich",
+        "moveUp": "Position nach oben verschieben",
+        "moveDown": "Position nach unten verschieben",
+        "removeItem": "Position entfernen",
+        "namePlaceholder": "Positionsbezeichnung",
+        "descriptionPlaceholder": "Optionale Beschreibung für den Kunden..."
+      },
+      "financialSection": {
+        "title": "3. Finanzübersicht & Versand",
+        "subtitle": "Echtzeit-Berechnung in Minor Units gemäß Ihrer Studio-Steuerkonfiguration.",
+        "subtotal": "Zwischensumme",
+        "netSubtotal": "Nettosumme",
+        "grossSubtotal": "Gesamtbetrag (brutto)",
+        "tax": "Umsatzsteuer",
+        "total": "Gesamtbetrag",
+        "taxBreakdown": "USt-Aufschlüsselung",
+        "taxAtRate": "USt. zu {rate}%",
+        "kleinunternehmerNotice": "Hinweis nach § 19 UStG:",
+        "saveDraft": "Entwurf speichern",
+        "saving": "Entwurf wird gespeichert...",
+        "sendProposal": "Angebot an Kunden senden",
+        "saveSuccess": "Angebotsentwurf erfolgreich gespeichert.",
+        "statusBanner": "Status: {status}"
+      },
+      "sendModal": {
+        "title": "Angebot an Kunden senden",
+        "description": "Erstellen Sie einen sicheren, cookielosen Token-Link und senden Sie die Benachrichtigungs-E-Mail an den Kunden.",
+        "recipientEmailLabel": "E-Mail-Adresse des Empfängers",
+        "recipientEmailPlaceholder": "kunde@beispiel.de",
+        "validUntilLabel": "Gültig bis",
+        "validUntilHelp": "Angebote sind standardmäßig 14 Tage gültig. Nach Ablauf ist die Online-Annahme gesperrt.",
+        "submitButton": "Angebot senden & E-Mail einreihen",
+        "sending": "Wird gesendet...",
+        "cancelButton": "Abbrechen"
+      },
+      "linkCopied": {
+        "title": "Angebot erfolgreich versendet!",
+        "description": "Das Angebot wurde als versendet markiert und die E-Mail zur Zustellung eingereiht.",
+        "urlLabel": "Kunden-Angebotslink",
+        "copyButton": "Link kopieren",
+        "copied": "In die Zwischenablage kopiert!",
+        "close": "Fertig"
+      },
+      "validation": {
+        "titleRequired": "Angebotstitel ist erforderlich",
+        "titleTooLong": "Angebotstitel darf maximal 200 Zeichen lang sein",
+        "negativePrice": "Preis darf nicht negativ sein",
+        "invalidPrice": "Bitte geben Sie einen gültigen Preis ein",
+        "nameRequired": "Positionsbezeichnung ist erforderlich",
+        "dateInPast": "Gültigkeitsdatum muss in der Zukunft liegen",
+        "invalidEmail": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
+        "quantityMin": "Menge muss mindestens 0 sein",
+        "maxQuantityMin": "Maximale Menge muss mindestens 1 sein"
+      }
+    }
   }
 }

@@ -460,14 +460,81 @@ describe('TASK-0060: Proposals Email Outbox, Templates, Send & Revoke Actions In
       expect(dispatched.to).toEqual({ address: 'sophia@example.com' });
       expect(dispatched.subject).toContain('Fine Art Session');
       expect(dispatched.subject).toContain('Solstice Light Studio');
-      expect(dispatched.text).toContain(`/p/${sendRes.data.rawToken}`);
+      expect(dispatched.text).toContain(`http://localhost:3000/p/${sendRes.data.rawToken}`);
       expect(dispatched.text).toContain('€2,500.00');
-      expect(dispatched.html).toContain(`/p/${sendRes.data.rawToken}`);
+      expect(dispatched.html).toContain(`href="http://localhost:3000/p/${sendRes.data.rawToken}"`);
       expect(dispatched.html).toContain('View Proposal');
       expect(dispatched.headers?.['Auto-Submitted']).toBe('auto-generated');
       expect(dispatched.headers?.Precedence).toBe('bulk');
 
       // 4. Verify outbox row deleted after successful transmission
+      const remainingOutbox = await dbClient
+        .select()
+        .from(emailOutbox)
+        .where(eq(emailOutbox.proposalId, draftRes.data.id));
+      expect(remainingOutbox).toHaveLength(0);
+    });
+
+    it('I1-S02: outbox worker suppresses proposal_sent emails when proposal token is revoked before delivery', async () => {
+      // 1. Create and send proposal
+      const draftRes = await saveDraftProposalAction(
+        {
+          projectId: testProjectId,
+          clientId: testClientId,
+          title: 'Engagement Shoot',
+          lineItems: [
+            {
+              name: 'Couples Session',
+              unitPriceMinor: 80000,
+              quantity: 1,
+              taxRateBasisPoints: 1900,
+            },
+          ],
+        },
+        dbClient,
+      );
+      if (!draftRes.success) throw new Error('Draft failed');
+
+      const sendRes = await sendProposalAction(
+        {
+          proposalId: draftRes.data.id,
+          validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        dbClient,
+      );
+      if (!sendRes.success) throw new Error('Send failed');
+
+      // 2. Owner immediately revokes token before outbox processing
+      const revokeRes = await revokeProposalTokenAction(
+        {
+          proposalId: draftRes.data.id,
+        },
+        dbClient,
+      );
+      expect(revokeRes.success).toBe(true);
+
+      // 3. Set up mock transporter
+      const sentMails: unknown[] = [];
+      const testTransporter = nodemailer.createTransport({
+        streamTransport: true,
+        buffer: true,
+      });
+      vi.spyOn(testTransporter, 'sendMail').mockImplementation((mailOptions) => {
+        sentMails.push(mailOptions);
+        return Promise.resolve({ messageId: 'msg-should-not-be-sent' }) as never;
+      });
+
+      // 4. Run outbox worker
+      const batchResult = await processEmailOutboxBatch({
+        dbClient,
+        transporter: testTransporter,
+      });
+
+      // 5. Verify email was suppressed and not sent via SMTP
+      expect(batchResult.suppressedCount).toBeGreaterThanOrEqual(1);
+      expect(sentMails).toHaveLength(0);
+
+      // 6. Verify outbox row deleted upon suppression
       const remainingOutbox = await dbClient
         .select()
         .from(emailOutbox)

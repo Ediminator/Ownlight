@@ -64,7 +64,8 @@ export function renderProposalAcceptedOwnerEmail({
 
   const formattedAmount = formatCurrency(proposal.totalMinor, proposal.currency, activeLocale);
 
-  const safeBaseUrl = (baseUrl ?? '').replaceAll(/\/+$/g, '');
+  const activeBaseUrl = baseUrl?.trim() ? baseUrl : process.env.NEXT_PUBLIC_APP_URL;
+  const safeBaseUrl = (activeBaseUrl ?? '').replaceAll(/\/+$/g, '');
   const projectUrl = safeBaseUrl
     ? `${safeBaseUrl}/projects/${proposal.projectId}`
     : `/projects/${proposal.projectId}`;

@@ -45,6 +45,18 @@ function escapeHtml(input: string): string {
 }
 
 /**
+ * Checks if a URL string is an absolute HTTP or HTTPS URL (I1-S01).
+ */
+function isAbsoluteHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Renders the localized proposal-sent email in both plain-text and responsive HTML (TASK-0060 / AC-1, AC-2, AC-6).
  */
 export function renderProposalSentEmail({
@@ -77,15 +89,21 @@ export function renderProposalSentEmail({
     }
   }
 
-  // Construct proposal acceptance link
-  const safeBaseUrl = (baseUrl ?? '').replaceAll(/\/+$/g, '');
-  const rawUrl =
-    proposal.tokenUrl ??
-    (proposal.token
-      ? safeBaseUrl
-        ? `${safeBaseUrl}/p/${proposal.token}`
-        : `/p/${proposal.token}`
-      : '');
+  // Construct proposal acceptance link (I1-S01 / ASVS V1.2.1 / V3.1.1)
+  const activeBaseUrl = baseUrl?.trim() ? baseUrl : process.env.NEXT_PUBLIC_APP_URL;
+  const safeBaseUrl = (activeBaseUrl ?? '').replaceAll(/\/+$/g, '');
+  let rawUrl = '';
+  if (proposal.tokenUrl) {
+    if (isAbsoluteHttpUrl(proposal.tokenUrl)) {
+      rawUrl = proposal.tokenUrl;
+    } else {
+      const safePath = proposal.tokenUrl.replaceAll(/^\/+/g, '');
+      rawUrl = safePath ? (safeBaseUrl ? `${safeBaseUrl}/${safePath}` : `/${safePath}`) : '';
+    }
+  } else if (proposal.token) {
+    const safeToken = proposal.token.replaceAll(/^\/+/g, '');
+    rawUrl = safeToken ? (safeBaseUrl ? `${safeBaseUrl}/p/${safeToken}` : `/p/${safeToken}`) : '';
+  }
 
   const subject = dict.subject
     .replace('{title}', sanitizedTitle)

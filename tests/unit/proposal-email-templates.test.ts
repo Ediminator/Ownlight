@@ -142,6 +142,69 @@ describe('TASK-0060: Proposal Email Templates Unit Tests (AC-2, AC-4, AC-6)', ()
       expect(rendered.subject).toContain('Proposal');
       expect(rendered.text).toContain('/p/token123');
     });
+
+    it('I1-S01: prepends baseUrl to relative tokenUrl (/p/[token]) so rendered link is absolute', () => {
+      const rendered = renderProposalSentEmail({
+        proposal: {
+          id: '01920000-0000-7000-8000-000000000001',
+          title: 'Proposal with relative tokenUrl',
+          totalMinor: 150000,
+          currency: 'EUR',
+          tokenUrl: '/p/tok-relative-456',
+        },
+        clientName: 'Jane Doe',
+        studioName: 'Studio Doe',
+        locale: 'en',
+        baseUrl: 'https://studio.example.org',
+      });
+
+      expect(rendered.text).toContain('https://studio.example.org/p/tok-relative-456');
+      expect(rendered.text).not.toMatch(/View proposal:\s+\/p\//);
+      expect(rendered.html).toContain('href="https://studio.example.org/p/tok-relative-456"');
+    });
+
+    it('I1-S01: preserves already absolute tokenUrl', () => {
+      const rendered = renderProposalSentEmail({
+        proposal: {
+          id: '01920000-0000-7000-8000-000000000001',
+          title: 'Proposal with absolute tokenUrl',
+          totalMinor: 150000,
+          currency: 'EUR',
+          tokenUrl: 'https://custom-domain.example.org/p/tok-abs-789',
+        },
+        clientName: 'Jane Doe',
+        studioName: 'Studio Doe',
+        locale: 'en',
+        baseUrl: 'https://studio.example.org',
+      });
+
+      expect(rendered.text).toContain('https://custom-domain.example.org/p/tok-abs-789');
+      expect(rendered.html).toContain('href="https://custom-domain.example.org/p/tok-abs-789"');
+    });
+
+    it('I1-S01: falls back to NEXT_PUBLIC_APP_URL when baseUrl is omitted', () => {
+      const origUrl = process.env.NEXT_PUBLIC_APP_URL;
+      try {
+        process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com';
+        const rendered = renderProposalSentEmail({
+          proposal: {
+            id: '01920000-0000-7000-8000-000000000001',
+            title: 'Proposal with env fallback',
+            totalMinor: 150000,
+            currency: 'EUR',
+            tokenUrl: '/p/tok-env-fallback',
+          },
+          clientName: 'Jane Doe',
+          studioName: 'Studio Doe',
+          locale: 'en',
+        });
+
+        expect(rendered.text).toContain('https://app.example.com/p/tok-env-fallback');
+        expect(rendered.html).toContain('href="https://app.example.com/p/tok-env-fallback"');
+      } finally {
+        process.env.NEXT_PUBLIC_APP_URL = origUrl;
+      }
+    });
   });
 
   describe('AC-6: renderProposalAcceptedClientEmail (Client Acceptance Confirmation)', () => {

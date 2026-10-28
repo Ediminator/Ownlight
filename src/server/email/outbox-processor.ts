@@ -264,6 +264,43 @@ export async function processEmailOutboxBatch(
           continue;
         }
 
+        // Suppress proposal_sent delivery if token is revoked or proposal is no longer in 'sent' status (I1-S02 / ASVS V2.2.1)
+        if (
+          item.kind === 'proposal_sent' &&
+          (proposal.tokenRevokedAt !== null || proposal.status !== 'sent')
+        ) {
+          logger.info(
+            {
+              outboxId: item.id,
+              proposalId: proposal.id,
+              status: proposal.status,
+              isRevoked: proposal.tokenRevokedAt !== null,
+            },
+            'Suppressing proposal_sent email for revoked or non-sent proposal',
+          );
+          await deleteEmailOutboxItem(item.id, dbClient);
+          suppressedCount += 1;
+          continue;
+        }
+
+        // Suppress proposal_accepted_* if proposal is no longer in 'accepted' status
+        if (
+          (item.kind === 'proposal_accepted_client' || item.kind === 'proposal_accepted_owner') &&
+          proposal.status !== 'accepted'
+        ) {
+          logger.info(
+            {
+              outboxId: item.id,
+              proposalId: proposal.id,
+              status: proposal.status,
+            },
+            'Suppressing proposal_accepted email for non-accepted proposal',
+          );
+          await deleteEmailOutboxItem(item.id, dbClient);
+          suppressedCount += 1;
+          continue;
+        }
+
         const [clientRow] = await dbClient
           .select()
           .from(clients)

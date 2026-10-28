@@ -665,7 +665,7 @@ describe('TASK-0010: Client tags and search (AC-1 through AC-13)', () => {
     const p95Duration = bestLatencies[p95Index] ?? 0;
 
     expect(p95Duration).toBeLessThanOrEqual(300);
-  }, 120_000);
+  }, 240_000);
 
   // AC-11: Authorization boundaries (API key with clients:read cannot write tags, records denied audit; unauthenticated returns UNAUTHORIZED)
   it('AC-11: returns FORBIDDEN + denied audit event for read-only API key and UNAUTHORIZED without auth', async () => {

@@ -81,6 +81,21 @@ const INITIAL_EVENT_TYPES: TimelineEventTypeDefinition[] = [
     dataKeys: ['appointment_id', 'reason'],
     messageKey: 'clients.timeline.events.appointment_cancelled',
   },
+  {
+    type: 'proposal.sent',
+    dataKeys: ['proposal_id', 'total_minor', 'currency'],
+    messageKey: 'clients.timeline.events.proposal_sent',
+  },
+  {
+    type: 'proposal.accepted',
+    dataKeys: ['proposal_id', 'total_minor', 'currency'],
+    messageKey: 'clients.timeline.events.proposal_accepted',
+  },
+  {
+    type: 'proposal.declined',
+    dataKeys: ['proposal_id', 'total_minor', 'currency'],
+    messageKey: 'clients.timeline.events.proposal_declined',
+  },
 ];
 
 const registry = new Map<string, TimelineEventTypeDefinition>();

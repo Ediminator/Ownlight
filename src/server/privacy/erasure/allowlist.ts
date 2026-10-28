@@ -22,4 +22,9 @@ export const ERASURE_COVERAGE_ALLOWLIST: readonly ErasureCoverageExemption[] = [
   // - projects, project_participants -> projects
   // When future epics introduce tables with client_id or contact_id columns
   // that have statutory retention or non-deletable data, register an exemption here with reasoning.
+  {
+    tableName: 'proposals',
+    reason:
+      'Commercial proposals and statutory accepted records. GDPR Art. 17 erasure and commercial hold provider is scheduled in TASK-0059 as part of Epic E5.',
+  },
 ];

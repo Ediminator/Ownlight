@@ -83,6 +83,8 @@ describe('AC-1: Database migrations and drift detection', () => {
       expect(tableNames).toContain('packages');
       expect(tableNames).toContain('package_included_items');
       expect(tableNames).toContain('catalogue_items');
+      expect(tableNames).toContain('proposals');
+      expect(tableNames).toContain('proposal_line_items');
     } finally {
       await client.close();
     }

@@ -16,4 +16,9 @@ export const EXPORT_COVERAGE_ALLOWLIST: readonly ExportCoverageExemption[] = [
     reason:
       'Internal ephemeral queue for asynchronous Google Contacts API operations, containing no independent personal data not already reflected in client_contacts and google_contacts_links.',
   },
+  {
+    tableName: 'proposals',
+    reason:
+      'Commercial proposals and snapshot records. DSAR export provider implementation is scheduled in TASK-0059 as part of Epic E5.',
+  },
 ];

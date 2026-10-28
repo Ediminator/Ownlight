@@ -1086,6 +1086,9 @@
         "shoot_scheduled": "Shoot scheduled",
         "appointment_scheduled": "Appointment scheduled",
         "appointment_cancelled": "Appointment cancelled",
+        "proposal_sent": "Proposal sent",
+        "proposal_accepted": "Proposal accepted",
+        "proposal_declined": "Proposal declined",
         "deleted_item": "Deleted item"
       },
       "note": {

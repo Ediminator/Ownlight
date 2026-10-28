@@ -19,6 +19,7 @@ import type {
 import { googleContactsExportProvider } from '@/server/integrations/google/export-provider';
 import { projectsExportProvider } from '@/server/projects/privacy/export-provider';
 import { appointmentsExportProvider } from './appointments';
+import { proposalsExportProvider } from '@/server/proposals/privacy/export-provider';
 
 const providerRegistry = new Map<string, ExportProvider>();
 
@@ -375,6 +376,7 @@ export const DEFAULT_PROVIDERS: ExportProvider[] = [
   },
   projectsExportProvider,
   appointmentsExportProvider,
+  proposalsExportProvider,
 ];
 
 function initDefaultProviders(): void {

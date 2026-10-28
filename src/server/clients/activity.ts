@@ -4,6 +4,7 @@ import { clientTimelineEvents, clientNotes } from '@/server/db/schema/timeline';
 import { consentRecords } from '@/server/db/schema/consents';
 import { clientContacts } from '@/server/db/schema/clients';
 import { projectsActivityProvider } from '@/server/projects/privacy/activity-provider';
+import { proposalsActivityProvider } from '@/server/proposals/privacy/activity-provider';
 
 export interface ActivityProvider {
   id: string;
@@ -74,6 +75,7 @@ const DEFAULT_ACTIVITY_PROVIDERS: readonly ActivityProvider[] = [
     },
   },
   projectsActivityProvider,
+  proposalsActivityProvider,
 ];
 
 function initDefaultProviders(): void {

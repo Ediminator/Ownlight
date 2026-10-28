@@ -212,6 +212,7 @@ describe('TASK-0016: Erasure with retention-lock awareness integration', () => {
       timeline: 1,
       consents: 1,
       google_contacts: 0,
+      proposals: 0,
       projects: 0,
       appointments: 0,
     });
@@ -395,6 +396,7 @@ describe('TASK-0016: Erasure with retention-lock awareness integration', () => {
         timeline: 1,
         consents: 1,
         google_contacts: 0,
+        proposals: 0,
         projects: 0,
         appointments: 0,
       },

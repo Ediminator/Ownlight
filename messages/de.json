@@ -1381,6 +1381,9 @@
     "holds": {
       "active_project": "Laufendes Projekt / Auftrag",
       "upcoming_shoot": "Bevorstehendes geplantes Shooting",
+      "statutory": {
+        "commercial_document": "Gesetzliche Aufbewahrungspflicht für Handelsdokumente (§ 147 AO, § 257 HGB)"
+      },
       "manual": {
         "dispute": "Rechtsstreitigkeit",
         "statutory": "Gesetzliche Anforderung",

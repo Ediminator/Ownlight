@@ -14,15 +14,21 @@ describe('TASK-0019: Client activity provider registry and domain providers', ()
     resetActivityProviders();
   });
 
-  it('resets and returns default activity providers (timeline, notes, consents)', () => {
+  it('resets and returns default activity providers (timeline, notes, consents, projects, proposals)', () => {
     const providers = getActivityProviders();
-    expect(providers.map((p) => p.id)).toEqual(['timeline', 'notes', 'consents', 'projects']);
+    expect(providers.map((p) => p.id)).toEqual([
+      'timeline',
+      'notes',
+      'consents',
+      'projects',
+      'proposals',
+    ]);
 
     clearActivityProviders();
     expect(getActivityProviders()).toHaveLength(0);
 
     resetActivityProviders();
-    expect(getActivityProviders()).toHaveLength(4);
+    expect(getActivityProviders()).toHaveLength(5);
   });
 
   it('findActiveClientIds returns empty Set when candidateIds is empty', async () => {

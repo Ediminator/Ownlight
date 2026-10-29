@@ -7,6 +7,7 @@ import { seedAllE2eInquiryForms } from './e2e-inquiry-helper';
 import { seedAllE2eLeads } from './e2e-leads-helper';
 import { seedAllE2eProjects } from './e2e-projects-helper';
 import { seedAllE2eCalendar } from './e2e-calendar-helper';
+import { seedAllE2eProposals } from './e2e-proposals-helper';
 
 export const E2E_OWNER_EMAIL = 'owner@example.com';
 export const E2E_OWNER_PASSWORD = 'ValidOwnerPassword123!';
@@ -49,6 +50,9 @@ export default async function globalSetup() {
 
   // Seed calendar defaults (booking types & availability schedules) for booking E2E tests (TASK-0044)
   await seedAllE2eCalendar(pglite);
+
+  // Seed proposal packages, catalogue add-ons, and draft proposals (TASK-0061)
+  await seedAllE2eProposals(pglite);
 
   await pglite.close();
 }

@@ -2171,6 +2171,11 @@
         "expired": "Expired",
         "superseded": "Superseded"
       },
+      "taxRates": {
+        "standard": "19% Standard",
+        "reduced": "7% Reduced",
+        "exempt": "0% Tax Exempt"
+      },
       "packageSection": {
         "title": "1. Base Service Package",
         "subtitle": "Select a base package from your studio catalogue or start with custom deliverables.",
@@ -2182,6 +2187,8 @@
         "addDeliverable": "Add Deliverable",
         "deliverableTitlePlaceholder": "Deliverable title",
         "deliverableQty": "Qty",
+        "deliverableQtyAria": "{title} quantity",
+        "deliverableTitleAria": "Deliverable title {number}",
         "removeDeliverable": "Remove deliverable",
         "customBasePackage": "Custom Package (No catalogue link)",
         "basePriceLabel": "Base Price",

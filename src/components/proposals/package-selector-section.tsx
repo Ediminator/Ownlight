@@ -164,9 +164,9 @@ export function PackageSelectorSection({
                   onChange={controller.handleTaxRateChange}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                 >
-                  <option value={1900}>19% Standard</option>
-                  <option value={700}>7% Reduced</option>
-                  <option value={0}>0% Tax Exempt</option>
+                  <option value={1900}>{t('taxRates.standard')}</option>
+                  <option value={700}>{t('taxRates.reduced')}</option>
+                  <option value={0}>{t('taxRates.exempt')}</option>
                 </select>
               </div>
             </div>
@@ -234,7 +234,7 @@ export function PackageSelectorSection({
                     <input
                       type="number"
                       min="1"
-                      aria-label={`${item.title} quantity`}
+                      aria-label={t('packageSection.deliverableQtyAria', { title: item.title })}
                       data-testid={`deliverable-qty-input-${String(index)}`}
                       value={item.quantity}
                       onChange={rowHandlers.handleQtyChange}
@@ -242,7 +242,7 @@ export function PackageSelectorSection({
                     />
                     <input
                       type="text"
-                      aria-label={`Deliverable title ${String(index + 1)}`}
+                      aria-label={t('packageSection.deliverableTitleAria', { number: index + 1 })}
                       data-testid={`deliverable-title-input-${String(index)}`}
                       value={item.title}
                       onChange={rowHandlers.handleTitleChange}
@@ -268,28 +268,30 @@ export function PackageSelectorSection({
           {/* Add custom deliverable form */}
           <form
             onSubmit={controller.handleAddDeliverableSubmit(newDeliverableTitle, newDeliverableQty)}
-            className="flex items-center gap-2 pt-1"
+            className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1"
             data-testid="add-deliverable-form"
           >
-            <input
-              type="number"
-              min="1"
-              aria-label={t('packageSection.deliverableQty')}
-              placeholder={t('packageSection.deliverableQty')}
-              data-testid="new-deliverable-qty-input"
-              value={newDeliverableQty}
-              onChange={controller.handleQtyInputChange}
-              className="w-16 rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground text-center shadow-sm"
-            />
-            <input
-              type="text"
-              placeholder={t('packageSection.deliverableTitlePlaceholder')}
-              aria-label={t('packageSection.deliverableTitlePlaceholder')}
-              data-testid="new-deliverable-title-input"
-              value={newDeliverableTitle}
-              onChange={controller.handleTitleInputChange}
-              className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground shadow-sm"
-            />
+            <div className="flex items-center gap-2 flex-1">
+              <input
+                type="number"
+                min="1"
+                aria-label={t('packageSection.deliverableQty')}
+                placeholder={t('packageSection.deliverableQty')}
+                data-testid="new-deliverable-qty-input"
+                value={newDeliverableQty}
+                onChange={controller.handleQtyInputChange}
+                className="w-16 rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground text-center shadow-sm shrink-0"
+              />
+              <input
+                type="text"
+                placeholder={t('packageSection.deliverableTitlePlaceholder')}
+                aria-label={t('packageSection.deliverableTitlePlaceholder')}
+                data-testid="new-deliverable-title-input"
+                value={newDeliverableTitle}
+                onChange={controller.handleTitleInputChange}
+                className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground shadow-sm"
+              />
+            </div>
             <Button
               type="submit"
               variant="outline"
@@ -299,7 +301,7 @@ export function PackageSelectorSection({
                 newDeliverableTitle,
                 newDeliverableQty,
               )}
-              className="shrink-0 flex items-center gap-1.5"
+              className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-1.5"
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
               {t('packageSection.addDeliverable')}

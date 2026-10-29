@@ -102,7 +102,10 @@ import { SendProposalModal } from '@/components/proposals/send-proposal-modal';
 import { PackageSelectorSection } from '@/components/proposals/package-selector-section';
 import { AddonOptionsSection } from '@/components/proposals/addon-options-section';
 import { FinancialSummarySection } from '@/components/proposals/financial-summary-section';
-import { createInitialProposalState } from '@/components/proposals/proposal-builder-helpers';
+import {
+  createInitialProposalState,
+  type ProposalLineItemState,
+} from '@/components/proposals/proposal-builder-helpers';
 import type { PackageWithIncludedItems } from '@/server/packages/repo';
 import type { CatalogueItem } from '@/server/db/schema/packages';
 import type { StudioSettings } from '@/server/db/schema/studio-settings';
@@ -657,5 +660,254 @@ describe('ProposalBuilderView Static Markup Rendering & i18n parity', () => {
     expect(htmlModalErr).toContain('data-testid="send-email-error"');
     expect(htmlModalErr).toContain('data-testid="send-date-error"');
     expect(htmlModalErr).toContain('Sending...');
+  });
+
+  it('I1-U01 & I1-V01 regression: renders localized tax rate options in package selector and addon options for both EN and DE', () => {
+    const testBasePackage: ProposalLineItemState = {
+      id: 'bp-1',
+      packageId: mockPackage.id,
+      catalogueItemId: null,
+      name: 'Wedding Photography',
+      description: null,
+      itemType: 'base_package',
+      unitPriceMajor: '2500.00',
+      unitPriceMinor: 250000,
+      taxRateBasisPoints: 1900,
+      quantity: 1,
+      minQuantity: 1,
+      maxQuantity: 1,
+      isOptional: false,
+      isSelected: true,
+      position: 0,
+    };
+
+    const testAddonItems: ProposalLineItemState[] = [
+      {
+        id: 'addon-1',
+        packageId: null,
+        catalogueItemId: mockCatalogueItem.id,
+        name: 'Extra Hour',
+        description: null,
+        itemType: 'addon',
+        unitPriceMajor: '150.00',
+        unitPriceMinor: 15000,
+        taxRateBasisPoints: 1900,
+        quantity: 1,
+        minQuantity: 0,
+        maxQuantity: 2,
+        isOptional: true,
+        isSelected: true,
+        position: 1,
+      },
+    ];
+
+    // English rendering
+    currentLocale = 'en';
+    const htmlPkgEn = renderToStaticMarkup(
+      <PackageSelectorSection
+        packages={[mockPackage]}
+        selectedPackageId={mockPackage.id}
+        basePackageItem={testBasePackage}
+        deliverables={[]}
+        currency="EUR"
+        locale="en"
+        errors={{}}
+        onSelectPackage={vi.fn()}
+        onUpdateBasePrice={vi.fn()}
+        onUpdateTaxRate={vi.fn()}
+        onAddDeliverable={vi.fn()}
+        onUpdateDeliverableTitle={vi.fn()}
+        onUpdateDeliverableQty={vi.fn()}
+        onRemoveDeliverable={vi.fn()}
+      />,
+    );
+    expect(htmlPkgEn).toContain('19% Standard');
+    expect(htmlPkgEn).toContain('7% Reduced');
+    expect(htmlPkgEn).toContain('0% Tax Exempt');
+
+    const htmlAddonEn = renderToStaticMarkup(
+      <AddonOptionsSection
+        addonItems={testAddonItems}
+        catalogueItems={[mockCatalogueItem]}
+        currency="EUR"
+        locale="en"
+        errors={{}}
+        onAddCatalogueItem={vi.fn()}
+        onAddCustomItem={vi.fn()}
+        onUpdateItemField={vi.fn()}
+        onRemoveItem={vi.fn()}
+        onMoveItem={vi.fn()}
+      />,
+    );
+    expect(htmlAddonEn).toContain('19% Standard');
+    expect(htmlAddonEn).toContain('7% Reduced');
+    expect(htmlAddonEn).toContain('0% Tax Exempt');
+
+    // German rendering
+    currentLocale = 'de';
+    const htmlPkgDe = renderToStaticMarkup(
+      <PackageSelectorSection
+        packages={[mockPackage]}
+        selectedPackageId={mockPackage.id}
+        basePackageItem={testBasePackage}
+        deliverables={[]}
+        currency="EUR"
+        locale="de"
+        errors={{}}
+        onSelectPackage={vi.fn()}
+        onUpdateBasePrice={vi.fn()}
+        onUpdateTaxRate={vi.fn()}
+        onAddDeliverable={vi.fn()}
+        onUpdateDeliverableTitle={vi.fn()}
+        onUpdateDeliverableQty={vi.fn()}
+        onRemoveDeliverable={vi.fn()}
+      />,
+    );
+    expect(htmlPkgDe).toContain('19% (Regelsteuersatz)');
+    expect(htmlPkgDe).toContain('7% (Ermäßigt)');
+    expect(htmlPkgDe).toContain('0% (Steuerbefreit)');
+    expect(htmlPkgDe).not.toContain('19% Standard');
+
+    const htmlAddonDe = renderToStaticMarkup(
+      <AddonOptionsSection
+        addonItems={testAddonItems}
+        catalogueItems={[mockCatalogueItem]}
+        currency="EUR"
+        locale="de"
+        errors={{}}
+        onAddCatalogueItem={vi.fn()}
+        onAddCustomItem={vi.fn()}
+        onUpdateItemField={vi.fn()}
+        onRemoveItem={vi.fn()}
+        onMoveItem={vi.fn()}
+      />,
+    );
+    expect(htmlAddonDe).toContain('19% (Regelsteuersatz)');
+    expect(htmlAddonDe).toContain('7% (Ermäßigt)');
+    expect(htmlAddonDe).toContain('0% (Steuerbefreit)');
+    expect(htmlAddonDe).not.toContain('19% Standard');
+
+    // Reset locale
+    currentLocale = 'en';
+  });
+
+  it('I1-U03 regression: renders visible text label for optional toggle on mobile viewports', () => {
+    currentLocale = 'en';
+    const testAddon: ProposalLineItemState[] = [
+      {
+        id: 'addon-opt-1',
+        packageId: null,
+        catalogueItemId: mockCatalogueItem.id,
+        name: 'Extra Photobook',
+        description: null,
+        itemType: 'addon',
+        unitPriceMajor: '250.00',
+        unitPriceMinor: 25000,
+        taxRateBasisPoints: 1900,
+        quantity: 1,
+        minQuantity: 0,
+        maxQuantity: 2,
+        isOptional: true,
+        isSelected: true,
+        position: 1,
+      },
+    ];
+
+    const htmlAddon = renderToStaticMarkup(
+      <AddonOptionsSection
+        addonItems={testAddon}
+        catalogueItems={[mockCatalogueItem]}
+        currency="EUR"
+        locale="en"
+        errors={{}}
+        onAddCatalogueItem={vi.fn()}
+        onAddCustomItem={vi.fn()}
+        onUpdateItemField={vi.fn()}
+        onRemoveItem={vi.fn()}
+        onMoveItem={vi.fn()}
+      />,
+    );
+    // Label should be visible on mobile (md:sr-only cursor-pointer)
+    expect(htmlAddon).toContain('for="addon-optional-toggle-0"');
+    expect(htmlAddon).toContain('text-xs font-medium text-foreground md:sr-only cursor-pointer');
+    expect(htmlAddon).toContain('Optional for Client');
+
+    // In German
+    currentLocale = 'de';
+    const htmlAddonDe = renderToStaticMarkup(
+      <AddonOptionsSection
+        addonItems={testAddon}
+        catalogueItems={[mockCatalogueItem]}
+        currency="EUR"
+        locale="de"
+        errors={{}}
+        onAddCatalogueItem={vi.fn()}
+        onAddCustomItem={vi.fn()}
+        onUpdateItemField={vi.fn()}
+        onRemoveItem={vi.fn()}
+        onMoveItem={vi.fn()}
+      />,
+    );
+    expect(htmlAddonDe).toContain('Optional für Kunden');
+    currentLocale = 'en';
+  });
+
+  it('I1-U04 regression: renders localized aria-labels for deliverable inputs in both EN and DE', () => {
+    currentLocale = 'en';
+    const testDeliverables = [
+      {
+        id: 'del-1',
+        title: 'Full Day Coverage',
+        quantity: 1,
+        includedInPackage: true,
+      },
+    ];
+
+    const htmlPkgEn = renderToStaticMarkup(
+      <PackageSelectorSection
+        packages={[mockPackage]}
+        selectedPackageId={mockPackage.id}
+        basePackageItem={null}
+        deliverables={testDeliverables}
+        currency="EUR"
+        locale="en"
+        errors={{}}
+        onSelectPackage={vi.fn()}
+        onUpdateBasePrice={vi.fn()}
+        onUpdateTaxRate={vi.fn()}
+        onAddDeliverable={vi.fn()}
+        onUpdateDeliverableTitle={vi.fn()}
+        onUpdateDeliverableQty={vi.fn()}
+        onRemoveDeliverable={vi.fn()}
+      />,
+    );
+    expect(htmlPkgEn).toContain('aria-label="Full Day Coverage quantity"');
+    expect(htmlPkgEn).toContain('aria-label="Deliverable title 1"');
+
+    // German
+    currentLocale = 'de';
+    const htmlPkgDe = renderToStaticMarkup(
+      <PackageSelectorSection
+        packages={[mockPackage]}
+        selectedPackageId={mockPackage.id}
+        basePackageItem={null}
+        deliverables={testDeliverables}
+        currency="EUR"
+        locale="de"
+        errors={{}}
+        onSelectPackage={vi.fn()}
+        onUpdateBasePrice={vi.fn()}
+        onUpdateTaxRate={vi.fn()}
+        onAddDeliverable={vi.fn()}
+        onUpdateDeliverableTitle={vi.fn()}
+        onUpdateDeliverableQty={vi.fn()}
+        onRemoveDeliverable={vi.fn()}
+      />,
+    );
+    expect(htmlPkgDe).toContain('aria-label="Full Day Coverage Anzahl"');
+    expect(htmlPkgDe).toContain('aria-label="Leistungstitel 1"');
+    expect(htmlPkgDe).not.toContain('quantity');
+    expect(htmlPkgDe).not.toContain('Deliverable title');
+    currentLocale = 'en';
   });
 });

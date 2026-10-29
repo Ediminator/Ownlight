@@ -2171,6 +2171,11 @@
         "expired": "Abgelaufen",
         "superseded": "Ersetzt"
       },
+      "taxRates": {
+        "standard": "19% (Regelsteuersatz)",
+        "reduced": "7% (Ermäßigt)",
+        "exempt": "0% (Steuerbefreit)"
+      },
       "packageSection": {
         "title": "1. Basispaket",
         "subtitle": "Wählen Sie ein Basispaket aus Ihrem Studiokatalog oder starten Sie mit individuellen Leistungen.",
@@ -2182,6 +2187,8 @@
         "addDeliverable": "Leistung hinzufügen",
         "deliverableTitlePlaceholder": "Leistungsbezeichnung",
         "deliverableQty": "Menge",
+        "deliverableQtyAria": "{title} Anzahl",
+        "deliverableTitleAria": "Leistungstitel {number}",
         "removeDeliverable": "Leistung entfernen",
         "customBasePackage": "Individuelles Paket (ohne Katalogverknüpfung)",
         "basePriceLabel": "Grundpreis",

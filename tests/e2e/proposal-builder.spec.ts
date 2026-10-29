@@ -389,4 +389,71 @@ test.describe('TASK-0061: Proposal Builder Project Workspace UI E2E', () => {
       path: path.join(UX_RUN_DIR, 'proposal-builder-390px-mobile-dark.png'),
     });
   });
+
+  test('I1-U02 regression: 375px mobile viewport has no horizontal overflow or clipped buttons in package and addon sections', async ({
+    page,
+  }) => {
+    await ensureOwnerBootstrappedAndSignedIn(page);
+
+    // Test both English and German locales on 375px viewport
+    for (const locale of ['en', 'de']) {
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.goto(`/${locale}/projects/${E2E_PROJECT_INQUIRY_1_ID}/proposals/new`);
+      await page.waitForSelector('[data-testid="proposal-builder-view"]', {
+        state: 'visible',
+      });
+
+      // 1. Check package selector add deliverable form does not overflow card width
+      const deliverableForm = page.locator('[data-testid="add-deliverable-form"]');
+      await expect(deliverableForm).toBeVisible();
+      const formBox = await deliverableForm.boundingBox();
+      expect(formBox).not.toBeNull();
+      if (formBox) {
+        expect(formBox.x + formBox.width).toBeLessThanOrEqual(375);
+      }
+
+      const addDeliverableBtn = page.locator('[data-testid="add-deliverable-btn"]');
+      const addDeliverableBox = await addDeliverableBtn.boundingBox();
+      expect(addDeliverableBox).not.toBeNull();
+      if (addDeliverableBox) {
+        expect(addDeliverableBox.x + addDeliverableBox.width).toBeLessThanOrEqual(375);
+      }
+
+      // 2. Check catalogue addon toolbar does not overflow card width
+      const catalogueSelect = page.locator('[data-testid="catalogue-addon-select"]');
+      await expect(catalogueSelect).toBeVisible();
+      await catalogueSelect.selectOption({ index: 1 });
+
+      const addCatalogueBtn = page.locator('[data-testid="add-catalogue-addon-btn"]');
+      await expect(addCatalogueBtn).toBeEnabled();
+      const addCatalogueBox = await addCatalogueBtn.boundingBox();
+      expect(addCatalogueBox).not.toBeNull();
+      if (addCatalogueBox) {
+        expect(addCatalogueBox.x + addCatalogueBox.width).toBeLessThanOrEqual(375);
+      }
+
+      // 3. Check document does not horizontally scroll
+      const isOverflowing = await page.evaluate(() => {
+        const doc = document.documentElement;
+        return doc.scrollWidth > doc.clientWidth;
+      });
+      expect(isOverflowing).toBe(false);
+
+      // 4. Verify I1-U01 tax rates localized options in German
+      if (locale === 'de') {
+        const packageSelect = page.locator('[data-testid="package-select"]');
+        await packageSelect.selectOption({ index: 1 });
+        const taxRateSelect = page.locator('[data-testid="base-package-tax-rate-select"]');
+        await expect(taxRateSelect).toBeVisible();
+        const taxOptionsText = await taxRateSelect.innerText();
+        expect(taxOptionsText).toContain('19% (Regelsteuersatz)');
+        expect(taxOptionsText).not.toContain('19% Standard');
+
+        // Capture screenshot of 375px layout in German
+        await page.screenshot({
+          path: path.join(UX_RUN_DIR, 'proposal-builder-375px-mobile-de-fixed.png'),
+        });
+      }
+    }
+  });
 });

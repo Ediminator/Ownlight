@@ -66,7 +66,7 @@ export function AddonOptionsSection({
 
       {/* Item Addition Toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="flex-1 flex items-center gap-2">
+        <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <label htmlFor="catalogue-addon-select" className="sr-only">
             {t('addonSection.cataloguePlaceholder')}
           </label>
@@ -91,21 +91,21 @@ export function AddonOptionsSection({
             data-testid="add-catalogue-addon-btn"
             disabled={!selectedCatalogueId}
             onClick={controller.handleAddCatalogueClick(selectedCatalogueId)}
-            className="shrink-0 flex items-center gap-1.5"
+            className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-1.5"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             {t('addonSection.addCatalogueAddon')}
           </Button>
         </div>
 
-        <div className="flex items-center">
+        <div className="flex items-center w-full sm:w-auto">
           <Button
             type="button"
             variant="secondary"
             size="sm"
             data-testid="add-custom-item-btn"
             onClick={onAddCustomItem}
-            className="w-full sm:w-auto flex items-center gap-1.5"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             {t('addonSection.addCustomItem')}
@@ -323,17 +323,14 @@ export function AddonOptionsSection({
                       onChange={rowHandlers.handleTaxRateChange}
                       className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground shadow-sm"
                     >
-                      <option value={1900}>19% Standard</option>
-                      <option value={700}>7% Reduced</option>
-                      <option value={0}>0% Tax Exempt</option>
+                      <option value={1900}>{t('taxRates.standard')}</option>
+                      <option value={700}>{t('taxRates.reduced')}</option>
+                      <option value={0}>{t('taxRates.exempt')}</option>
                     </select>
                   </div>
 
                   {/* Optional Toggle Checkbox */}
-                  <div className="md:col-span-1 flex flex-col items-center justify-center pt-5">
-                    <label htmlFor={`addon-optional-toggle-${String(index)}`} className="sr-only">
-                      {t('addonSection.table.optional')}
-                    </label>
+                  <div className="md:col-span-1 flex flex-row md:flex-col items-center justify-start md:justify-center gap-2 pt-2 md:pt-5">
                     <input
                       id={`addon-optional-toggle-${String(index)}`}
                       data-testid={`addon-optional-toggle-${String(index)}`}
@@ -342,6 +339,12 @@ export function AddonOptionsSection({
                       onChange={rowHandlers.handleOptionalChange}
                       className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                     />
+                    <label
+                      htmlFor={`addon-optional-toggle-${String(index)}`}
+                      className="text-xs font-medium text-foreground md:sr-only cursor-pointer"
+                    >
+                      {t('addonSection.table.optional')}
+                    </label>
                   </div>
                 </div>
               </div>

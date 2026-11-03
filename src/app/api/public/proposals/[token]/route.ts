@@ -61,7 +61,14 @@ export async function GET(request: NextRequest, context: RouteContext): Promise<
     .where(eq(proposals.tokenHash, tokenHash))
     .limit(1);
 
-  if (!proposal || proposal.tokenRevokedAt !== null) {
+  if (!proposal) {
+    return new NextResponse('Proposal not found', {
+      status: 404,
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
+
+  if (proposal.tokenRevokedAt !== null) {
     return new NextResponse('Proposal not found', {
       status: 404,
       headers: { 'Cache-Control': 'no-store' },

@@ -2271,6 +2271,63 @@
         "quantityMin": "Menge muss mindestens 0 sein",
         "maxQuantityMin": "Maximale Menge muss mindestens 1 sein"
       }
+    },
+    "public": {
+      "pageTitle": "Angebotsübersicht",
+      "validUntil": "Gültig bis {date}",
+      "preparedFor": "Erstellt für {client}",
+      "status": "Status",
+      "statusActive": "Aktiv",
+      "statusAccepted": "Angenommen",
+      "statusExpired": "Abgelaufen",
+      "statusRevoked": "Widerrufen",
+      "proposalExpiredBanner": "Angebot abgelaufen",
+      "proposalExpiredNotice": "Dieses Angebot hat sein Gültigkeitsdatum am {date} erreicht und kann nicht mehr online angenommen werden. Bitte kontaktieren Sie das Studio für ein aktualisiertes Angebot.",
+      "proposalRevokedBanner": "Link nicht mehr aktiv",
+      "proposalRevokedNotice": "Dieser Angebotslink wurde aktualisiert oder widerrufen. Bitte kontaktieren Sie das Studio für den aktuellen Link.",
+      "proposalAcceptedBanner": "Angebot angenommen",
+      "proposalAcceptedNotice": "Vielen Dank! Dieses Angebot wurde am {date} von {name} ({email}) angenommen.",
+      "basePackageTitle": "Basispaket",
+      "deliverablesTitle": "Enthaltene Leistungen",
+      "addonsTitle": "Optionale Zusatzleistungen",
+      "addonsSubtitle": "Wählen Sie optionale Zusatzleistungen oder passen Sie die Mengen an Ihre Wünsche an.",
+      "noAddons": "Keine optionalen Zusatzleistungen für dieses Angebot vorhanden.",
+      "quantity": "Menge",
+      "unitPrice": "Einzelpreis",
+      "total": "Gesamt",
+      "included": "Inklusive",
+      "pricingSummaryTitle": "Preisübersicht",
+      "subtotal": "Zwischensumme",
+      "vat": "USt.",
+      "vatRate": "USt. ({rate}%)",
+      "totalAmount": "Gesamtbetrag",
+      "pricesIncludeTax": "Preise verstehen sich inklusive Mehrwertsteuer",
+      "pricesExcludeTax": "Preise verstehen sich zuzüglich Mehrwertsteuer",
+      "kleinunternehmerNotice": "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet oder erhoben.",
+      "acceptProposalButton": "Angebot annehmen",
+      "accepting": "Wird angenommen...",
+      "studioContact": "Fragen? Kontaktieren Sie {studioName}",
+      "modal": {
+        "title": "Angebot annehmen",
+        "description": "Bitte prüfen und bestätigen Sie Ihre Angaben, um dieses Angebot verbindlich anzunehmen.",
+        "fullNameLabel": "Vollständiger Name",
+        "fullNamePlaceholder": "z. B. Max Mustermann",
+        "emailLabel": "E-Mail-Adresse",
+        "emailPlaceholder": "max@beispiel.de",
+        "agreementCheckbox": "Ich nehme dieses Angebot, die beschriebenen Leistungen und den Gesamtbetrag von {total} an.",
+        "confirmButton": "Verbindlich annehmen",
+        "cancelButton": "Abbrechen"
+      },
+      "validation": {
+        "nameRequired": "Vollständiger Name ist erforderlich",
+        "emailRequired": "E-Mail-Adresse ist erforderlich",
+        "emailInvalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein",
+        "agreementRequired": "Sie müssen der Annahme des Angebots zustimmen"
+      },
+      "rateLimit": {
+        "title": "Zu viele Anfragen",
+        "message": "Zu viele Anfragen von Ihrer IP-Adresse. Bitte warten Sie einen Moment, bevor Sie es erneut versuchen."
+      }
     }
   }
 }

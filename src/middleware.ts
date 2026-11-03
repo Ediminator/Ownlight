@@ -19,6 +19,7 @@ const PUBLIC_PATH_SEGMENTS = [
   'verify-email',
   'f',
   'book',
+  'p',
 ];
 
 /**
@@ -44,6 +45,18 @@ function isPublicBookingRoute(pathname: string): boolean {
     routing.locales.includes(segments[0] as 'en' | 'de') &&
     segments[1] === 'book'
   ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks whether the request path is a public proposal route (/{locale}/p/** or /p/**).
+ */
+export function isPublicProposalRoute(pathname: string): boolean {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments[0] === 'p') return true;
+  if (segments[0] && routing.locales.includes(segments[0] as 'en' | 'de') && segments[1] === 'p') {
     return true;
   }
   return false;
@@ -290,9 +303,19 @@ export default function middleware(request: NextRequest): NextResponse {
     response.headers.set('x-middleware-request-x-is-auth-route', '1');
   }
 
-  // Strictly no Set-Cookie on public form routes, booking routes, and embed routes (AC-1 / AC-12 / TDDDG §25)
-  if (isPublicFormRoute(pathname) || isPublicBookingRoute(pathname) || isEmbed) {
+  // Strictly no Set-Cookie on public form routes, booking routes, proposal routes, and embed routes (AC-1 / AC-12 / TDDDG §25)
+  if (
+    isPublicFormRoute(pathname) ||
+    isPublicBookingRoute(pathname) ||
+    isPublicProposalRoute(pathname) ||
+    isEmbed
+  ) {
     response.headers.delete('set-cookie');
+  }
+
+  // Inject search engine blocking headers on proposal routes (ADR-0018 §3.1 / AC-1)
+  if (isPublicProposalRoute(pathname)) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
   }
 
   return response;

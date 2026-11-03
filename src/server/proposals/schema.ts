@@ -149,3 +149,49 @@ export const revokeProposalTokenSchema = z
 
 export type RevokeProposalTokenInput = z.input<typeof revokeProposalTokenSchema>;
 export type RevokeProposalTokenOutput = z.output<typeof revokeProposalTokenSchema>;
+
+/**
+ * Schema for an accepted option item selection.
+ */
+export const acceptedOptionItemSchema = z
+  .object({
+    id: z.string().uuid('Option ID must be a valid UUID'),
+    quantity: z.number().int().min(1, 'Quantity must be at least 1').default(1),
+  })
+  .strict();
+
+export type AcceptedOptionItemInput = z.infer<typeof acceptedOptionItemSchema>;
+
+/**
+ * Schema for public client proposal acceptance (TASK-0062 / ADR-0018 §3.3).
+ */
+export const acceptProposalSchema = z
+  .object({
+    token: z.string().trim().min(1, 'Proposal token is required'),
+    acceptedByName: z
+      .string()
+      .trim()
+      .min(1, 'Full name is required')
+      .max(200, 'Name cannot exceed 200 characters'),
+    acceptedByEmail: z
+      .string()
+      .trim()
+      .email('Invalid email address')
+      .max(255, 'Email cannot exceed 255 characters'),
+    selectedOptions: z.array(acceptedOptionItemSchema).optional().default([]),
+    selectedOptionIds: z
+      .union([
+        z.array(z.string().uuid('Option ID must be a valid UUID')),
+        z.array(acceptedOptionItemSchema),
+      ])
+      .optional(),
+    agreementConfirmed: z.boolean().optional().default(true),
+  })
+  .strict()
+  .refine((data) => data.agreementConfirmed, {
+    message: 'Agreement checkbox must be confirmed',
+    path: ['agreementConfirmed'],
+  });
+
+export type AcceptProposalInput = z.input<typeof acceptProposalSchema>;
+export type AcceptProposalOutput = z.output<typeof acceptProposalSchema>;

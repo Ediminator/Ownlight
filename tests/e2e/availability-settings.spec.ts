@@ -142,7 +142,9 @@ test.describe('TASK-0043: Availability Schedules, Date Overrides, & Booking Type
     await page.waitForTimeout(300); // Allow Radix transition to settle
 
     // Fill form
-    const overrideDate = '2026-11-20';
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 30);
+    const overrideDate = futureDate.toISOString().slice(0, 10);
     await page.fill('[data-testid="override-date-input"]', overrideDate);
     await page.fill('[data-testid="override-reason-input"]', 'Annual Studio Maintenance');
 

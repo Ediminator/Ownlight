@@ -2327,6 +2327,10 @@
       "rateLimit": {
         "title": "Too Many Requests",
         "message": "Too many requests from your IP address. Please wait a moment before trying again."
+      },
+      "serviceUnavailable": {
+        "title": "Service Unavailable",
+        "message": "Please try again in a moment."
       }
     }
   }

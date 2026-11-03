@@ -83,8 +83,9 @@ export default async function PublicProposalPage({ params }: ProposalPageProps) 
     isRateLimitError = true;
   }
 
+  const t = await getTranslations({ locale, namespace: 'proposals.public' });
+
   if (isRateLimited) {
-    const t = await getTranslations({ locale, namespace: 'proposals.public' });
     return (
       <div
         className="mx-auto max-w-md px-4 py-16 text-center space-y-4"
@@ -102,8 +103,8 @@ export default async function PublicProposalPage({ params }: ProposalPageProps) 
   if (isRateLimitError) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center space-y-4">
-        <h1 className="text-xl font-bold text-foreground">Service Unavailable</h1>
-        <p className="text-sm text-muted-foreground">Please try again in a moment.</p>
+        <h1 className="text-xl font-bold text-foreground">{t('serviceUnavailable.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('serviceUnavailable.message')}</p>
       </div>
     );
   }

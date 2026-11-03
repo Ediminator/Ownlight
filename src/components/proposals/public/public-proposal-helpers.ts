@@ -400,8 +400,9 @@ export function createProposalViewController(params: ViewControllerParams) {
       currentTarget: { getAttribute: (name: string) => string | null; checked: boolean };
     }) => {
       const id = e.currentTarget.getAttribute('data-item-id');
+      const isChecked = e.currentTarget.checked;
       if (id) {
-        setSelections((prev) => applyAddonToggle(prev, id, e.currentTarget.checked));
+        setSelections((prev) => applyAddonToggle(prev, id, isChecked));
       }
     },
     handleQuantityChange: (id: string, delta: number) => {

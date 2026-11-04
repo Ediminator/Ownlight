@@ -23,6 +23,7 @@ export interface ProposalsSectionProps {
   initialProposals: ProjectDetailProposal[];
   locale: string;
   onProposalsChange?: (proposals: ProjectDetailProposal[]) => void;
+  controllerOverride?: ReturnType<typeof useProposalsSectionController>;
 }
 
 export function ProposalsSection({
@@ -30,10 +31,18 @@ export function ProposalsSection({
   initialProposals,
   locale,
   onProposalsChange,
+  controllerOverride,
 }: ProposalsSectionProps) {
   const t = useTranslations('projects.detail.proposals');
 
   const [proposals, setProposals] = React.useState<ProjectDetailProposal[]>(initialProposals);
+
+  const defaultController = useProposalsSectionController({
+    proposals,
+    setProposals,
+    onProposalsChange,
+    fallbackRevokeError: t('actions.revokeError'),
+  });
 
   const {
     copiedProposalId,
@@ -44,12 +53,7 @@ export function ProposalsSection({
     viewController,
     handleCloseRevoke,
     handleConfirmRevoke,
-  } = useProposalsSectionController({
-    proposals,
-    setProposals,
-    onProposalsChange,
-    fallbackRevokeError: t('actions.revokeError'),
-  });
+  } = controllerOverride ?? defaultController;
 
   return (
     <section

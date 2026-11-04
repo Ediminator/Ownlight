@@ -754,6 +754,72 @@ describe('Project Detail Proposals Integration Tests', () => {
       expect(html).toContain('<h2');
       expect(html).toContain('<h3');
     });
+
+    it('renders proposal with validUntil date and renders empty state when initialProposals is empty', () => {
+      const proposalWithExpiry: ProjectDetailProposal = {
+        ...dummyProposalSent,
+        validUntil: new Date('2026-12-31T12:00:00Z'),
+      };
+      const html = renderToStaticMarkup(
+        <ProposalsSection
+          projectId="01920000-0000-7000-8000-000000000071"
+          initialProposals={[proposalWithExpiry]}
+          locale="en"
+        />,
+      );
+      expect(html).toContain('Valid until');
+
+      // Empty state
+      const emptyHtml = renderToStaticMarkup(
+        <ProposalsSection
+          projectId="01920000-0000-7000-8000-000000000071"
+          initialProposals={[]}
+          locale="en"
+        />,
+      );
+      expect(emptyHtml).toContain('data-testid="proposals-empty-state"');
+    });
+
+    it('renders link-copied-feedback when copiedProposalId matches and executes viewController callbacks', () => {
+      let copyInvoked = false;
+      let revokeInvoked = false;
+      const testController = {
+        copiedProposalId: dummyProposalSent.id,
+        revokingProposal: null,
+        isRevoking: false,
+        revokeError: null,
+        revokeTriggerRef: { current: null },
+        viewController: {
+          handleCopyClick: (proposal: ProjectDetailProposal) => () => {
+            copyInvoked = proposal.id === dummyProposalSent.id;
+          },
+          handleRevokeClick:
+            (proposal: ProjectDetailProposal) => (e: React.MouseEvent<HTMLButtonElement>) => {
+              revokeInvoked = proposal.id === dummyProposalSent.id && Boolean(e);
+            },
+        },
+        handleConfirmRevoke: vi.fn(),
+        handleCloseRevoke: vi.fn(),
+      };
+
+      testController.viewController.handleCopyClick(dummyProposalSent)();
+      testController.viewController.handleRevokeClick(dummyProposalSent)({
+        currentTarget: {},
+      } as never);
+      expect(copyInvoked).toBe(true);
+      expect(revokeInvoked).toBe(true);
+
+      const htmlWithCopied = renderToStaticMarkup(
+        <ProposalsSection
+          projectId="01920000-0000-7000-8000-000000000071"
+          initialProposals={[dummyProposalSent]}
+          locale="en"
+          controllerOverride={testController as never}
+        />,
+      );
+      expect(htmlWithCopied).toContain('data-testid="link-copied-feedback"');
+      expect(htmlWithCopied).toContain('Link Copied!');
+    });
   });
 
   describe('ProjectDetailView Integration', () => {

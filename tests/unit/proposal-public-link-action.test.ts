@@ -112,6 +112,7 @@ describe('getProposalPublicLinkAction unit tests', () => {
       tokenRevokedAt: null,
     });
 
+    const sampleToken = 'tok-preview';
     const mockDbClient = {
       select: vi.fn().mockReturnThis(),
       from: vi.fn().mockReturnThis(),
@@ -120,8 +121,8 @@ describe('getProposalPublicLinkAction unit tests', () => {
       limit: vi.fn().mockResolvedValue([
         {
           payload: {
-            token: 'test-secret-token-32bytes',
-            tokenUrl: '/p/test-secret-token-32bytes',
+            token: sampleToken,
+            tokenUrl: `/p/${sampleToken}`,
           },
         },
       ]),
@@ -135,8 +136,146 @@ describe('getProposalPublicLinkAction unit tests', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.proposalId).toBe(validProposalId);
-      expect(result.data.token).toBe('test-secret-token-32bytes');
-      expect(result.data.tokenUrl).toBe('/p/test-secret-token-32bytes');
+      expect(result.data.token).toBe(sampleToken);
+      expect(result.data.tokenUrl).toBe(`/p/${sampleToken}`);
+    }
+  });
+
+  it('AC-2: uses fallback tokenUrl when outbox payload omits tokenUrl', async () => {
+    mockRequireOwner.mockResolvedValue({
+      user: { id: 'owner-1', role: 'owner' },
+      session: { id: 'sess-1' },
+      authType: 'session',
+    });
+    mockGetProposalById.mockResolvedValue({
+      id: validProposalId,
+      status: 'sent',
+      tokenRevokedAt: null,
+    });
+
+    const sampleToken = 'tok-fallback';
+    const mockDbClient = {
+      select: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([
+        {
+          payload: {
+            token: sampleToken,
+          },
+        },
+      ]),
+    };
+
+    const result = await getProposalPublicLinkAction(
+      { proposalId: validProposalId },
+      mockDbClient as never,
+    );
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.tokenUrl).toBe(`/p/${sampleToken}`);
+    }
+  });
+
+  it('AC-2: returns NOT_FOUND when outbox payload token is missing', async () => {
+    mockRequireOwner.mockResolvedValue({
+      user: { id: 'owner-1', role: 'owner' },
+      session: { id: 'sess-1' },
+      authType: 'session',
+    });
+    mockGetProposalById.mockResolvedValue({
+      id: validProposalId,
+      status: 'sent',
+      tokenRevokedAt: null,
+    });
+
+    const mockDbClient = {
+      select: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([
+        {
+          payload: {},
+        },
+      ]),
+    };
+
+    const result = await getProposalPublicLinkAction(
+      { proposalId: validProposalId },
+      mockDbClient as never,
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.code).toBe('NOT_FOUND');
+      expect(result.error).toBe('Proposal link not available');
+    }
+  });
+
+  it('AC-2: catches unexpected Error in getProposalPublicLinkAction', async () => {
+    mockRequireOwner.mockResolvedValue({
+      user: { id: 'owner-1', role: 'owner' },
+      session: { id: 'sess-1' },
+      authType: 'session',
+    });
+    mockGetProposalById.mockResolvedValue({
+      id: validProposalId,
+      status: 'sent',
+      tokenRevokedAt: null,
+    });
+
+    const mockDbClient = {
+      select: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockRejectedValue(new Error('Outbox query failed')),
+    };
+
+    const result = await getProposalPublicLinkAction(
+      { proposalId: validProposalId },
+      mockDbClient as never,
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.code).toBe('INTERNAL_ERROR');
+      expect(result.error).toBe('Outbox query failed');
+    }
+  });
+
+  it('AC-2: catches unexpected non-Error in getProposalPublicLinkAction', async () => {
+    mockRequireOwner.mockResolvedValue({
+      user: { id: 'owner-1', role: 'owner' },
+      session: { id: 'sess-1' },
+      authType: 'session',
+    });
+    mockGetProposalById.mockResolvedValue({
+      id: validProposalId,
+      status: 'sent',
+      tokenRevokedAt: null,
+    });
+
+    const mockDbClient = {
+      select: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockRejectedValue('Fatal string exception'),
+    };
+
+    const result = await getProposalPublicLinkAction(
+      { proposalId: validProposalId },
+      mockDbClient as never,
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.code).toBe('INTERNAL_ERROR');
+      expect(result.error).toBe('Internal error resolving proposal link');
     }
   });
 });

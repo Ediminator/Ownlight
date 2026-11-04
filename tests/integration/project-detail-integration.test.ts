@@ -48,6 +48,8 @@ import { getInitialPipelineStage } from '@/server/projects/stages';
 import { user } from '@/server/db/schema/auth';
 import { createSession, SESSION_COOKIE_NAME } from '@/server/auth/session';
 import { clients, clientContacts } from '@/server/db/schema/clients';
+import { proposals } from '@/server/db/schema/proposals';
+import { emailOutbox } from '@/server/db/schema/email-outbox';
 import type { DbClient } from '@/server/db/client';
 import { generateUuidV7 } from '@/lib/id';
 
@@ -157,6 +159,128 @@ describe('TASK-0038: Project Detail & Fulfillment Operations Integration', () =>
       const nonExistentId = generateUuidV7();
       const detail = await getProjectDetail(nonExistentId, dbClient);
       expect(detail).toBeNull();
+    });
+
+    it('AC-1: resolves proposals and public links for project detail', async () => {
+      const now = new Date();
+      // 1. Draft proposal (no outbox)
+      const draftId = generateUuidV7();
+      await dbClient.insert(proposals).values({
+        id: draftId,
+        projectId: testProjectId,
+        clientId: testClientId,
+        title: 'Initial Consultation Proposal',
+        version: 1,
+        status: 'draft',
+        currency: 'EUR',
+        subtotalMinor: 150000,
+        taxMinor: 28500,
+        totalMinor: 178500,
+        tokenHash: 'hash-draft-1',
+        createdAt: new Date(now.getTime() - 20000),
+        updatedAt: new Date(now.getTime() - 20000),
+      });
+
+      // 2. Sent proposal with tokenUrl in outbox
+      const sentId1 = generateUuidV7();
+      await dbClient.insert(proposals).values({
+        id: sentId1,
+        projectId: testProjectId,
+        clientId: testClientId,
+        title: 'Sent Proposal With Explicit Link',
+        version: 2,
+        status: 'sent',
+        currency: 'EUR',
+        subtotalMinor: 200000,
+        taxMinor: 38000,
+        totalMinor: 238000,
+        tokenHash: 'hash-sent-1',
+        createdAt: new Date(now.getTime() - 10000),
+        updatedAt: new Date(now.getTime() - 10000),
+      });
+      await dbClient.insert(emailOutbox).values({
+        id: generateUuidV7(),
+        kind: 'proposal_sent',
+        proposalId: sentId1,
+        recipient: 'client@example.com',
+        payload: {
+          token: 'tok-sent-1',
+          tokenUrl: '/p/custom-link-url',
+        },
+        status: 'PENDING',
+        createdAt: new Date(now.getTime() - 9000),
+      });
+
+      // 3. Sent proposal with token only (fallback tokenUrl)
+      const sentId2 = generateUuidV7();
+      await dbClient.insert(proposals).values({
+        id: sentId2,
+        projectId: testProjectId,
+        clientId: testClientId,
+        title: 'Sent Proposal Fallback Token',
+        version: 3,
+        status: 'sent',
+        currency: 'EUR',
+        subtotalMinor: 250000,
+        taxMinor: 47500,
+        totalMinor: 297500,
+        tokenHash: 'hash-sent-2',
+        createdAt: new Date(now.getTime() - 5000),
+        updatedAt: new Date(now.getTime() - 5000),
+      });
+      await dbClient.insert(emailOutbox).values({
+        id: generateUuidV7(),
+        kind: 'proposal_sent',
+        proposalId: sentId2,
+        recipient: 'client@example.com',
+        payload: {
+          token: 'tok-sent-2',
+        },
+        status: 'PENDING',
+        createdAt: new Date(now.getTime() - 4000),
+      });
+
+      // 4. Revoked proposal (tokenRevokedAt set)
+      const revokedId = generateUuidV7();
+      await dbClient.insert(proposals).values({
+        id: revokedId,
+        projectId: testProjectId,
+        clientId: testClientId,
+        title: 'Revoked Sent Proposal',
+        version: 4,
+        status: 'sent',
+        currency: 'EUR',
+        subtotalMinor: 180000,
+        taxMinor: 34200,
+        totalMinor: 214200,
+        tokenHash: 'hash-revoked-1',
+        tokenRevokedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await dbClient.insert(emailOutbox).values({
+        id: generateUuidV7(),
+        kind: 'proposal_sent',
+        proposalId: revokedId,
+        recipient: 'client@example.com',
+        payload: {
+          token: 'tok-revoked',
+          tokenUrl: '/p/tok-revoked',
+        },
+        status: 'PENDING',
+        createdAt: now,
+      });
+
+      const detail = await getProjectDetail(testProjectId, dbClient);
+      expect(detail).not.toBeNull();
+      expect(detail?.proposals).toBeDefined();
+      expect(detail?.proposals).toHaveLength(4);
+
+      const propMap = new Map((detail?.proposals ?? []).map((p) => [p.id, p]));
+      expect(propMap.get(draftId)?.publicUrl).toBeNull();
+      expect(propMap.get(sentId1)?.publicUrl).toBe('/p/custom-link-url');
+      expect(propMap.get(sentId2)?.publicUrl).toBe('/p/tok-sent-2');
+      expect(propMap.get(revokedId)?.publicUrl).toBeNull();
     });
   });
 

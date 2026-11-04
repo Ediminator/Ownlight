@@ -2271,6 +2271,67 @@
         "quantityMin": "Quantity must be at least 0",
         "maxQuantityMin": "Max quantity must be at least 1"
       }
+    },
+    "public": {
+      "pageTitle": "Proposal Review",
+      "validUntil": "Valid until {date}",
+      "preparedFor": "Prepared for {client}",
+      "status": "Status",
+      "statusActive": "Active",
+      "statusAccepted": "Accepted",
+      "statusExpired": "Expired",
+      "statusRevoked": "Revoked",
+      "proposalExpiredBanner": "Proposal Expired",
+      "proposalExpiredNotice": "This proposal reached its validity expiration date on {date} and can no longer be accepted online. Please contact the studio for an updated proposal.",
+      "proposalRevokedBanner": "Link No Longer Active",
+      "proposalRevokedNotice": "This proposal link has been superseded or revoked. Please contact the studio for an updated link.",
+      "proposalAcceptedBanner": "Proposal Accepted",
+      "proposalAcceptedNotice": "Thank you! This proposal was accepted on {date} by {name} ({email}).",
+      "basePackageTitle": "Base Service Package",
+      "deliverablesTitle": "Included Deliverables",
+      "addonsTitle": "Optional Add-ons & Services",
+      "addonsSubtitle": "Select optional add-ons or customize quantities to tailor the package to your needs.",
+      "noAddons": "No optional add-on services attached to this proposal.",
+      "quantity": "Quantity",
+      "unitPrice": "Unit Price",
+      "total": "Total",
+      "included": "Included",
+      "pricingSummaryTitle": "Pricing Summary",
+      "subtotal": "Subtotal",
+      "vat": "VAT",
+      "vatRate": "VAT ({rate}%)",
+      "totalAmount": "Total Amount",
+      "pricesIncludeTax": "Prices include applicable VAT",
+      "pricesExcludeTax": "Prices exclude applicable VAT",
+      "kleinunternehmerNotice": "According to § 19 UStG, no value-added tax is calculated or charged.",
+      "acceptProposalButton": "Accept Proposal",
+      "accepting": "Accepting Proposal...",
+      "studioContact": "Questions? Contact {studioName}",
+      "modal": {
+        "title": "Accept Proposal",
+        "description": "Please review and confirm your details to accept this proposal and enter into a binding agreement.",
+        "fullNameLabel": "Full Name",
+        "fullNamePlaceholder": "e.g. Jane Doe",
+        "emailLabel": "Email Address",
+        "emailPlaceholder": "jane@example.com",
+        "agreementCheckbox": "I accept this proposal, the deliverables described, and the total amount of {total}.",
+        "confirmButton": "Confirm & Accept Proposal",
+        "cancelButton": "Cancel"
+      },
+      "validation": {
+        "nameRequired": "Full name is required",
+        "emailRequired": "Email address is required",
+        "emailInvalid": "Please enter a valid email address",
+        "agreementRequired": "You must confirm acceptance of the proposal terms"
+      },
+      "rateLimit": {
+        "title": "Too Many Requests",
+        "message": "Too many requests from your IP address. Please wait a moment before trying again."
+      },
+      "serviceUnavailable": {
+        "title": "Service Unavailable",
+        "message": "Please try again in a moment."
+      }
     }
   }
 }

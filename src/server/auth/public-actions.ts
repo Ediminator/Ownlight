@@ -30,6 +30,8 @@ export const PUBLIC_AUTH_ACTIONS = [
   'getPublicBookingChallengeAction',
   // Compensating control: Public appointment reservation; strict Zod validation, ALTCHA PoW verification, honeypot field, per-IP rate limiting (5 per 15 min), and serializable double-booking collision rollback.
   'submitPublicBookingAction',
+  // Compensating control: Public client proposal acceptance; cryptographically random 256-bit unguessable proposal token verification (SHA-256), per-IP rate limiting (30 req/min fail-closed), serializable transaction snapshot isolation, token revocation check, and validUntil expiration validation.
+  'acceptProposalAction',
 ] as const;
 
 export type PublicAuthAction = (typeof PUBLIC_AUTH_ACTIONS)[number];

@@ -719,6 +719,7 @@ describe('TASK-0046: Google Calendar & Meet Sync Integration (AC-2, AC-3, AC-5, 
         endDate: '2026-11-02',
         timezone: 'Europe/Berlin',
         db: dbClient,
+        now: new Date('2026-11-01T00:00:00Z'),
       });
 
       // Verify that no available slot overlaps with 10:00 - 12:00 UTC (11:00 - 13:00 Berlin)

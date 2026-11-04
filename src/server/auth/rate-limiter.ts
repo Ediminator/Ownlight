@@ -610,3 +610,22 @@ export async function consumeBookingRateLimit(
   const key = `booking:${anonymizeIp(ip)}`;
   return await consumeRateLimit(key, BOOKING_IP_MAX_ATTEMPTS, BOOKING_IP_WINDOW_MS, client);
 }
+
+// ==========================================
+// Public Proposal Acceptance Rate Limiting (TASK-0062 / AC-6)
+// ==========================================
+
+export const PROPOSAL_IP_MAX_ATTEMPTS = 30;
+export const PROPOSAL_IP_WINDOW_MS = 60 * 1000; // 1 minute (30 req/min)
+
+/**
+ * Consumes one proposal access attempt atomically per client IP (30 req/min).
+ * Enforces fail-closed rate limiting against brute-force token enumeration (ADR-0018 §3.1 / AC-6).
+ */
+export async function consumeProposalRateLimit(
+  ip: string,
+  client: DbClient = defaultDb,
+): Promise<RateLimitCheckResult> {
+  const key = `proposal:${anonymizeIp(ip)}`;
+  return await consumeRateLimit(key, PROPOSAL_IP_MAX_ATTEMPTS, PROPOSAL_IP_WINDOW_MS, client);
+}

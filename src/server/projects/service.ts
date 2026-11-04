@@ -1,7 +1,9 @@
-import { eq } from 'drizzle-orm';
+import { eq, and, inArray, desc } from 'drizzle-orm';
 import { generateUuidV7 } from '@/lib/id';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
 import { clients } from '@/server/db/schema/clients';
+import { proposals, type ProposalStatus } from '@/server/db/schema/proposals';
+import { emailOutbox } from '@/server/db/schema/email-outbox';
 import { getClientById } from '@/server/clients/repo';
 import {
   type Project,
@@ -1241,6 +1243,31 @@ export interface ProjectDetailParticipant extends ProjectParticipant {
   contactDisplayName?: string | null;
 }
 
+export interface ProjectDetailProposal {
+  id: string;
+  projectId: string;
+  clientId: string;
+  title: string;
+  status: ProposalStatus;
+  version: number;
+  currency: string;
+  subtotalMinor: number;
+  taxMinor: number;
+  totalMinor: number;
+  pricesIncludeTax: boolean;
+  isKleinunternehmer: boolean;
+  taxNotice?: string | null;
+  validUntil: Date | null;
+  sentAt: Date | null;
+  acceptedAt: Date | null;
+  declinedAt: Date | null;
+  tokenRevokedAt: Date | null;
+  tokenHash: string;
+  publicUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface ProjectDetailData {
   project: Project;
   client: {
@@ -1263,6 +1290,7 @@ export interface ProjectDetailData {
     phone: string | null;
     isPrimary: boolean;
   }[];
+  proposals?: ProjectDetailProposal[];
 }
 
 export async function getProjectDetail(
@@ -1272,12 +1300,17 @@ export async function getProjectDetail(
   const project = await repo.findProjectById(projectId, tx);
   if (!project) return null;
 
-  const [stages, clientData, shoots, participants, tasks] = await Promise.all([
+  const [stages, clientData, shoots, participants, tasks, proposalRows] = await Promise.all([
     getPipelineStages(tx),
     getClientById(project.clientId, tx),
     repo.findShootsByProjectId(projectId, tx),
     repo.findParticipantsByProjectId(projectId, tx),
     repo.findTasksByProjectId(projectId, tx),
+    tx
+      .select()
+      .from(proposals)
+      .where(eq(proposals.projectId, projectId))
+      .orderBy(desc(proposals.createdAt)),
   ]);
 
   if (!clientData) return null;
@@ -1335,6 +1368,40 @@ export async function getProjectDetail(
 
   const primaryContact = clientData.contacts.find((c) => c.isPrimary) ?? clientData.contacts[0];
 
+  // Resolve public link for sent proposals via email_outbox records
+  let enhancedProposals: ProjectDetailProposal[] = [];
+  if (proposalRows.length > 0) {
+    const proposalIds = proposalRows.map((p) => p.id);
+    const outboxRows = await tx
+      .select({
+        proposalId: emailOutbox.proposalId,
+        payload: emailOutbox.payload,
+        createdAt: emailOutbox.createdAt,
+      })
+      .from(emailOutbox)
+      .where(
+        and(inArray(emailOutbox.proposalId, proposalIds), eq(emailOutbox.kind, 'proposal_sent')),
+      )
+      .orderBy(desc(emailOutbox.createdAt));
+
+    const proposalLinkMap = new Map<string, string>();
+    for (const row of outboxRows) {
+      if (row.proposalId && !proposalLinkMap.has(row.proposalId)) {
+        const payload = row.payload as { token?: string; tokenUrl?: string } | null;
+        if (payload?.tokenUrl) {
+          proposalLinkMap.set(row.proposalId, payload.tokenUrl);
+        } else if (payload?.token) {
+          proposalLinkMap.set(row.proposalId, `/p/${payload.token}`);
+        }
+      }
+    }
+
+    enhancedProposals = proposalRows.map((p) => ({
+      ...p,
+      publicUrl: p.tokenRevokedAt ? null : (proposalLinkMap.get(p.id) ?? null),
+    }));
+  }
+
   return {
     project,
     client: {
@@ -1351,6 +1418,7 @@ export async function getProjectDetail(
     participants: enhancedParticipants,
     tasks,
     clientContacts,
+    proposals: enhancedProposals,
   };
 }
 

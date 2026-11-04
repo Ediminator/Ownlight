@@ -1763,6 +1763,7 @@
       "cancel": "Cancel",
       "tabs": {
         "all": "Overview",
+        "proposals": "Proposals",
         "shoots": "Shoots & Sessions",
         "locations": "Locations",
         "timeline": "Timeline",
@@ -1870,6 +1871,42 @@
         "incompleteAria": "Mark as completed",
         "submit": "Add Task",
         "submitting": "Adding..."
+      },
+      "proposals": {
+        "title": "Quotes & Proposals",
+        "description": "Commercial proposals, package selections, and client acceptance links for this project.",
+        "newProposal": "New Proposal",
+        "empty": "No proposals created for this project yet.",
+        "version": "Revision v{version}",
+        "createdAt": "Created on {date}",
+        "total": "Total Amount",
+        "validUntil": "Valid until {date}",
+        "acceptedOn": "Accepted on {date}",
+        "noExpiration": "No expiration date",
+        "statuses": {
+          "draft": "Draft",
+          "sent": "Sent",
+          "accepted": "Accepted",
+          "declined": "Declined",
+          "expired": "Expired",
+          "superseded": "Superseded"
+        },
+        "actions": {
+          "editDraft": "Edit Draft",
+          "copyPublicLink": "Copy Public Link",
+          "linkCopied": "Link Copied!",
+          "revokeLink": "Revoke Link",
+          "linkRevoked": "Link Revoked",
+          "copyError": "Failed to copy link to clipboard.",
+          "revokeError": "Failed to revoke proposal link."
+        },
+        "revokeDialog": {
+          "title": "Revoke Public Link",
+          "description": "Are you sure you want to revoke the public link for this proposal? The client will immediately lose access and will no longer be able to view or accept this proposal online.",
+          "cancel": "Cancel",
+          "confirm": "Revoke Link",
+          "revoking": "Revoking..."
+        }
       }
     }
   },

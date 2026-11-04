@@ -1,7 +1,8 @@
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import type { DbClient } from '@/server/db/client';
 import { proposals, proposalLineItems } from '@/server/db/schema/proposals';
+import { emailOutbox } from '@/server/db/schema/email-outbox';
 import { clients } from '@/server/db/schema/clients';
 import { pipelineStages, projects } from '@/server/db/schema/projects';
 import { packages, catalogueItems } from '@/server/db/schema/packages';
@@ -264,6 +265,34 @@ export async function seedProposals(tx: DbClient): Promise<SeedProposalsResult> 
   } else {
     seededProposals++;
     seededLineItems += 2;
+  }
+
+  // Ensure proposal_sent outbox record exists for sent proposal demo
+  const [sentOutboxExists] = await tx
+    .select({ id: emailOutbox.id })
+    .from(emailOutbox)
+    .where(
+      and(eq(emailOutbox.proposalId, SEED_PROPOSAL_SENT_ID), eq(emailOutbox.kind, 'proposal_sent')),
+    )
+    .limit(1);
+
+  if (!sentOutboxExists) {
+    const rawSentToken = 'demo-token-sent-proposal-seed-32bytes-secret';
+    await tx.insert(emailOutbox).values({
+      id: '01920000-0000-7000-8000-000000000299',
+      kind: 'proposal_sent',
+      proposalId: SEED_PROPOSAL_SENT_ID,
+      recipient: 'emma@example.com',
+      payload: {
+        token: rawSentToken,
+        tokenUrl: `/p/${rawSentToken}`,
+      },
+      status: 'PENDING',
+      attempts: 0,
+      nextAttemptAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
   // Proposal 3: ACCEPTED

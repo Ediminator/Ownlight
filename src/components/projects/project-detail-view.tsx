@@ -38,6 +38,7 @@ import {
   transitionProjectStageAction,
 } from '@/server/projects/actions';
 import { TaskWarningDialog, type IncompleteTaskItem } from './task-warning-dialog';
+import { ProposalsSection } from './proposals-section';
 import { ShootsSection } from './shoots-section';
 import { LocationsSection } from './locations-section';
 import { TimelineScheduleSection } from './timeline-schedule-section';
@@ -49,7 +50,7 @@ export interface ProjectDetailViewProps {
   locale: string;
 }
 
-type TabKey = 'all' | 'shoots' | 'locations' | 'timeline' | 'participants' | 'tasks';
+type TabKey = 'all' | 'proposals' | 'shoots' | 'locations' | 'timeline' | 'participants' | 'tasks';
 
 const PROJECT_TYPES = [
   'wedding',
@@ -261,6 +262,11 @@ export function ProjectDetailView({ initialData, locale }: ProjectDetailViewProp
   // Tabs metadata
   const tabList: { key: TabKey; label: string; count?: number }[] = [
     { key: 'all', label: tDetail('tabs.all') },
+    {
+      key: 'proposals',
+      label: tDetail('tabs.proposals'),
+      count: initialData.proposals?.length ?? 0,
+    },
     { key: 'shoots', label: tDetail('tabs.shoots'), count: shoots.length },
     { key: 'locations', label: tDetail('tabs.locations'), count: locations.length },
     { key: 'timeline', label: tDetail('tabs.timeline'), count: timelineItems.length },
@@ -430,7 +436,7 @@ export function ProjectDetailView({ initialData, locale }: ProjectDetailViewProp
           aria-label="Project sections"
           className="flex flex-wrap gap-2 -mb-px overflow-x-auto py-1"
         >
-          {tabList.map((tab) => {
+          {tabList.map((tab, idx) => {
             const isActive = activeTab === tab.key;
             return (
               <button
@@ -444,6 +450,28 @@ export function ProjectDetailView({ initialData, locale }: ProjectDetailViewProp
                 tabIndex={isActive ? 0 : -1}
                 onClick={() => {
                   setActiveTab(tab.key);
+                }}
+                onKeyDown={(e) => {
+                  let nextIndex: number | null = null;
+                  if (e.key === 'ArrowRight') {
+                    nextIndex = (idx + 1) % tabList.length;
+                  } else if (e.key === 'ArrowLeft') {
+                    nextIndex = (idx - 1 + tabList.length) % tabList.length;
+                  } else if (e.key === 'Home') {
+                    nextIndex = 0;
+                  } else if (e.key === 'End') {
+                    nextIndex = tabList.length - 1;
+                  }
+
+                  if (nextIndex !== null) {
+                    e.preventDefault();
+                    const nextTab = tabList[nextIndex];
+                    if (nextTab) {
+                      setActiveTab(nextTab.key);
+                      const el = document.getElementById(`tab-${nextTab.key}`);
+                      el?.focus();
+                    }
+                  }
                 }}
                 className={cn(
                   'inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium border-b-2 transition-colors min-h-[44px] sm:min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-t-md',
@@ -473,6 +501,11 @@ export function ProjectDetailView({ initialData, locale }: ProjectDetailViewProp
       <main className="space-y-8">
         {activeTab === 'all' && (
           <div id="panel-all" role="tabpanel" aria-labelledby="tab-all" className="space-y-10">
+            <ProposalsSection
+              projectId={project.id}
+              initialProposals={initialData.proposals ?? []}
+              locale={locale}
+            />
             <ShootsSection
               projectId={project.id}
               shoots={shoots}
@@ -507,6 +540,16 @@ export function ProjectDetailView({ initialData, locale }: ProjectDetailViewProp
               tasks={tasks}
               locale={locale}
               onTasksChange={setTasks}
+            />
+          </div>
+        )}
+
+        {activeTab === 'proposals' && (
+          <div id="panel-proposals" role="tabpanel" aria-labelledby="tab-proposals">
+            <ProposalsSection
+              projectId={project.id}
+              initialProposals={initialData.proposals ?? []}
+              locale={locale}
             />
           </div>
         )}

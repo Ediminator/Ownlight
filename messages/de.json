@@ -1763,6 +1763,7 @@
       "cancel": "Abbrechen",
       "tabs": {
         "all": "Übersicht",
+        "proposals": "Angebote",
         "shoots": "Shootings & Sessions",
         "locations": "Orte & Venues",
         "timeline": "Ablauf & Zeitplan",
@@ -1870,6 +1871,42 @@
         "incompleteAria": "Als erledigt markieren",
         "submit": "Aufgabe hinzufügen",
         "submitting": "Wird hinzugefügt..."
+      },
+      "proposals": {
+        "title": "Kostenvoranschläge & Angebote",
+        "description": "Kommerzielle Angebote, Paketauswahlen und Kundenannahme-Links für dieses Projekt.",
+        "newProposal": "Neues Angebot",
+        "empty": "Noch keine Angebote für dieses Projekt erstellt.",
+        "version": "Version v{version}",
+        "createdAt": "Erstellt am {date}",
+        "total": "Gesamtbetrag",
+        "validUntil": "Gültig bis {date}",
+        "acceptedOn": "Angenommen am {date}",
+        "noExpiration": "Keine Befristung",
+        "statuses": {
+          "draft": "Entwurf",
+          "sent": "Versendet",
+          "accepted": "Angenommen",
+          "declined": "Abgelehnt",
+          "expired": "Abgelaufen",
+          "superseded": "Ersetzt"
+        },
+        "actions": {
+          "editDraft": "Entwurf bearbeiten",
+          "copyPublicLink": "Öffentlichen Link kopieren",
+          "linkCopied": "Link kopiert!",
+          "revokeLink": "Link widerrufen",
+          "linkRevoked": "Link widerrufen",
+          "copyError": "Link konnte nicht in die Zwischenablage kopiert werden.",
+          "revokeError": "Link konnte nicht widerrufen werden."
+        },
+        "revokeDialog": {
+          "title": "Öffentlichen Link widerrufen",
+          "description": "Möchten Sie den öffentlichen Link für dieses Angebot wirklich widerrufen? Der Kunde verliert sofort den Zugriff und kann das Angebot nicht mehr online einsehen oder annehmen.",
+          "cancel": "Abbrechen",
+          "confirm": "Link widerrufen",
+          "revoking": "Wird widerrufen..."
+        }
       }
     }
   },

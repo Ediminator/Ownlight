@@ -18,6 +18,7 @@ import {
   Mail,
   FolderKanban,
   ArrowRightCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import type { ResolvedTimelineItem } from '@/server/timeline/repo';
 import { formatDateTime } from '@/lib/formatters';
@@ -357,11 +358,17 @@ export function ClientTimeline({
                       {event.type === 'project.stage_changed' && (
                         <ArrowRightCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       )}
+                      {event.type === 'proposal.accepted' && (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      )}
                       {isNote && <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
                     </span>
 
                     <div className="space-y-1 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5 font-medium text-foreground">
+                        {event.type === 'proposal.accepted' && (
+                          <span>{t('events.proposal_accepted')}</span>
+                        )}
                         {event.type === 'client.created' && (
                           <span>{t('events.client_created')}</span>
                         )}

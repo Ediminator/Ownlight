@@ -1089,6 +1089,10 @@
         "proposal_sent": "Angebot gesendet",
         "proposal_accepted": "Angebot angenommen",
         "proposal_declined": "Angebot abgelehnt",
+        "contract_sent": "Vertrag gesendet",
+        "contract_signed_by_client": "Vertrag von Kund:in unterzeichnet",
+        "contract_countersigned": "Vertrag gegengezeichnet",
+        "contract_voided": "Vertrag storniert",
         "deleted_item": "Gelöschter Eintrag"
       },
       "note": {

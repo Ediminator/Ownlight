@@ -226,6 +226,65 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
     ['proposal_id', 'project_id', 'client_id', 'total_minor', 'currency', 'has_decline_reason'],
   ],
   ['proposal.revoked', ['proposal_id', 'project_id', 'client_id', 'reason']],
+  ['contract_template.created', ['template_id', 'slug', 'name', 'project_type_key', 'is_default']],
+  ['contract_template.updated', ['template_id', 'slug', 'name', 'changed_fields']],
+  ['contract_template.deleted', ['template_id', 'slug']],
+  [
+    'contract.created',
+    [
+      'contract_id',
+      'project_id',
+      'client_id',
+      'contract_number',
+      'title',
+      'locale',
+      'status',
+      'template_id',
+    ],
+  ],
+  [
+    'contract.updated',
+    [
+      'contract_id',
+      'project_id',
+      'client_id',
+      'contract_number',
+      'title',
+      'status',
+      'changed_fields',
+    ],
+  ],
+  ['contract.sent', ['contract_id', 'project_id', 'client_id', 'contract_number', 'valid_until']],
+  [
+    'contract.signed_by_client',
+    ['contract_id', 'project_id', 'client_id', 'contract_number', 'signer_name', 'signature_type'],
+  ],
+  [
+    'contract.countersigned',
+    ['contract_id', 'project_id', 'client_id', 'contract_number', 'signer_name'],
+  ],
+  ['contract.voided', ['contract_id', 'project_id', 'client_id', 'contract_number', 'reason']],
+  ['contract.revoked', ['contract_id', 'project_id', 'client_id', 'contract_number', 'reason']],
+  [
+    'contract.reminded',
+    ['contract_id', 'project_id', 'client_id', 'contract_number', 'reminder_count'],
+  ],
+  [
+    'studio_settings.contract_updated',
+    [
+      'changed_fields',
+      'contract_signatory_name',
+      'contract_signatory_title',
+      'contract_countersignature_mode',
+      'studio_city',
+      'studio_country_code',
+      'studio_address_line1',
+      'studio_address_line2',
+      'studio_postal_code',
+      'studio_phone',
+      'studio_email',
+    ],
+  ],
 ]);
 
 /**

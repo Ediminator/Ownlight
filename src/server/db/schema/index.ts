@@ -16,3 +16,4 @@ export * from './projects';
 export * from './calendar';
 export * from './packages';
 export * from './proposals';
+export * from './contracts';

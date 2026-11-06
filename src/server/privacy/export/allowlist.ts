@@ -21,4 +21,9 @@ export const EXPORT_COVERAGE_ALLOWLIST: readonly ExportCoverageExemption[] = [
     reason:
       'Commercial proposals and snapshot records. DSAR export provider implementation is scheduled in TASK-0059 as part of Epic E5.',
   },
+  {
+    tableName: 'contracts',
+    reason:
+      'Legal contracts and signature records. DSAR export provider implementation is scheduled in TASK-0066 as part of Epic E6.',
+  },
 ];

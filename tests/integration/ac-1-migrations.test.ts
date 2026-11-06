@@ -69,6 +69,16 @@ describe('AC-1: Database migrations and drift detection', () => {
         'kleinunternehmer_notice',
         'default_tax_rate_basis_points',
         'prices_include_tax',
+        'contract_signatory_name',
+        'contract_signatory_title',
+        'contract_countersignature_mode',
+        'studio_address_line1',
+        'studio_address_line2',
+        'studio_postal_code',
+        'studio_city',
+        'studio_country_code',
+        'studio_phone',
+        'studio_email',
       ]);
 
       // Verify MFA tables and PoW tables exist
@@ -85,6 +95,8 @@ describe('AC-1: Database migrations and drift detection', () => {
       expect(tableNames).toContain('catalogue_items');
       expect(tableNames).toContain('proposals');
       expect(tableNames).toContain('proposal_line_items');
+      expect(tableNames).toContain('contract_templates');
+      expect(tableNames).toContain('contracts');
     } finally {
       await client.close();
     }

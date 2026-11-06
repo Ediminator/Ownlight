@@ -96,6 +96,26 @@ const INITIAL_EVENT_TYPES: TimelineEventTypeDefinition[] = [
     dataKeys: ['proposal_id', 'total_minor', 'currency'],
     messageKey: 'clients.timeline.events.proposal_declined',
   },
+  {
+    type: 'contract.sent',
+    dataKeys: ['contract_id', 'contract_number'],
+    messageKey: 'clients.timeline.events.contract_sent',
+  },
+  {
+    type: 'contract.signed_by_client',
+    dataKeys: ['contract_id', 'contract_number', 'signer_name'],
+    messageKey: 'clients.timeline.events.contract_signed_by_client',
+  },
+  {
+    type: 'contract.countersigned',
+    dataKeys: ['contract_id', 'contract_number'],
+    messageKey: 'clients.timeline.events.contract_countersigned',
+  },
+  {
+    type: 'contract.voided',
+    dataKeys: ['contract_id', 'contract_number'],
+    messageKey: 'clients.timeline.events.contract_voided',
+  },
 ];
 
 const registry = new Map<string, TimelineEventTypeDefinition>();

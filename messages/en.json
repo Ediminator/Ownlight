@@ -1089,6 +1089,10 @@
         "proposal_sent": "Proposal sent",
         "proposal_accepted": "Proposal accepted",
         "proposal_declined": "Proposal declined",
+        "contract_sent": "Contract sent",
+        "contract_signed_by_client": "Contract signed by client",
+        "contract_countersigned": "Contract countersigned",
+        "contract_voided": "Contract voided",
         "deleted_item": "Deleted item"
       },
       "note": {

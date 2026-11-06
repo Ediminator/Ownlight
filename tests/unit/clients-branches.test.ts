@@ -493,6 +493,16 @@ describe('Clients Domain & Actions Branch Coverage (Unit)', () => {
         kleinunternehmer_notice: null,
         default_tax_rate_basis_points: 1900,
         prices_include_tax: true,
+        contract_signatory_name: null,
+        contract_signatory_title: null,
+        contract_countersignature_mode: 'pre_signed',
+        studio_address_line1: null,
+        studio_address_line2: null,
+        studio_postal_code: null,
+        studio_city: null,
+        studio_country_code: 'DE',
+        studio_phone: null,
+        studio_email: null,
       });
       vi.spyOn(clientRepo, 'findDuplicateEmails').mockResolvedValueOnce([]);
       vi.spyOn(clientRepo, 'insertClientWithPrimaryContact').mockResolvedValueOnce({

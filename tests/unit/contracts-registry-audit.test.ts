@@ -103,11 +103,73 @@ describe('Contracts Registry, Audit Allowlist & ADR-0019 Unit Tests (AC-9, AC-10
     expect(ctrCreated).toContain('client_id');
     expect(ctrCreated).toContain('contract_number');
 
-    // Verify studio settings contract update action
+    // Verify studio settings contract update action contains only non-PII keys (I1-S01)
     const studioContract = ACTION_METADATA_ALLOWLIST.get('studio_settings.contract_updated');
-    expect(studioContract).toContain('contract_signatory_name');
+    expect(studioContract).toContain('changed_fields');
     expect(studioContract).toContain('contract_countersignature_mode');
-    expect(studioContract).toContain('studio_city');
+    expect(studioContract).toContain('studio_country_code');
+    expect(studioContract).not.toContain('contract_signatory_name');
+    expect(studioContract).not.toContain('contract_signatory_title');
+    expect(studioContract).not.toContain('studio_city');
+    expect(studioContract).not.toContain('studio_address_line1');
+    expect(studioContract).not.toContain('studio_address_line2');
+    expect(studioContract).not.toContain('studio_postal_code');
+    expect(studioContract).not.toContain('studio_phone');
+    expect(studioContract).not.toContain('studio_email');
+
+    // Verify signing actions do NOT contain signer_name (I1-S04)
+    const clientSigned = ACTION_METADATA_ALLOWLIST.get('contract.signed_by_client');
+    expect(clientSigned).toContain('signature_type');
+    expect(clientSigned).not.toContain('signer_name');
+
+    const countersigned = ACTION_METADATA_ALLOWLIST.get('contract.countersigned');
+    expect(countersigned).not.toContain('signer_name');
+  });
+
+  it('I1-S02: data inventory registers all personal data fields for contracts and studio signatory profile', () => {
+    const inventoryPath = path.resolve(process.cwd(), 'docs/privacy/data-inventory.md');
+    const content = fs.readFileSync(inventoryPath, 'utf8');
+
+    const requiredContractFields = [
+      'contracts.client_signer_name',
+      'contracts.client_signer_email',
+      'contracts.client_signature_type',
+      'contracts.client_signature_data',
+      'contracts.client_ip_anonymized',
+      'contracts.client_user_agent',
+      'contracts.studio_signer_name',
+      'contracts.studio_signer_title',
+      'contracts.studio_signature_data',
+      'contracts.rendered_body',
+      'contracts.merge_values_snapshot',
+      'contracts.internal_notes',
+    ];
+
+    for (const field of requiredContractFields) {
+      expect(content).toContain(`\`${field}\``);
+    }
+
+    const requiredStudioFields = [
+      'studio_settings.contract_signatory_name',
+      'studio_settings.contract_signatory_title',
+      'studio_settings.contract_countersignature_mode',
+      'studio_settings.studio_address_line1',
+      'studio_settings.studio_address_line2',
+      'studio_settings.studio_postal_code',
+      'studio_settings.studio_city',
+      'studio_settings.studio_country_code',
+      'studio_settings.studio_phone',
+      'studio_settings.studio_email',
+    ];
+
+    for (const field of requiredStudioFields) {
+      expect(content).toContain(`\`${field}\``);
+    }
+
+    // Verify statutory retention basis is referenced
+    expect(content).toContain('10-year statutory retention');
+    expect(content).toContain('§147 AO');
+    expect(content).toContain('§257 HGB');
   });
 
   it('AC-10: ADR-0019 exists in projects/ownlight/docs/architecture/adr/ and specifies status Accepted (2026-11-06)', () => {

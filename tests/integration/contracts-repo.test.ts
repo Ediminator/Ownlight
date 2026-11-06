@@ -219,20 +219,33 @@ describe('Contracts Repository Integration Tests (AC-5, AC-7, AC-8)', () => {
     expect(c2.contractNumber).toBe(`CTR-${String(currentYear)}-0002`);
   });
 
-  it('AC-5: getContractByTokenHash retrieves contract via public token hash', async () => {
+  it('AC-5 & I1-S03: getContractByTokenHash retrieves contract, masks internalNotes, rejects revoked tokens without requiring auth', async () => {
     const draft = await createContractDraft(
       {
         projectId: testProjectId,
         clientId: testClientId,
         title: 'Public Viewable Contract',
+        internalNotes: 'Private photographer pricing strategy and negotiation history',
       },
       ownerAuth,
       dbClient,
     );
 
+    // 1. Valid token lookup masks internalNotes to null (I1-S03)
     const fetched = await getContractByTokenHash(draft.tokenHash, dbClient);
-    expect(fetched.id).toBe(draft.id);
-    expect(fetched.title).toBe('Public Viewable Contract');
+    expect(fetched).not.toBeNull();
+    expect(fetched?.id).toBe(draft.id);
+    expect(fetched?.title).toBe('Public Viewable Contract');
+    expect(fetched?.internalNotes).toBeNull();
+
+    // 2. Non-existent token returns null without error
+    const nonExistent = await getContractByTokenHash('0'.repeat(64), dbClient);
+    expect(nonExistent).toBeNull();
+
+    // 3. Revoked token returns null (I1-S03)
+    await voidContract(draft.id, 'Customer changed requirements', ownerAuth, dbClient);
+    const afterRevocation = await getContractByTokenHash(draft.tokenHash, dbClient);
+    expect(afterRevocation).toBeNull();
   });
 
   it('AC-5: updateContractDraft updates title and body while in draft and records contract.updated audit event', async () => {
@@ -449,7 +462,7 @@ describe('Contracts Repository Integration Tests (AC-5, AC-7, AC-8)', () => {
         'non-existent-token-hash-64-characters-long-000000000000000000000000',
         dbClient,
       ),
-    ).rejects.toThrow(ContractNotFoundError);
+    ).resolves.toBeNull();
   });
 
   it('AC-5: creates contract draft in German locale using German template content and populates proposalId', async () => {

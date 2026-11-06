@@ -257,12 +257,9 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
   ['contract.sent', ['contract_id', 'project_id', 'client_id', 'contract_number', 'valid_until']],
   [
     'contract.signed_by_client',
-    ['contract_id', 'project_id', 'client_id', 'contract_number', 'signer_name', 'signature_type'],
+    ['contract_id', 'project_id', 'client_id', 'contract_number', 'signature_type'],
   ],
-  [
-    'contract.countersigned',
-    ['contract_id', 'project_id', 'client_id', 'contract_number', 'signer_name'],
-  ],
+  ['contract.countersigned', ['contract_id', 'project_id', 'client_id', 'contract_number']],
   ['contract.voided', ['contract_id', 'project_id', 'client_id', 'contract_number', 'reason']],
   ['contract.revoked', ['contract_id', 'project_id', 'client_id', 'contract_number', 'reason']],
   [
@@ -271,19 +268,7 @@ export const ACTION_METADATA_ALLOWLIST = new Map<string, readonly string[]>([
   ],
   [
     'studio_settings.contract_updated',
-    [
-      'changed_fields',
-      'contract_signatory_name',
-      'contract_signatory_title',
-      'contract_countersignature_mode',
-      'studio_city',
-      'studio_country_code',
-      'studio_address_line1',
-      'studio_address_line2',
-      'studio_postal_code',
-      'studio_phone',
-      'studio_email',
-    ],
+    ['changed_fields', 'contract_countersignature_mode', 'studio_country_code'],
   ],
 ]);
 

@@ -101,21 +101,26 @@ describe('Studio Signing Settings Integration Tests (AC-6, AC-7, AC-8)', () => {
 
     expect(auditLog).toBeDefined();
     expect(auditLog?.targetType).toBe('studio_settings');
-    const meta = auditLog?.metadata as {
-      contract_signatory_name?: string;
-      contract_countersignature_mode?: string;
-      studio_city?: string;
-      studio_country_code?: string;
-      changed_fields?: string[];
-    } | null;
-    expect(meta?.contract_signatory_name).toBe('Jane Doe');
-    expect(meta?.contract_countersignature_mode).toBe('explicit');
-    expect(meta?.studio_city).toBe('Berlin');
-    expect(meta?.studio_country_code).toBe('DE');
-    expect(meta?.changed_fields).toContain('contract_signatory_name');
-    expect(meta?.changed_fields).toContain('contract_signatory_title');
-    expect(meta?.changed_fields).toContain('contract_countersignature_mode');
-    expect(meta?.changed_fields).toContain('studio_city');
+    const meta = auditLog?.metadata ?? {};
+
+    // Non-PII operational fields must be present
+    expect(meta.contract_countersignature_mode).toBe('explicit');
+    expect(meta.studio_country_code).toBe('DE');
+    const changedFields = meta.changed_fields as string[];
+    expect(changedFields).toContain('contract_signatory_name');
+    expect(changedFields).toContain('contract_signatory_title');
+    expect(changedFields).toContain('contract_countersignature_mode');
+    expect(changedFields).toContain('studio_city');
+
+    // Regression test for I1-S01: Personal data MUST NOT be stored in immutable audit_events
+    expect(meta.contract_signatory_name).toBeUndefined();
+    expect(meta.contract_signatory_title).toBeUndefined();
+    expect(meta.studio_city).toBeUndefined();
+    expect(meta.studio_address_line1).toBeUndefined();
+    expect(meta.studio_address_line2).toBeUndefined();
+    expect(meta.studio_postal_code).toBeUndefined();
+    expect(meta.studio_phone).toBeUndefined();
+    expect(meta.studio_email).toBeUndefined();
   });
 
   it('AC-7: rejects unauthenticated caller with UNAUTHENTICATED', async () => {

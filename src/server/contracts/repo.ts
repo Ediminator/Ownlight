@@ -1,6 +1,6 @@
 import { randomBytes, createHash } from 'node:crypto';
-import { eq, desc, like } from 'drizzle-orm';
-import type { DbClient } from '@/server/db/client';
+import { eq, desc, like, and, isNull } from 'drizzle-orm';
+import { db as defaultDb, type DbClient } from '@/server/db/client';
 import { contracts, type Contract, type NewContract } from '@/server/db/schema/contracts';
 import { projects } from '@/server/db/schema/projects';
 import { contractTemplates } from '@/server/db/schema/contracts';
@@ -130,25 +130,28 @@ export async function getContractById(
 
 /**
  * Retrieves a contract by public token hash (for public signing route).
- * Does not require owner authorization, but returns 404 if not found.
+ * Does not require owner authorization, validates that token is not revoked, and masks private internalNotes (I1-S03).
  */
 export async function getContractByTokenHash(
   tokenHash: string,
   explicitClient?: DbClient,
-): Promise<Contract> {
-  const client = explicitClient ?? (await resolveRepoAuth(null, explicitClient)).client;
+): Promise<Contract | null> {
+  const client = explicitClient ?? defaultDb;
 
   const [contract] = await client
     .select()
     .from(contracts)
-    .where(eq(contracts.tokenHash, tokenHash))
+    .where(and(eq(contracts.tokenHash, tokenHash), isNull(contracts.tokenRevokedAt)))
     .limit(1);
 
   if (!contract) {
-    throw new ContractNotFoundError('Contract not found for token hash');
+    return null;
   }
 
-  return contract;
+  return {
+    ...contract,
+    internalNotes: null,
+  };
 }
 
 /**

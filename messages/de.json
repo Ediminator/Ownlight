@@ -1024,7 +1024,7 @@
         "restoreAction": "Vorlage wiederherstellen",
         "archiveDialog": {
           "title": "Vertragsvorlage archivieren",
-          "description": "Sind Sie sicher, dass Sie '{name}' archivieren möchten? Bereits abgeschlossene Verträge bleiben unberührt, diese Vorlage steht jedoch für neue Verträge nicht mehr zur Verfügung.",
+          "description": "Sind Sie sicher, dass Sie \"{name}\" archivieren möchten? Bereits abgeschlossene Verträge bleiben unberührt, diese Vorlage steht jedoch für neue Verträge nicht mehr zur Verfügung.",
           "confirmButton": "Vorlage archivieren",
           "cancelButton": "Abbrechen"
         }

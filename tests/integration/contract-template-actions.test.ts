@@ -33,13 +33,12 @@ import { studioSettings } from '@/server/db/schema/studio-settings';
 import { auditEvents } from '@/server/db/schema/audit';
 import { createSession, SESSION_COOKIE_NAME } from '@/server/auth/session';
 import { eq, desc } from 'drizzle-orm';
+import * as actions from '@/server/contracts/actions';
 import {
   createContractTemplateAction,
   updateContractTemplateAction,
   archiveContractTemplateAction,
   updateStudioSigningSettingsAction,
-  getStudioSigningSettingsAction,
-  listContractTemplatesAction,
 } from '@/server/contracts/actions';
 import * as templateRepo from '@/server/contracts/template-repo';
 import * as studioSigning from '@/server/studio/signing-settings';
@@ -164,22 +163,9 @@ describe('TASK-0065: Contract Template & Studio Signing Server Actions Integrati
       }
     });
 
-    it('AC-7: Rejects unauthenticated getStudioSigningSettingsAction invocation', async () => {
-      mockCookiesStore.clear();
-      const res = await getStudioSigningSettingsAction(dbClient);
-      expect(res.success).toBe(false);
-      if (!res.success) {
-        expect(res.code).toBe('UNAUTHENTICATED');
-      }
-    });
-
-    it('AC-7: Rejects unauthenticated listContractTemplatesAction invocation', async () => {
-      mockCookiesStore.clear();
-      const res = await listContractTemplatesAction({}, dbClient);
-      expect(res.success).toBe(false);
-      if (!res.success) {
-        expect(res.code).toBe('UNAUTHENTICATED');
-      }
+    it('I1-V01: getStudioSigningSettingsAction and listContractTemplatesAction are not exported to eliminate dead RPC endpoints', () => {
+      expect((actions as Record<string, unknown>).getStudioSigningSettingsAction).toBeUndefined();
+      expect((actions as Record<string, unknown>).listContractTemplatesAction).toBeUndefined();
     });
 
     it('AC-7: Rejects non-owner user with FORBIDDEN across all actions', async () => {
@@ -236,18 +222,6 @@ describe('TASK-0065: Contract Template & Studio Signing Server Actions Integrati
       expect(updateSettingsRes.success).toBe(false);
       if (!updateSettingsRes.success) {
         expect(updateSettingsRes.code).toBe('FORBIDDEN');
-      }
-
-      const getSettingsRes = await getStudioSigningSettingsAction(dbClient);
-      expect(getSettingsRes.success).toBe(false);
-      if (!getSettingsRes.success) {
-        expect(getSettingsRes.code).toBe('FORBIDDEN');
-      }
-
-      const listRes = await listContractTemplatesAction({}, dbClient);
-      expect(listRes.success).toBe(false);
-      if (!listRes.success) {
-        expect(listRes.code).toBe('FORBIDDEN');
       }
     });
 
@@ -426,7 +400,7 @@ describe('TASK-0065: Contract Template & Studio Signing Server Actions Integrati
       expect(restoredInDb?.isActive).toBe(true);
     });
 
-    it('AC-1: listContractTemplatesAction returns active and archived templates', async () => {
+    it('AC-1: listContractTemplates repository returns active and archived templates', async () => {
       await createContractTemplateAction(
         {
           name: 'Active Template 1',
@@ -451,19 +425,12 @@ describe('TASK-0065: Contract Template & Studio Signing Server Actions Integrati
         await archiveContractTemplateAction({ id: toArchive.data.id, isActive: false }, dbClient);
       }
 
-      const allTemplates = await listContractTemplatesAction({}, dbClient);
-      expect(allTemplates.success).toBe(true);
-      if (allTemplates.success) {
-        expect(allTemplates.data.length).toBeGreaterThanOrEqual(2);
-        const hasActive = allTemplates.data.some(
-          (t) => t.slug === 'active-template-1' && t.isActive,
-        );
-        const hasArchived = allTemplates.data.some(
-          (t) => t.slug === 'archived-template-2' && !t.isActive,
-        );
-        expect(hasActive).toBe(true);
-        expect(hasArchived).toBe(true);
-      }
+      const allTemplates = await templateRepo.listContractTemplates({}, undefined, dbClient);
+      expect(allTemplates.length).toBeGreaterThanOrEqual(2);
+      const hasActive = allTemplates.some((t) => t.slug === 'active-template-1' && t.isActive);
+      const hasArchived = allTemplates.some((t) => t.slug === 'archived-template-2' && !t.isActive);
+      expect(hasActive).toBe(true);
+      expect(hasArchived).toBe(true);
     });
   });
 
@@ -498,12 +465,9 @@ describe('TASK-0065: Contract Template & Studio Signing Server Actions Integrati
       }
 
       // Check settings retrieval
-      const getRes = await getStudioSigningSettingsAction(dbClient);
-      expect(getRes.success).toBe(true);
-      if (getRes.success) {
-        expect(getRes.data.contract_signatory_name).toBe('Elena Maria Rostova');
-        expect(getRes.data.contract_countersignature_mode).toBe('explicit');
-      }
+      const profile = await studioSigning.getStudioSigningProfile(undefined, dbClient);
+      expect(profile.contract_signatory_name).toBe('Elena Maria Rostova');
+      expect(profile.contract_countersignature_mode).toBe('explicit');
     });
 
     it('AC-6: Rejects invalid studio country code or email', async () => {
@@ -594,30 +558,6 @@ describe('TASK-0065: Contract Template & Studio Signing Server Actions Integrati
         expect(updateSigningRes.code).toBe('INTERNAL_ERROR');
       }
       updateSigningSpy.mockRestore();
-
-      // 5. getStudioSigningProfile failure
-      const getSigningSpy = vi
-        .spyOn(studioSigning, 'getStudioSigningProfile')
-        .mockRejectedValueOnce(new Error('Database signing read error'));
-
-      const getSigningRes = await getStudioSigningSettingsAction(dbClient);
-      expect(getSigningRes.success).toBe(false);
-      if (!getSigningRes.success) {
-        expect(getSigningRes.code).toBe('INTERNAL_ERROR');
-      }
-      getSigningSpy.mockRestore();
-
-      // 6. listContractTemplates failure
-      const listSpy = vi
-        .spyOn(templateRepo, 'listContractTemplates')
-        .mockRejectedValueOnce(new Error('Database list error'));
-
-      const listRes = await listContractTemplatesAction({}, dbClient);
-      expect(listRes.success).toBe(false);
-      if (!listRes.success) {
-        expect(listRes.code).toBe('INTERNAL_ERROR');
-      }
-      listSpy.mockRestore();
 
       // 7. Non-Error exception branch (string throw)
       const stringSpy = vi

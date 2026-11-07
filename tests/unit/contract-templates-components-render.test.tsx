@@ -82,6 +82,7 @@ import { ContractTemplatesList } from '@/components/settings/contract-templates-
 import { ContractTemplateModal } from '@/components/settings/contract-template-modal';
 import { StudioSigningSettingsCard } from '@/components/settings/studio-signing-settings-card';
 import { ContractsSettingsView } from '@/components/settings/contracts-settings-view';
+import { createContractTemplateModalController } from '@/components/settings/contracts-helpers';
 import type { ContractTemplate } from '@/server/db/schema/contracts';
 import type { StudioSettings } from '@/server/db/schema/studio-settings';
 
@@ -577,6 +578,104 @@ describe('TASK-0065: Contract Templates & Studio Signing Static Render Tests', (
       );
       expect(emptyArchivedHtml).toContain('data-testid="templates-empty-state"');
       expect(emptyArchivedHtml).toContain('No archived contract templates.');
+    });
+
+    it('I1-U01: archive confirmation dialog renders interpolated template name without literal {name} in EN and DE', () => {
+      // English
+      currentLocale = 'en';
+      const enHtml = renderToStaticMarkup(
+        <ContractTemplatesList
+          templates={[mockActiveTemplate]}
+          initialTemplateToArchive={mockActiveTemplate}
+          onNewTemplate={vi.fn()}
+          onEditTemplate={vi.fn()}
+          onDuplicateTemplate={vi.fn()}
+          onArchiveTemplate={vi.fn()}
+          onRestoreTemplate={vi.fn()}
+        />,
+      );
+      expect(enHtml).not.toContain('{name}');
+      expect(enHtml).toContain(
+        'Are you sure you want to archive &quot;Standard Wedding Agreement&quot;?',
+      );
+
+      // German
+      currentLocale = 'de';
+      const deHtml = renderToStaticMarkup(
+        <ContractTemplatesList
+          templates={[mockActiveTemplate]}
+          initialTemplateToArchive={mockActiveTemplate}
+          onNewTemplate={vi.fn()}
+          onEditTemplate={vi.fn()}
+          onDuplicateTemplate={vi.fn()}
+          onArchiveTemplate={vi.fn()}
+          onRestoreTemplate={vi.fn()}
+        />,
+      );
+      expect(deHtml).not.toContain('{name}');
+      expect(deHtml).toContain(
+        'Sind Sie sicher, dass Sie &quot;Standard Wedding Agreement&quot; archivieren möchten?',
+      );
+      currentLocale = 'en';
+    });
+
+    it('I1-U02: createContractTemplateModalController focuses and scrolls first invalid field on submission error', async () => {
+      const mockFocus = vi.fn();
+      const mockScrollIntoView = vi.fn();
+      const dummyInput = {
+        focus: mockFocus,
+        scrollIntoView: mockScrollIntoView,
+      } as unknown as HTMLElement;
+
+      const mockQuerySelector = vi.fn().mockReturnValue(dummyInput);
+      const mockContainer = {
+        querySelector: mockQuerySelector,
+      } as unknown as HTMLElement;
+
+      const setErrors = vi.fn();
+      const setActiveClauseTab = vi.fn();
+      const setLiveAnnouncement = vi.fn();
+      const onSave = vi.fn();
+      const onClose = vi.fn();
+
+      const controller = createContractTemplateModalController({
+        formData: {
+          name: '',
+          slug: '',
+          description: '',
+          projectTypeKey: '',
+          contentEn: '',
+          contentDe: '',
+          isDefault: false,
+          isActive: true,
+        },
+        setFormData: vi.fn(),
+        setErrors,
+        activeClauseTab: 'en',
+        setActiveClauseTab,
+        setLiveAnnouncement,
+        onClose,
+        onSave,
+        t: (k: string) => k,
+      });
+
+      const preventDefault = vi.fn();
+      const syntheticEvent = {
+        preventDefault,
+        currentTarget: mockContainer,
+      } as unknown as React.SyntheticEvent;
+      controller.handleSubmit(syntheticEvent);
+
+      expect(preventDefault).toHaveBeenCalled();
+      expect(setErrors).toHaveBeenCalled();
+      expect(onSave).not.toHaveBeenCalled();
+
+      // Wait for setTimeout in handleSubmit
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(mockQuerySelector).toHaveBeenCalledWith('[aria-invalid="true"], :invalid');
+      expect(mockFocus).toHaveBeenCalled();
+      expect(mockScrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
     });
   });
 });

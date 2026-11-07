@@ -790,10 +790,43 @@ export function createContractTemplateModalController(
 
   const handleSubmit = (e: React.SyntheticEvent) => {
     e.preventDefault();
+    const container =
+      (e.currentTarget as HTMLElement | null) ??
+      (typeof document !== 'undefined' ? document : null);
     void (async () => {
       const validationErrors = validateContractTemplateForm(formData, t);
       if (Object.keys(validationErrors).length > 0) {
         setErrors(validationErrors);
+        if (
+          validationErrors.contentEn &&
+          !validationErrors.contentDe &&
+          !validationErrors.name &&
+          !validationErrors.slug &&
+          !validationErrors.description &&
+          !validationErrors.projectTypeKey
+        ) {
+          setActiveClauseTab('en');
+        } else if (
+          validationErrors.contentDe &&
+          !validationErrors.contentEn &&
+          !validationErrors.name &&
+          !validationErrors.slug &&
+          !validationErrors.description &&
+          !validationErrors.projectTypeKey
+        ) {
+          setActiveClauseTab('de');
+        }
+        if (container) {
+          setTimeout(() => {
+            const firstInvalid = container.querySelector<HTMLElement>(
+              '[aria-invalid="true"], :invalid',
+            );
+            if (firstInvalid) {
+              firstInvalid.focus();
+              firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 0);
+        }
         return;
       }
       setErrors({});

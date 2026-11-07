@@ -20,13 +20,8 @@ import {
   createContractTemplate,
   updateContractTemplate,
   deleteContractTemplate,
-  listContractTemplates,
-  type ListContractTemplatesOptions,
 } from './template-repo';
-import {
-  updateStudioSigningProfile,
-  getStudioSigningProfile,
-} from '@/server/studio/signing-settings';
+import { updateStudioSigningProfile } from '@/server/studio/signing-settings';
 import type { ContractTemplate } from '@/server/db/schema/contracts';
 import type { StudioSettings } from '@/server/db/schema/studio-settings';
 
@@ -244,67 +239,6 @@ export async function updateStudioSigningSettingsAction(
       success: false,
       code: 'INTERNAL_ERROR',
       error: getErrorMessage(error, 'Failed to update studio signing settings'),
-    };
-  }
-}
-
-/**
- * Retrieves studio signing settings. Strictly requires authenticated owner.
- */
-export async function getStudioSigningSettingsAction(
-  client: DbClient = defaultDb,
-): Promise<ContractActionResult<StudioSettings>> {
-  let auth: AuthContext;
-  try {
-    auth = await requireOwner({ client });
-  } catch (err) {
-    if (err instanceof ForbiddenError) {
-      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
-    }
-    return { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' };
-  }
-
-  try {
-    const data = await getStudioSigningProfile({ auth, client }, client);
-    return { success: true, data };
-  } catch (error) {
-    const msg = getErrorMessage(error, String(error));
-    logger.error({ error: msg }, 'Failed to get studio signing settings');
-    return {
-      success: false,
-      code: 'INTERNAL_ERROR',
-      error: getErrorMessage(error, 'Failed to get studio signing settings'),
-    };
-  }
-}
-
-/**
- * Lists contract templates. Strictly requires authenticated owner.
- */
-export async function listContractTemplatesAction(
-  options: ListContractTemplatesOptions = {},
-  client: DbClient = defaultDb,
-): Promise<ContractActionResult<ContractTemplate[]>> {
-  let auth: AuthContext;
-  try {
-    auth = await requireOwner({ client });
-  } catch (err) {
-    if (err instanceof ForbiddenError) {
-      return { success: false, code: 'FORBIDDEN', error: 'FORBIDDEN' };
-    }
-    return { success: false, code: 'UNAUTHENTICATED', error: 'UNAUTHENTICATED' };
-  }
-
-  try {
-    const data = await listContractTemplates(options, { auth, client }, client);
-    return { success: true, data };
-  } catch (error) {
-    const msg = getErrorMessage(error, String(error));
-    logger.error({ error: msg }, 'Failed to list contract templates');
-    return {
-      success: false,
-      code: 'INTERNAL_ERROR',
-      error: getErrorMessage(error, 'Failed to list contract templates'),
     };
   }
 }

@@ -1024,7 +1024,7 @@
         "restoreAction": "Restore Template",
         "archiveDialog": {
           "title": "Archive Contract Template",
-          "description": "Are you sure you want to archive '{name}'? Existing executed contracts will remain untouched, but this template will no longer be available for new contract drafting.",
+          "description": "Are you sure you want to archive \"{name}\"? Existing executed contracts will remain untouched, but this template will no longer be available for new contract drafting.",
           "confirmButton": "Archive Template",
           "cancelButton": "Cancel"
         }

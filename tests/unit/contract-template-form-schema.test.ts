@@ -764,7 +764,14 @@ describe('TASK-0065: Contract Template View-Model & Form Helpers Unit Tests', ()
       const setIsDuplicate = vi.fn();
       const setIsModalOpen = vi.fn();
       const setIsSubmittingTemplate = vi.fn();
-      const setTemplates = vi.fn();
+      let templatesState = [mockTmpl, { ...mockTmpl, id: 'different-id' }];
+      const setTemplates = vi.fn((updater: unknown) => {
+        if (typeof updater === 'function') {
+          templatesState = (updater as (prev: ContractTemplate[]) => ContractTemplate[])(
+            templatesState,
+          );
+        }
+      });
       const setSigningSettings = vi.fn();
       const router = { refresh: vi.fn() };
 

@@ -1,6 +1,14 @@
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
-import { Shield, Cloud, ClipboardList, CalendarClock, CalendarSync, Package } from 'lucide-react';
+import {
+  Shield,
+  Cloud,
+  ClipboardList,
+  CalendarClock,
+  CalendarSync,
+  Package,
+  FileText,
+} from 'lucide-react';
 
 export default function SettingsPage() {
   const t = useTranslations('pages.settings');
@@ -9,6 +17,7 @@ export default function SettingsPage() {
   const tInq = useTranslations('settings.inquiryForms');
   const tAvail = useTranslations('settings.availability');
   const tPkg = useTranslations('settings.packages');
+  const tContract = useTranslations('settings.contracts');
 
   return (
     <div className="space-y-6">
@@ -32,6 +41,25 @@ export default function SettingsPage() {
               className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 min-h-[36px] py-2 px-4 shadow-sm"
             >
               {tPkg('manage')}
+            </Link>
+          </div>
+        </div>
+
+        <div className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm space-y-4">
+          <div className="flex items-center gap-3">
+            <FileText className="h-6 w-6 text-primary shrink-0" aria-hidden="true" />
+            <div>
+              <h2 className="text-lg font-semibold">{tContract('title')}</h2>
+              <p className="text-sm text-muted-foreground">{tContract('description')}</p>
+            </div>
+          </div>
+          <div>
+            <Link
+              href="/settings/contracts"
+              data-testid="settings-card-contracts"
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 min-h-[36px] py-2 px-4 shadow-sm"
+            >
+              {tContract('manage')}
             </Link>
           </div>
         </div>

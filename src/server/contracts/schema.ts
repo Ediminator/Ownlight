@@ -85,6 +85,33 @@ export type UpdateContractTemplateInput = z.input<typeof updateContractTemplateS
 export type UpdateContractTemplateOutput = z.output<typeof updateContractTemplateSchema>;
 
 /**
+ * Schema for updating an existing contract template via server action (AC-4).
+ */
+export const updateContractTemplateActionInputSchema = updateContractTemplateSchema
+  .extend({
+    id: z.string().uuid('Template ID must be a valid UUID'),
+  })
+  .strict();
+
+export type UpdateContractTemplateActionInput = z.input<
+  typeof updateContractTemplateActionInputSchema
+>;
+
+/**
+ * Schema for archiving or restoring a contract template via server action (AC-5).
+ */
+export const archiveContractTemplateActionInputSchema = z
+  .object({
+    id: z.string().uuid('Template ID must be a valid UUID'),
+    isActive: z.boolean().default(false),
+  })
+  .strict();
+
+export type ArchiveContractTemplateActionInput = z.input<
+  typeof archiveContractTemplateActionInputSchema
+>;
+
+/**
  * Schema for creating a contract draft (AC-5, AC-8).
  */
 export const createContractDraftSchema = z
@@ -144,21 +171,71 @@ export type VoidContractInput = z.input<typeof voidContractSchema>;
  */
 export const updateStudioSigningProfileSchema = z
   .object({
-    contractSignatoryName: z.string().trim().max(200).nullable().optional(),
-    contractSignatoryTitle: z.string().trim().max(100).nullable().optional(),
+    contractSignatoryName: z
+      .string()
+      .trim()
+      .max(200)
+      .nullable()
+      .optional()
+      .transform((val) => (val === '' ? null : val)),
+    contractSignatoryTitle: z
+      .string()
+      .trim()
+      .max(100)
+      .nullable()
+      .optional()
+      .transform((val) => (val === '' ? null : val)),
     contractCountersignatureMode: contractCountersignatureModeSchema.optional(),
-    studioAddressLine1: z.string().trim().max(200).nullable().optional(),
-    studioAddressLine2: z.string().trim().max(200).nullable().optional(),
-    studioPostalCode: z.string().trim().max(20).nullable().optional(),
-    studioCity: z.string().trim().max(100).nullable().optional(),
+    studioAddressLine1: z
+      .string()
+      .trim()
+      .max(200)
+      .nullable()
+      .optional()
+      .transform((val) => (val === '' ? null : val)),
+    studioAddressLine2: z
+      .string()
+      .trim()
+      .max(200)
+      .nullable()
+      .optional()
+      .transform((val) => (val === '' ? null : val)),
+    studioPostalCode: z
+      .string()
+      .trim()
+      .max(20)
+      .nullable()
+      .optional()
+      .transform((val) => (val === '' ? null : val)),
+    studioCity: z
+      .string()
+      .trim()
+      .max(100)
+      .nullable()
+      .optional()
+      .transform((val) => (val === '' ? null : val)),
     studioCountryCode: z
       .string()
       .trim()
       .length(2, 'Country code must be exactly 2 characters (ISO 3166-1 alpha-2)')
       .toUpperCase()
       .optional(),
-    studioPhone: z.string().trim().max(50).nullable().optional(),
-    studioEmail: z.string().trim().email('Invalid email address').max(255).nullable().optional(),
+    studioPhone: z
+      .string()
+      .trim()
+      .max(50)
+      .nullable()
+      .optional()
+      .transform((val) => (val === '' ? null : val)),
+    studioEmail: z
+      .string()
+      .trim()
+      .max(255)
+      .email('Invalid email address')
+      .or(z.literal(''))
+      .nullable()
+      .optional()
+      .transform((val) => (val === '' ? null : val)),
   })
   .strict();
 

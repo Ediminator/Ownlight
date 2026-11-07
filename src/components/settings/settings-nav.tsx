@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Shield, Cloud, ClipboardList, CalendarClock, Rss, Package } from 'lucide-react';
+import { Shield, Cloud, ClipboardList, CalendarClock, Rss, Package, FileText } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +17,7 @@ export function SettingsNav({ className }: SettingsNavProps) {
   const tAvail = useTranslations('settings.availability');
   const tFeed = useTranslations('settings.calendarFeed');
   const tPkg = useTranslations('settings.packages');
+  const tContract = useTranslations('settings.contracts');
   const pathname = usePathname();
 
   const links = [
@@ -37,6 +38,12 @@ export function SettingsNav({ className }: SettingsNavProps) {
       label: tPkg('title'),
       shortLabel: tPkg('navLabel'),
       icon: Package,
+    },
+    {
+      href: '/settings/contracts',
+      label: tContract('title'),
+      shortLabel: tContract('navLabel'),
+      icon: FileText,
     },
     {
       href: '/settings/calendar/feed',
@@ -60,6 +67,7 @@ export function SettingsNav({ className }: SettingsNavProps) {
 
   return (
     <nav
+      data-testid="settings-nav"
       aria-label="Settings subnavigation"
       className={cn('flex flex-wrap gap-2 border-b pb-3 mb-6', className)}
     >
@@ -71,6 +79,7 @@ export function SettingsNav({ className }: SettingsNavProps) {
           <Link
             key={item.href}
             href={item.href}
+            data-testid={`settings-nav-${item.href.split('/').pop() ?? ''}`}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
               'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',

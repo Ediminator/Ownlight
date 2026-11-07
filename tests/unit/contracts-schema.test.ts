@@ -197,6 +197,27 @@ describe('Contracts Schema Validation Unit Tests (AC-8)', () => {
       ).toThrow();
     });
 
+    it('AC-8: transforms empty strings in optional fields to null', () => {
+      const parsed = updateStudioSigningProfileSchema.parse({
+        contractSignatoryName: '',
+        contractSignatoryTitle: '',
+        studioAddressLine1: '',
+        studioAddressLine2: '',
+        studioPostalCode: '',
+        studioCity: '',
+        studioPhone: '',
+        studioEmail: '',
+      });
+      expect(parsed.contractSignatoryName).toBeNull();
+      expect(parsed.contractSignatoryTitle).toBeNull();
+      expect(parsed.studioAddressLine1).toBeNull();
+      expect(parsed.studioAddressLine2).toBeNull();
+      expect(parsed.studioPostalCode).toBeNull();
+      expect(parsed.studioCity).toBeNull();
+      expect(parsed.studioPhone).toBeNull();
+      expect(parsed.studioEmail).toBeNull();
+    });
+
     it('AC-8: rejects invalid country code length and malformed email', () => {
       expect(() =>
         updateStudioSigningProfileSchema.parse({

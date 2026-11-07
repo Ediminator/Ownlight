@@ -970,6 +970,213 @@
         "defaultTaxRateInvalid": "Standard-Steuersatz muss zwischen 0% und 100% liegen",
         "noticeTooLong": "Hinweistext darf maximal 1000 Zeichen lang sein"
       }
+    },
+    "contracts": {
+      "title": "Vertragsvorlagen & Studio-Signatur",
+      "description": "Verwalten Sie rechtssichere Vertragsvorlagen, zweisprachige Klauseln, dynamische Platzhalter und Studio-Signaturdaten.",
+      "navLabel": "Verträge & Signatur",
+      "manage": "Vertragsvorlagen & Signatur verwalten",
+      "breadcrumbs": {
+        "settings": "Studio-Einstellungen",
+        "contracts": "Verträge & Signatur"
+      },
+      "tabs": {
+        "tablistAria": "Vertragseinstellungen-Tabs",
+        "templates": "Vertragsvorlagen",
+        "signing": "Studio-Signaturprofil"
+      },
+      "list": {
+        "title": "Vertragsvorlagen",
+        "description": "Wiederverwendbare Vertragsvorlagen mit dynamischen Platzhaltern für Kundenvereinbarungen.",
+        "createButton": "Neue Vorlage",
+        "filterAll": "Alle Projekttypen",
+        "filterByType": "Nach Projekttyp filtern",
+        "filterSearchPlaceholder": "Vorlagen durchsuchen...",
+        "activeCount": "{count, plural, =1 {1 aktive Vorlage} other {# aktive Vorlagen}}",
+        "archivedCount": "{count, plural, =1 {1 archivierte Vorlage} other {# archivierte Vorlagen}}",
+        "showArchived": "Archivierte anzeigen ({count})",
+        "hideArchived": "Archivierte ausblenden",
+        "emptyActive": "Noch keine aktiven Vertragsvorlagen vorhanden. Erstellen Sie Ihre erste Vertragsvorlage, um Angebote und Verträge schneller zu verfassen.",
+        "emptyArchived": "Keine archivierten Vertragsvorlagen.",
+        "table": {
+          "name": "Vorlagenname",
+          "slug": "Slug",
+          "projectType": "Projekttyp",
+          "status": "Status",
+          "actions": "Aktionen"
+        },
+        "projectTypeNone": "Allgemein / Alle",
+        "projectTypes": {
+          "wedding": "Hochzeit",
+          "portrait": "Porträt",
+          "commercial": "Kommerziell",
+          "event": "Event",
+          "video": "Video",
+          "engagement": "Verlobung",
+          "editorial": "Editorial"
+        },
+        "defaultBadge": "Standard",
+        "activeBadge": "Aktiv",
+        "archivedBadge": "Archiviert",
+        "editAction": "Vorlage bearbeiten",
+        "duplicateAction": "Duplizieren",
+        "archiveAction": "Vorlage archivieren",
+        "restoreAction": "Vorlage wiederherstellen",
+        "archiveDialog": {
+          "title": "Vertragsvorlage archivieren",
+          "description": "Sind Sie sicher, dass Sie \"{name}\" archivieren möchten? Bereits abgeschlossene Verträge bleiben unberührt, diese Vorlage steht jedoch für neue Verträge nicht mehr zur Verfügung.",
+          "confirmButton": "Vorlage archivieren",
+          "cancelButton": "Abbrechen"
+        }
+      },
+      "modal": {
+        "createTitle": "Vertragsvorlage erstellen",
+        "editTitle": "Vertragsvorlage bearbeiten",
+        "duplicateTitle": "Vertragsvorlage duplizieren",
+        "description": "Legen Sie Vorlagendetails, Projekttyp-Zuordnung und zweisprachige Klauseln mit dynamischen Platzhaltern fest.",
+        "nameLabel": "Vorlagenname",
+        "namePlaceholder": "z. B. Vertrag über Hochzeitsfotografie",
+        "slugLabel": "Slug",
+        "slugPlaceholder": "z. B. vertrag-hochzeitsfotografie",
+        "slugHelp": "Nur Kleinbuchstaben, Ziffern und Bindestriche",
+        "projectTypeLabel": "Projekttyp",
+        "projectTypePlaceholder": "Projekttyp auswählen (optional)",
+        "projectTypeNone": "Keine (Allgemein)",
+        "descriptionLabel": "Beschreibung",
+        "descriptionPlaceholder": "Interne Beschreibung des Anwendungsbereichs",
+        "defaultToggleLabel": "Standardvorlage für diesen Projekttyp",
+        "defaultToggleHelp": "Wird bei der Vertragserstellung für diesen Projekttyp automatisch vorausgewählt",
+        "clauseEditorTitle": "Vertragsklauseln",
+        "clauseEditorHelp": "Klicken Sie auf einen Platzhalter unten, um ihn an der Cursorposition einzufügen.",
+        "tabEnglish": "Englische Klauseln (en)",
+        "tabGerman": "Deutsche Klauseln (de)",
+        "contentEnLabel": "Englische Vertragsklauseln",
+        "contentEnPlaceholder": "Vertragsklauseln auf Englisch eingeben (Markdown unterstützt)...",
+        "contentDeLabel": "Deutsche Vertragsklauseln",
+        "contentDePlaceholder": "Vertragsklauseln auf Deutsch eingeben (Markdown unterstützt)...",
+        "tokenInsertedAnnouncement": "Platzhalter {token} eingefügt",
+        "tokenPaletteTitle": "Platzhalter einfügen",
+        "previewTitle": "Live-Vorschau",
+        "previewBadge": "Beispieldaten-Vorschau",
+        "previewEmpty": "Noch keine Vertragsklauseln eingegeben. Geben Sie oben Text ein, um eine Live-Vorschau mit Beispieldaten zu sehen.",
+        "saveButton": "Vorlage speichern",
+        "savingButton": "Speichern...",
+        "cancelButton": "Abbrechen",
+        "errors": {
+          "nameRequired": "Vorlagenname ist erforderlich",
+          "nameTooLong": "Vorlagenname darf maximal 150 Zeichen lang sein",
+          "slugRequired": "Slug ist erforderlich",
+          "slugInvalid": "Slug darf nur aus Kleinbuchstaben und Ziffern mit einfachen Bindestrichen bestehen",
+          "slugTooLong": "Slug darf maximal 100 Zeichen lang sein",
+          "descriptionTooLong": "Beschreibung darf maximal 1.000 Zeichen lang sein",
+          "contentEnRequired": "Englische Vertragsklauseln sind erforderlich",
+          "contentDeRequired": "Deutsche Vertragsklauseln sind erforderlich"
+        }
+      },
+      "signing": {
+        "title": "Studio-Signatur & Gegenzeichnungsprofil",
+        "description": "Konfigurieren Sie die zeichnungsberechtigte Person des Studios, offizielle Berufsbezeichnung, Anschrift und den Gegenzeichnungsprozess.",
+        "signatorySectionTitle": "Signaturprofil des Studios",
+        "signatoryNameLabel": "Rechtlicher Name des Unterzeichners",
+        "signatoryNamePlaceholder": "z. B. Elena Rostova",
+        "signatoryNameHelp": "Vollständiger Name auf Verträgen und in der elektronischen Signaturzeile",
+        "signatoryTitleLabel": "Berufsbezeichnung / Funktion",
+        "signatoryTitlePlaceholder": "z. B. Studioinhaberin & leitende Fotografin",
+        "signatoryTitleHelp": "Gesetzliche Funktionsbezeichnung unter der Unterschrift des Studios",
+        "modeSectionTitle": "Gegenzeichnungs-Modus",
+        "modeSectionHelp": "Legen Sie fest, wie Verträge vom Studio gegengezeichnet werden.",
+        "modes": {
+          "preSigned": {
+            "label": "Automatisch (Vorab gegengezeichnet)",
+            "description": "Die Signatur des Studios wird beim Versand oder bei Kundenunterzeichnung automatisch angebracht."
+          },
+          "explicit": {
+            "label": "Explizit (Manuelle Gegenzeichnung)",
+            "description": "Der Studioinhaber muss nach der Unterschrift des Kunden manuell gegenzeichnen, um den Vertrag abzuschließen."
+          }
+        },
+        "addressSectionTitle": "Studio-Geschäftsadresse & gesetzliche Kontaktdaten",
+        "addressSectionHelp": "Physische Geschäftsadresse und Kontaktdaten für gesetzliche Pflichtangaben (BGB § 126b, DDG § 5).",
+        "addressLine1Label": "Straße und Hausnummer",
+        "addressLine1Placeholder": "z. B. Kastanienallee 71",
+        "addressLine2Label": "Adresszusatz",
+        "addressLine2Placeholder": "z. B. Studio 4B (optional)",
+        "postalCodeLabel": "Postleitzahl",
+        "postalCodePlaceholder": "z. B. 10435",
+        "cityLabel": "Stadt",
+        "cityPlaceholder": "z. B. Berlin",
+        "countryCodeLabel": "Ländercode (ISO 3166-1 Alpha-2)",
+        "countryCodePlaceholder": "DE",
+        "phoneLabel": "Telefonnummer des Studios",
+        "phonePlaceholder": "z. B. +49 30 12345678",
+        "emailLabel": "Offizielle E-Mail-Adresse des Studios",
+        "emailPlaceholder": "z. B. studio@example.com",
+        "saveButton": "Signatur-Einstellungen speichern",
+        "savingButton": "Speichern...",
+        "successNotification": "Studio-Signatur-Einstellungen wurden erfolgreich aktualisiert.",
+        "errors": {
+          "signatoryNameTooLong": "Unterzeichnername darf maximal 200 Zeichen lang sein",
+          "signatoryTitleTooLong": "Berufsbezeichnung darf maximal 100 Zeichen lang sein",
+          "countryCodeInvalid": "Ländercode muss genau 2 Zeichen lang sein (z. B. DE)",
+          "emailInvalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein"
+        }
+      },
+      "tokens": {
+        "categories": {
+          "client": "Kundendaten",
+          "project": "Projekt & Auftrag",
+          "shoot": "Termin- & Eventlogistik",
+          "package": "Paket & Vergütung",
+          "studio": "Studio & Rechtsträger",
+          "contract": "Vertragsdaten"
+        },
+        "client": {
+          "name": "Vollständiger Kundenname",
+          "company": "Kunden-Unternehmensname",
+          "email": "Kunden-E-Mail-Adresse",
+          "phone": "Kunden-Telefonnummer",
+          "address": "Kunden-Straße & Hausnummer",
+          "city": "Kunden-Stadt",
+          "postal_code": "Kunden-Postleitzahl",
+          "country": "Kunden-Land"
+        },
+        "project": {
+          "title": "Projekttitel",
+          "type": "Projekttyp",
+          "price": "Projektpreis",
+          "currency": "Währung",
+          "notes": "Projektnotizen"
+        },
+        "shoot": {
+          "date": "Shooting- / Eventdatum",
+          "time": "Shooting-Uhrzeit (Start & Ende)",
+          "timezone": "Zeitzone",
+          "location": "Shooting-Ort / Location",
+          "address": "Physische Adresse der Location"
+        },
+        "package": {
+          "name": "Name des Leistungspakets",
+          "deliverables": "Übersicht enthaltener Leistungen",
+          "total": "Gesamtbetrag (inkl. Steuern)",
+          "subtotal": "Netto-Zwischensumme",
+          "tax": "Anfallender Steuerbetrag",
+          "addons": "Ausgewählte Zusatzleistungen"
+        },
+        "studio": {
+          "name": "Name des Fotostudios",
+          "owner_name": "Name des Studioinhabers",
+          "email": "Offizielle E-Mail des Studios",
+          "phone": "Telefonnummer des Studios",
+          "address": "Physische Adresse des Studios",
+          "tax_number": "Steuernummer des Studios",
+          "vat_id": "USt-IdNr. des Studios"
+        },
+        "contract": {
+          "number": "Vertragsnummer (CTR-YYYY-NNNN)",
+          "issue_date": "Vertragsausstellungsdatum",
+          "valid_until": "Vertragsgültigkeitsdatum"
+        }
+      }
     }
   },
   "clients": {

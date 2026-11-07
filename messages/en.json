@@ -970,6 +970,213 @@
         "defaultTaxRateInvalid": "Default tax rate must be between 0% and 100%",
         "noticeTooLong": "Notice text cannot exceed 1000 characters"
       }
+    },
+    "contracts": {
+      "title": "Contract Templates & Studio Signing",
+      "description": "Manage legally binding contract agreements, localized bilingual clauses, merge tokens, and studio signatory credentials.",
+      "navLabel": "Contracts & Signing",
+      "manage": "Manage Contract Templates & Signing",
+      "breadcrumbs": {
+        "settings": "Studio Settings",
+        "contracts": "Contracts & Signing"
+      },
+      "tabs": {
+        "tablistAria": "Contract settings tabs",
+        "templates": "Contract Templates",
+        "signing": "Studio Signatory Profile"
+      },
+      "list": {
+        "title": "Contract Templates",
+        "description": "Reusable contract agreements with dynamic merge tokens for client agreements.",
+        "createButton": "New Template",
+        "filterAll": "All Project Types",
+        "filterByType": "Filter by project type",
+        "filterSearchPlaceholder": "Search templates...",
+        "activeCount": "{count, plural, =1 {1 Active Template} other {# Active Templates}}",
+        "archivedCount": "{count, plural, =1 {1 Archived Template} other {# Archived Templates}}",
+        "showArchived": "Show Archived ({count})",
+        "hideArchived": "Hide Archived",
+        "emptyActive": "No active contract templates configured yet. Create your first contract template to speed up proposal and contract drafting.",
+        "emptyArchived": "No archived contract templates.",
+        "table": {
+          "name": "Template Name",
+          "slug": "Slug",
+          "projectType": "Project Type",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "projectTypeNone": "General / All",
+        "projectTypes": {
+          "wedding": "Wedding",
+          "portrait": "Portrait",
+          "commercial": "Commercial",
+          "event": "Event",
+          "video": "Video",
+          "engagement": "Engagement",
+          "editorial": "Editorial"
+        },
+        "defaultBadge": "Default",
+        "activeBadge": "Active",
+        "archivedBadge": "Archived",
+        "editAction": "Edit Template",
+        "duplicateAction": "Duplicate",
+        "archiveAction": "Archive Template",
+        "restoreAction": "Restore Template",
+        "archiveDialog": {
+          "title": "Archive Contract Template",
+          "description": "Are you sure you want to archive \"{name}\"? Existing executed contracts will remain untouched, but this template will no longer be available for new contract drafting.",
+          "confirmButton": "Archive Template",
+          "cancelButton": "Cancel"
+        }
+      },
+      "modal": {
+        "createTitle": "Create Contract Template",
+        "editTitle": "Edit Contract Template",
+        "duplicateTitle": "Duplicate Contract Template",
+        "description": "Define template details, project type assignment, and localized clauses with dynamic merge tokens.",
+        "nameLabel": "Template Name",
+        "namePlaceholder": "e.g. Wedding Photography Agreement",
+        "slugLabel": "Slug",
+        "slugPlaceholder": "e.g. wedding-photography-agreement",
+        "slugHelp": "Lowercase letters, numbers, and hyphens only",
+        "projectTypeLabel": "Project Type",
+        "projectTypePlaceholder": "Select project type (optional)",
+        "projectTypeNone": "None (General)",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Internal description of the agreement's scope or purpose",
+        "defaultToggleLabel": "Default template for this project type",
+        "defaultToggleHelp": "Automatically pre-selected when composing contracts for this project type",
+        "clauseEditorTitle": "Contract Clauses",
+        "clauseEditorHelp": "Click any merge token below to insert it at your cursor position.",
+        "tabEnglish": "English Clauses (en)",
+        "tabGerman": "German Clauses (de)",
+        "contentEnLabel": "English Contract Clauses",
+        "contentEnPlaceholder": "Enter contract agreement clauses in English (Markdown supported)...",
+        "contentDeLabel": "German Contract Clauses",
+        "contentDePlaceholder": "Vertragsklauseln auf Deutsch eingeben (Markdown wird unterstützt)...",
+        "tokenInsertedAnnouncement": "Token {token} inserted",
+        "tokenPaletteTitle": "Insert Merge Tokens",
+        "previewTitle": "Live Merge Preview",
+        "previewBadge": "Sample Data Preview",
+        "previewEmpty": "No contract clauses entered yet. Type clauses above to see a live preview interpolated with sample commission data.",
+        "saveButton": "Save Template",
+        "savingButton": "Saving...",
+        "cancelButton": "Cancel",
+        "errors": {
+          "nameRequired": "Template name is required",
+          "nameTooLong": "Template name must not exceed 150 characters",
+          "slugRequired": "Slug is required",
+          "slugInvalid": "Slug must consist of lowercase alphanumeric words separated by single hyphens",
+          "slugTooLong": "Slug must not exceed 100 characters",
+          "descriptionTooLong": "Description must not exceed 1,000 characters",
+          "contentEnRequired": "English contract clauses are required",
+          "contentDeRequired": "German contract clauses are required"
+        }
+      },
+      "signing": {
+        "title": "Studio Signatory & Countersignature Profile",
+        "description": "Configure the studio's legal signatory, official business title, physical contact address, and countersignature workflow.",
+        "signatorySectionTitle": "Legal Signatory Profile",
+        "signatoryNameLabel": "Signatory Legal Name",
+        "signatoryNamePlaceholder": "e.g. Elena Rostova",
+        "signatoryNameHelp": "Full legal name displayed on contracts and electronic signature blocks",
+        "signatoryTitleLabel": "Professional Title / Role",
+        "signatoryTitlePlaceholder": "e.g. Studio Owner & Lead Photographer",
+        "signatoryTitleHelp": "Statutory role shown under studio signature line",
+        "modeSectionTitle": "Countersignature Mode",
+        "modeSectionHelp": "Choose how the studio countersigns contracts when issuing them to clients.",
+        "modes": {
+          "preSigned": {
+            "label": "Automatic (Pre-signed)",
+            "description": "Studio countersignature is automatically applied when the contract is issued or signed by the client."
+          },
+          "explicit": {
+            "label": "Explicit (Manual Countersignature)",
+            "description": "Studio owner must manually sign after the client has signed to finalize execution."
+          }
+        },
+        "addressSectionTitle": "Studio Business Address & Statutory Contact",
+        "addressSectionHelp": "Physical studio premises and contact information rendered in contract legal notices (BGB § 126b, DDG § 5).",
+        "addressLine1Label": "Street Address Line 1",
+        "addressLine1Placeholder": "e.g. Kastanienallee 71",
+        "addressLine2Label": "Street Address Line 2",
+        "addressLine2Placeholder": "e.g. Studio 4B (Optional)",
+        "postalCodeLabel": "Postal Code",
+        "postalCodePlaceholder": "e.g. 10435",
+        "cityLabel": "City",
+        "cityPlaceholder": "e.g. Berlin",
+        "countryCodeLabel": "Country Code (ISO 3166-1 alpha-2)",
+        "countryCodePlaceholder": "DE",
+        "phoneLabel": "Studio Telephone",
+        "phonePlaceholder": "e.g. +49 30 12345678",
+        "emailLabel": "Studio Official Email",
+        "emailPlaceholder": "e.g. studio@example.com",
+        "saveButton": "Save Signing Settings",
+        "savingButton": "Saving...",
+        "successNotification": "Studio signing settings updated successfully.",
+        "errors": {
+          "signatoryNameTooLong": "Signatory name must not exceed 200 characters",
+          "signatoryTitleTooLong": "Signatory title must not exceed 100 characters",
+          "countryCodeInvalid": "Country code must be exactly 2 characters (e.g. DE)",
+          "emailInvalid": "Please enter a valid email address"
+        }
+      },
+      "tokens": {
+        "categories": {
+          "client": "Client Information",
+          "project": "Project & Commission",
+          "shoot": "Event & Shoot Logistics",
+          "package": "Package & Pricing",
+          "studio": "Studio & Legal Entity",
+          "contract": "Contract Metadata"
+        },
+        "client": {
+          "name": "Full Client Name",
+          "company": "Client Company Name",
+          "email": "Client Email Address",
+          "phone": "Client Phone Number",
+          "address": "Client Street Address",
+          "city": "Client City",
+          "postal_code": "Client Postal Code",
+          "country": "Client Country"
+        },
+        "project": {
+          "title": "Project Title",
+          "type": "Project Type",
+          "price": "Project Price",
+          "currency": "Currency",
+          "notes": "Project Scope Notes"
+        },
+        "shoot": {
+          "date": "Shoot / Event Date",
+          "time": "Shoot Start & End Time",
+          "timezone": "Timezone",
+          "location": "Shoot Location / Venue",
+          "address": "Venue Physical Address"
+        },
+        "package": {
+          "name": "Service Package Name",
+          "deliverables": "Included Deliverables Summary",
+          "total": "Package Total Price (incl. Tax)",
+          "subtotal": "Package Net Subtotal",
+          "tax": "Applicable VAT / Tax Amount",
+          "addons": "Selected Add-ons Summary"
+        },
+        "studio": {
+          "name": "Studio Business Name",
+          "owner_name": "Studio Owner Name",
+          "email": "Studio Official Email",
+          "phone": "Studio Telephone",
+          "address": "Studio Physical Address",
+          "tax_number": "Studio Tax Number (Steuernummer)",
+          "vat_id": "Studio VAT ID (USt-IdNr.)"
+        },
+        "contract": {
+          "number": "Contract Number (CTR-YYYY-NNNN)",
+          "issue_date": "Contract Issue Date",
+          "valid_until": "Contract Validity Expiry Date"
+        }
+      }
     }
   },
   "clients": {

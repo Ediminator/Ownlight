@@ -109,7 +109,7 @@ services:
       start_period: 5s
 
   mailpit:
-    image: axllent/mailpit:v1.32.0
+    image: axllent/mailpit:v1.33.0
     restart: unless-stopped
     profiles:
       - mailpit

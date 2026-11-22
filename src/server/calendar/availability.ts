@@ -8,6 +8,7 @@ import {
   listShootsInRange,
   listExternalBusyIntervalsInRange,
 } from './repo';
+import { DEFAULT_SHOOT_DURATION_MS } from './constants';
 
 export interface CalculateAvailableSlotsParams {
   bookingTypeId: string;
@@ -292,7 +293,8 @@ export async function calculateAvailableSlots(
   for (const sh of activeShoots) {
     const shootStart = sh.startsAt.getTime() - bufferBeforeMs;
     const shootEnd =
-      (sh.endsAt ? sh.endsAt.getTime() : sh.startsAt.getTime() + 60 * 60 * 1000) + bufferAfterMs;
+      (sh.endsAt ? sh.endsAt.getTime() : sh.startsAt.getTime() + DEFAULT_SHOOT_DURATION_MS) +
+      bufferAfterMs;
     busyIntervals.push({
       startMs: shootStart,
       endMs: shootEnd,

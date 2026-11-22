@@ -3,7 +3,7 @@
 import 'server-only';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { eq, and, lt, gt, or, isNull } from 'drizzle-orm';
+import { eq, and, lt, gt } from 'drizzle-orm';
 import { db as defaultDb, type DbClient } from '@/server/db/client';
 import { resolveClientIp } from '@/server/http/client-ip';
 import { consumeBookingRateLimit, consumeRateLimit, anonymizeIp } from '@/server/auth/rate-limiter';
@@ -20,7 +20,7 @@ import { enqueueAppointmentEmail } from '@/server/email/outbox';
 import { getStudioSettings } from '@/server/settings/repo';
 import { findDuplicateEmails } from '@/server/clients/repo';
 import { calculateAvailableSlots, type AvailableSlot } from './availability';
-import { findBookingTypeBySlug } from './repo';
+import { findBookingTypeBySlug, buildShootOverlapWhere } from './repo';
 import {
   publicBookingSubmissionSchema,
   getPublicAvailableSlotsSchema,
@@ -438,12 +438,7 @@ export async function submitPublicBookingAction(
         const collidingShoots = await tx
           .select({ id: shoots.id, startsAt: shoots.startsAt, endsAt: shoots.endsAt })
           .from(shoots)
-          .where(
-            and(
-              lt(shoots.startsAt, protectedEnd),
-              or(isNull(shoots.endsAt), gt(shoots.endsAt, protectedStart)),
-            ),
-          )
+          .where(buildShootOverlapWhere(protectedStart, protectedEnd))
           .limit(1);
 
         if (collidingShoots.length > 0) {

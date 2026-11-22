@@ -25,6 +25,9 @@ import {
   type CalendarSyncProvider,
 } from '@/server/db/schema/calendar';
 import { shoots, projects, shootLocations } from '@/server/db/schema/projects';
+import { DEFAULT_SHOOT_DURATION_MS } from './constants';
+
+export { DEFAULT_SHOOT_DURATION_MS } from './constants';
 
 // ==========================================
 // Booking Types
@@ -344,6 +347,21 @@ export async function deleteAvailabilityOverrideRecord(
 // Shoots Collision Query
 // ==========================================
 
+/**
+ * Builds the overlap predicate for shoots against [windowStart, windowEnd),
+ * treating NULL `shoots.endsAt` as a `[startsAt, startsAt + DEFAULT_SHOOT_DURATION_MS)` window.
+ */
+export function buildShootOverlapWhere(windowStart: Date, windowEnd: Date) {
+  const nullEndsAtCutoff = new Date(windowStart.getTime() - DEFAULT_SHOOT_DURATION_MS);
+  return and(
+    lt(shoots.startsAt, windowEnd),
+    or(
+      gt(shoots.endsAt, windowStart),
+      and(isNull(shoots.endsAt), gt(shoots.startsAt, nullEndsAtCutoff)),
+    ),
+  );
+}
+
 export async function listShootsInRange(
   params: { startDate: Date; endDate: Date },
   tx: DbClient = defaultDb,
@@ -355,12 +373,7 @@ export async function listShootsInRange(
       endsAt: shoots.endsAt,
     })
     .from(shoots)
-    .where(
-      and(
-        lt(shoots.startsAt, params.endDate),
-        or(isNull(shoots.endsAt), gt(shoots.endsAt, params.startDate)),
-      ),
-    )
+    .where(buildShootOverlapWhere(params.startDate, params.endDate))
     .orderBy(shoots.startsAt);
 }
 
@@ -393,12 +406,7 @@ export async function listShootsWithDetailsInRange(
     })
     .from(shoots)
     .innerJoin(projects, eq(shoots.projectId, projects.id))
-    .where(
-      and(
-        lt(shoots.startsAt, params.endDate),
-        or(isNull(shoots.endsAt), gt(shoots.endsAt, params.startDate)),
-      ),
-    )
+    .where(buildShootOverlapWhere(params.startDate, params.endDate))
     .orderBy(shoots.startsAt);
 
   if (rows.length === 0) {

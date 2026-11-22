@@ -9,6 +9,7 @@ import type {
   CalendarFeed,
 } from '@/server/db/schema/calendar';
 import * as repo from './repo';
+import { DEFAULT_SHOOT_DURATION_MS } from './constants';
 import {
   createBookingTypeSchema,
   updateBookingTypeSchema,
@@ -868,7 +869,7 @@ export async function getUnifiedCalendarEvents(
 
   // Shoots
   for (const s of shoots) {
-    const ends = s.endsAt ?? new Date(s.startsAt.getTime() + 60 * 60 * 1000);
+    const ends = s.endsAt ?? new Date(s.startsAt.getTime() + DEFAULT_SHOOT_DURATION_MS);
     events.push({
       id: s.id,
       type: 'shoot',

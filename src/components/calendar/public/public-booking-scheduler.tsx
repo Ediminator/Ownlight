@@ -16,6 +16,8 @@ import {
   resolveBookingLocationLabel,
   buildPublicBookingSubmission,
   processBookingSubmissionResult,
+  executePublicSlotLoad,
+  type LoadSlotsOptions,
 } from './booking-helpers';
 import { BookingConfirmationView } from './booking-confirmation-view';
 import {
@@ -92,6 +94,10 @@ export function PublicBookingScheduler({
   initialPowPayload,
 }: PublicBookingSchedulerProps) {
   const t = useTranslations('publicBooking');
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
 
   // 1. Timezone detection & state (AC-1)
   const [visitorTimezone, setVisitorTimezone] = useState<string>(
@@ -149,43 +155,22 @@ export function PublicBookingScheduler({
 
   // Load available slots for the current month and timezone (AC-1, AC-2)
   const loadSlots = useCallback(
-    async (year: number, month: number, tz: string) => {
-      setLoadingSlots(true);
-      setErrorBanner(null);
-
-      // Start from 1st of month to last of next month for 60-day window
-      const start = new Date(Date.UTC(year, month, 1));
-      const end = new Date(Date.UTC(year, month + 2, 0));
-
-      const startDateStr = start.toISOString().slice(0, 10);
-      const endDateStr = end.toISOString().slice(0, 10);
-
-      try {
-        const res = await getPublicAvailableSlotsAction({
-          slug: bookingType.slug,
-          startDate: startDateStr,
-          endDate: endDateStr,
-          timezone: tz,
-        });
-
-        if (res.success && res.data) {
-          setSlots(res.data.slots);
-          // If selected date has no slots, default to first date that has slots
-          const datesWithSlots = new Set(res.data.slots.map((s) => s.date));
-          if (!datesWithSlots.has(selectedDate) && res.data.slots.length > 0) {
-            const firstSlotDate = res.data.slots[0]?.date;
-            if (firstSlotDate) {
-              setSelectedDate(firstSlotDate);
-            }
-          }
-        }
-      } catch {
-        setErrorBanner(t('errors.general'));
-      } finally {
-        setLoadingSlots(false);
-      }
+    async (year: number, month: number, tz: string, options?: LoadSlotsOptions) => {
+      await executePublicSlotLoad({
+        slug: bookingType.slug,
+        year,
+        month,
+        timezone: tz,
+        options,
+        fetchSlots: getPublicAvailableSlotsAction,
+        setLoading: setLoadingSlots,
+        setErrorBanner,
+        setSlots,
+        updateSelectedDate: setSelectedDate,
+        generalErrorText: tRef.current('errors.general'),
+      });
     },
-    [bookingType.slug, selectedDate, t],
+    [bookingType.slug],
   );
 
   useEffect(() => {
@@ -204,12 +189,14 @@ export function PublicBookingScheduler({
 
   // Month navigation handlers
   const handlePrevMonth = () => {
+    setErrorBanner(null);
     const prev = getPrevMonth(viewYear, viewMonth);
     setViewYear(prev.year);
     setViewMonth(prev.month);
   };
 
   const handleNextMonth = () => {
+    setErrorBanner(null);
     const next = getNextMonth(viewYear, viewMonth);
     setViewYear(next.year);
     setViewMonth(next.month);
@@ -287,7 +274,7 @@ export function PublicBookingScheduler({
         setSelectedSlot(null);
       }
       if (outcome.shouldReloadSlots) {
-        void loadSlots(viewYear, viewMonth, visitorTimezone);
+        void loadSlots(viewYear, viewMonth, visitorTimezone, { preserveErrorBanner: true });
       }
     } catch {
       setErrorBanner(t('errors.general'));
@@ -299,6 +286,7 @@ export function PublicBookingScheduler({
   const handleBookAnother = () => {
     setConfirmedBooking(null);
     setSelectedSlot(null);
+    setErrorBanner(null);
     void loadSlots(viewYear, viewMonth, visitorTimezone);
   };
 
@@ -412,6 +400,7 @@ export function PublicBookingScheduler({
                   data-testid="timezone-select"
                   value={visitorTimezone}
                   onChange={(e) => {
+                    setErrorBanner(null);
                     setVisitorTimezone(e.target.value);
                   }}
                   className="w-full text-xs rounded-lg border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 py-2 pl-3 pr-8 focus:ring-primary focus:border-primary shadow-sm"

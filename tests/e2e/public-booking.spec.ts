@@ -268,4 +268,118 @@ test.describe('TASK-0044: Public Booking Scheduler E2E', () => {
     const darkAxe = await new AxeBuilder({ page }).analyze();
     expect(darkAxe.violations).toEqual([]);
   });
+
+  test('TASK-0072 AC-4, AC-5, AC-6: collision error banner survives slot reload in en and de with zero a11y violations, and clears on timezone or month change', async ({
+    browser,
+  }) => {
+    test.setTimeout(90000);
+
+    const contextEn = await browser.newContext({
+      extraHTTPHeaders: { 'x-forwarded-for': '198.51.100.101' },
+    });
+    const contextDe = await browser.newContext({
+      extraHTTPHeaders: { 'x-forwarded-for': '198.51.100.102' },
+    });
+    const contextWinner = await browser.newContext({
+      extraHTTPHeaders: { 'x-forwarded-for': '198.51.100.103' },
+    });
+
+    const pageEn = await contextEn.newPage();
+    const pageDe = await contextDe.newPage();
+    const pageWinner = await contextWinner.newPage();
+
+    try {
+      // 1. Visitor A (en) loads slots and selects the first available slot
+      await pageEn.goto('/en/book/discovery-call');
+      const enSlotsList = pageEn.locator('[data-testid="slots-list"]');
+      await expect(enSlotsList).toBeVisible({ timeout: 10000 });
+      const targetSlotBtn = enSlotsList.locator('button').first();
+      const slotTestId = await targetSlotBtn.getAttribute('data-testid');
+      expect(slotTestId).toBeTruthy();
+      if (!slotTestId) return;
+
+      await targetSlotBtn.click();
+      await pageEn.locator('[data-testid="attendee-name-input"]').fill('Arthur Collision');
+      await pageEn
+        .locator('[data-testid="attendee-email-input"]')
+        .fill('arthur.collision@example.com');
+
+      // 2. Visitor C (de) loads slots and selects the exact same slot before it is booked
+      await pageDe.goto('/de/book/discovery-call');
+      const deSlotsList = pageDe.locator('[data-testid="slots-list"]');
+      await expect(deSlotsList).toBeVisible({ timeout: 10000 });
+      await pageDe.locator(`[data-testid="${slotTestId}"]`).click();
+      await pageDe.locator('[data-testid="attendee-name-input"]').fill('Lukas Kollision');
+      await pageDe
+        .locator('[data-testid="attendee-email-input"]')
+        .fill('lukas.kollision@example.com');
+
+      // 3. Competing Visitor B books the exact same slot first and confirms
+      await pageWinner.goto('/en/book/discovery-call');
+      const winnerSlotsList = pageWinner.locator('[data-testid="slots-list"]');
+      await expect(winnerSlotsList).toBeVisible({ timeout: 10000 });
+      await pageWinner.locator(`[data-testid="${slotTestId}"]`).click();
+      await pageWinner.locator('[data-testid="attendee-name-input"]').fill('Winner Client');
+      await pageWinner
+        .locator('[data-testid="attendee-email-input"]')
+        .fill('winner.client@example.com');
+      await pageWinner.waitForTimeout(3200);
+      await pageWinner.locator('[data-testid="confirm-booking-btn"]').click();
+      await expect(pageWinner.locator('#confirmation-heading')).toBeVisible({ timeout: 15000 });
+
+      // 4. Visitor A (en) submits -> hits COLLISION -> reloads slots -> banner MUST stay visible
+      await pageEn.locator('[data-testid="confirm-booking-btn"]').click();
+      const enBanner = pageEn.locator('[data-testid="booking-error-banner"]');
+      await expect(enBanner).toBeVisible({ timeout: 15000 });
+      await expect(enBanner).toHaveAttribute('role', 'alert');
+      await expect(enBanner).toContainText(
+        'This time slot was just booked by another client. Please select another time.',
+      );
+
+      // Confirm slot reload completed (picker is back, collided slot is gone, banner still visible)
+      await expect(pageEn.locator('[data-testid="slots-list"]')).toBeVisible({ timeout: 10000 });
+      await expect(pageEn.locator(`[data-testid="${slotTestId}"]`)).toHaveCount(0);
+      await expect(enBanner).toBeVisible();
+
+      // Light & Dark WCAG 2.2 AA check on collision banner state (en)
+      const enLightAxe = await new AxeBuilder({ page: pageEn }).analyze();
+      expect(enLightAxe.violations).toEqual([]);
+      await pageEn.emulateMedia({ colorScheme: 'dark' });
+      const enDarkAxe = await new AxeBuilder({ page: pageEn }).analyze();
+      expect(enDarkAxe.violations).toEqual([]);
+
+      // Changing timezone clears the collision banner before fetching fresh slots
+      await pageEn.locator('[data-testid="timezone-select"]').selectOption('America/New_York');
+      await expect(enBanner).not.toBeVisible();
+      await expect(pageEn.locator('[data-testid="slots-list"]')).toBeVisible({ timeout: 10000 });
+
+      // 5. Visitor C (de) submits -> hits COLLISION -> reloads slots -> German banner MUST stay visible
+      await pageDe.locator('[data-testid="confirm-booking-btn"]').click();
+      const deBanner = pageDe.locator('[data-testid="booking-error-banner"]');
+      await expect(deBanner).toBeVisible({ timeout: 15000 });
+      await expect(deBanner).toHaveAttribute('role', 'alert');
+      await expect(deBanner).toContainText(
+        'Dieser Termin wurde gerade von einem anderen Kunden gebucht. Bitte wählen Sie einen anderen Termin.',
+      );
+
+      await expect(pageDe.locator('[data-testid="slots-list"]')).toBeVisible({ timeout: 10000 });
+      await expect(pageDe.locator(`[data-testid="${slotTestId}"]`)).toHaveCount(0);
+      await expect(deBanner).toBeVisible();
+
+      // Light & Dark WCAG 2.2 AA check on collision banner state (de)
+      const deLightAxe = await new AxeBuilder({ page: pageDe }).analyze();
+      expect(deLightAxe.violations).toEqual([]);
+      await pageDe.emulateMedia({ colorScheme: 'dark' });
+      const deDarkAxe = await new AxeBuilder({ page: pageDe }).analyze();
+      expect(deDarkAxe.violations).toEqual([]);
+
+      // Navigating months clears the collision banner before fetching fresh slots
+      await pageDe.locator('button[aria-label="Next month"]').click();
+      await expect(deBanner).not.toBeVisible();
+    } finally {
+      await contextEn.close();
+      await contextDe.close();
+      await contextWinner.close();
+    }
+  });
 });

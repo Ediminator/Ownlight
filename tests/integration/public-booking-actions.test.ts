@@ -38,6 +38,13 @@ import {
   getPublicBookingChallengeAction,
 } from '@/server/calendar/public-actions';
 import {
+  listShootsInRange,
+  listShootsWithDetailsInRange,
+  DEFAULT_SHOOT_DURATION_MS,
+} from '@/server/calendar/repo';
+import { calculateAvailableSlots } from '@/server/calendar/availability';
+import { getUnifiedCalendarEvents } from '@/server/calendar/service';
+import {
   getOrCreatePowSecret,
   createFormChallenge,
   POW_MIN_DURATION_MS,
@@ -1155,5 +1162,295 @@ describe('TASK-0044: Public Booking Scheduler Integration Tests', () => {
         expect(res.success).toBe(true);
       }
     }
+  });
+
+  // ==========================================
+  // TASK-0072: Null shoot.endsAt collision & range queries
+  // ==========================================
+
+  it('AC-1: past shoot with endsAt=null (including 7 days ago and exact boundary protectedStart - 60m) does not block future booking', async () => {
+    const [clientRow] = await dbClient
+      .insert(clients)
+      .values({
+        id: generateUuidV7(),
+        kind: 'person',
+        displayName: 'Clara Oswald',
+        preferredLocale: 'en',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    const stages = await dbClient.select().from(pipelineStages).limit(1);
+    const stageId = stages[0]?.id;
+    expect(clientRow?.id).toBeDefined();
+    expect(stageId).toBeDefined();
+    if (!clientRow?.id || !stageId) return;
+
+    const [proj] = await dbClient
+      .insert(projects)
+      .values({
+        id: generateUuidV7(),
+        clientId: clientRow.id,
+        stageId,
+        title: 'Clara Wedding',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    expect(proj?.id).toBeDefined();
+    if (!proj?.id) return;
+
+    // 1. Past shoot 7 days before booking window with endsAt = null
+    await dbClient.insert(shoots).values({
+      id: generateUuidV7(),
+      projectId: proj.id,
+      title: 'Past Shoot Null EndsAt',
+      startsAt: new Date('2026-10-19T12:00:00Z'),
+      endsAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // 2. Exact non-overlapping boundary shoot: startsAt = protectedStart - DEFAULT_SHOOT_DURATION_MS
+    // Discovery Call has bufferBefore=0, bufferAfter=15m. For slot 2026-10-26T14:00:00Z,
+    // protectedStart = 2026-10-26T14:00:00Z, so 13:00:00Z ends at 14:00:00Z (non-overlapping).
+    await dbClient.insert(shoots).values({
+      id: generateUuidV7(),
+      projectId: proj.id,
+      title: 'Boundary Shoot Null EndsAt',
+      startsAt: new Date(new Date('2026-10-26T14:00:00Z').getTime() - DEFAULT_SHOOT_DURATION_MS),
+      endsAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const pow = await generateValidPowPayload();
+    const res = await submitPublicBookingAction(
+      {
+        slug: discoveryCallSlug,
+        startsAt: '2026-10-26T14:00:00Z',
+        endsAt: '2026-10-26T14:30:00Z',
+        timezone: 'Europe/Berlin',
+        attendeeName: 'Future Booker',
+        attendeeEmail: 'future.booker@example.com',
+        website_url: '',
+        altcha_payload: pow,
+        locale: 'en',
+      },
+      dbClient,
+    );
+
+    expect(res.success).toBe(true);
+    expect(res.code).toBeUndefined();
+    expect(res.collision).toBeUndefined();
+    expect(res.data?.appointmentId).toBeDefined();
+  });
+
+  it('AC-2: overlapping shoot with endsAt=null (startsAt = protectedStart - 59m) triggers COLLISION without leaking shoot details', async () => {
+    const [clientRow] = await dbClient
+      .insert(clients)
+      .values({
+        id: generateUuidV7(),
+        kind: 'person',
+        displayName: 'Private Shoot Client',
+        preferredLocale: 'en',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    const stages = await dbClient.select().from(pipelineStages).limit(1);
+    const stageId = stages[0]?.id;
+    if (!clientRow?.id || !stageId) return;
+
+    const [proj] = await dbClient
+      .insert(projects)
+      .values({
+        id: generateUuidV7(),
+        clientId: clientRow.id,
+        stageId,
+        title: 'Secret VIP Wedding',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    if (!proj?.id) return;
+
+    // Slot 2026-10-26T14:00:00Z -> 14:30:00Z (protectedStart = 14:00:00Z).
+    // Shoot starting at 13:01:00Z has effective window [13:01, 14:01], overlapping 14:00!
+    await dbClient.insert(shoots).values({
+      id: generateUuidV7(),
+      projectId: proj.id,
+      title: 'Confidential VIP Shoot',
+      startsAt: new Date('2026-10-26T13:01:00Z'),
+      endsAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const powEn = await generateValidPowPayload();
+    const resEn = await submitPublicBookingAction(
+      {
+        slug: discoveryCallSlug,
+        startsAt: '2026-10-26T14:00:00Z',
+        endsAt: '2026-10-26T14:30:00Z',
+        timezone: 'Europe/Berlin',
+        attendeeName: 'Overlap Visitor',
+        attendeeEmail: 'overlap.en@example.com',
+        website_url: '',
+        altcha_payload: powEn,
+        locale: 'en',
+      },
+      dbClient,
+    );
+
+    expect(resEn.success).toBe(false);
+    expect(resEn.code).toBe('COLLISION');
+    expect(resEn.collision).toBe(true);
+    expect(resEn.error).toBe(
+      'This time slot was just booked by another client. Please select another time.',
+    );
+    expect(resEn.error).not.toContain('Confidential VIP Shoot');
+    expect(resEn.error).not.toContain('Private Shoot Client');
+
+    const powDe = await generateValidPowPayload();
+    const resDe = await submitPublicBookingAction(
+      {
+        slug: discoveryCallSlug,
+        startsAt: '2026-10-26T14:00:00Z',
+        endsAt: '2026-10-26T14:30:00Z',
+        timezone: 'Europe/Berlin',
+        attendeeName: 'Overlap Visitor DE',
+        attendeeEmail: 'overlap.de@example.com',
+        website_url: '',
+        altcha_payload: powDe,
+        locale: 'de',
+      },
+      dbClient,
+    );
+
+    expect(resDe.success).toBe(false);
+    expect(resDe.code).toBe('COLLISION');
+    expect(resDe.collision).toBe(true);
+    expect(resDe.error).toBe(
+      'Dieser Termin wurde gerade von einem anderen Kunden gebucht. Bitte wählen Sie einen anderen Termin.',
+    );
+
+    // Ensure no appointment was created for either colliding attempt
+    const createdAppts = await dbClient
+      .select()
+      .from(appointments)
+      .where(eq(appointments.attendeeEmail, 'overlap.en@example.com'));
+    expect(createdAppts).toHaveLength(0);
+  });
+
+  it('AC-3: listShootsInRange, listShootsWithDetailsInRange, calculateAvailableSlots, and getUnifiedCalendarEvents apply DEFAULT_SHOOT_DURATION_MS consistently', async () => {
+    expect(DEFAULT_SHOOT_DURATION_MS).toBe(60 * 60 * 1000);
+
+    const [clientRow] = await dbClient
+      .insert(clients)
+      .values({
+        id: generateUuidV7(),
+        kind: 'person',
+        displayName: 'Range Test Client',
+        preferredLocale: 'en',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    const stages = await dbClient.select().from(pipelineStages).limit(1);
+    const stageId = stages[0]?.id;
+    if (!clientRow?.id || !stageId) return;
+
+    const [proj] = await dbClient
+      .insert(projects)
+      .values({
+        id: generateUuidV7(),
+        clientId: clientRow.id,
+        stageId,
+        title: 'Range Test Project',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    if (!proj?.id) return;
+
+    const rangeStart = new Date('2026-10-26T10:00:00Z');
+    const rangeEnd = new Date('2026-10-26T16:00:00Z');
+
+    // Past shoot 7 days prior (endsAt = null) -> excluded
+    const pastShootId = generateUuidV7();
+    await dbClient.insert(shoots).values({
+      id: pastShootId,
+      projectId: proj.id,
+      title: 'Past Shoot 7d Ago',
+      startsAt: new Date('2026-10-19T12:00:00Z'),
+      endsAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Exact non-overlapping boundary shoot: startsAt = rangeStart - 60m -> effective end === rangeStart -> excluded
+    const boundaryPastShootId = generateUuidV7();
+    await dbClient.insert(shoots).values({
+      id: boundaryPastShootId,
+      projectId: proj.id,
+      title: 'Boundary Shoot Excluded',
+      startsAt: new Date(rangeStart.getTime() - DEFAULT_SHOOT_DURATION_MS),
+      endsAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Overlapping null-endsAt shoot: startsAt = rangeStart - 30m -> effective end = rangeStart + 30m -> included
+    const overlappingShootId = generateUuidV7();
+    await dbClient.insert(shoots).values({
+      id: overlappingShootId,
+      projectId: proj.id,
+      title: 'Overlapping Null EndsAt Shoot',
+      startsAt: new Date(rangeStart.getTime() - 30 * 60 * 1000),
+      endsAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const plainShoots = await listShootsInRange(
+      { startDate: rangeStart, endDate: rangeEnd },
+      dbClient,
+    );
+    expect(plainShoots.map((s) => s.id)).toEqual([overlappingShootId]);
+
+    const detailedShoots = await listShootsWithDetailsInRange(
+      { startDate: rangeStart, endDate: rangeEnd },
+      dbClient,
+    );
+    expect(detailedShoots.map((s) => s.id)).toEqual([overlappingShootId]);
+
+    const unifiedEvents = await getUnifiedCalendarEvents(
+      { startDate: rangeStart, endDate: rangeEnd },
+      dbClient,
+    );
+    const shootEvents = unifiedEvents.filter((e) => e.type === 'shoot');
+    expect(shootEvents).toHaveLength(1);
+    expect(shootEvents[0]?.id).toBe(overlappingShootId);
+    expect(shootEvents[0]?.endsAt).toBe(
+      new Date(rangeStart.getTime() + 30 * 60 * 1000).toISOString(),
+    );
+
+    // Availability engine consistency: 09:30Z..10:30Z shoot overlaps 10:00Z..10:30Z slot
+    // while pastShootId (Oct 19) does NOT block any slot on Oct 26.
+    const slots = await calculateAvailableSlots({
+      bookingTypeId: activeBookingTypeId,
+      startDate: '2026-10-26',
+      endDate: '2026-10-26',
+      timezone: 'UTC',
+      now: new Date('2026-10-20T08:00:00Z'),
+      db: dbClient,
+    });
+    const slotStarts = slots.map((s) => s.startsAtUtc);
+    expect(slotStarts).not.toContain('2026-10-26T10:00:00.000Z');
+    expect(slotStarts).toContain('2026-10-26T14:00:00.000Z');
   });
 });

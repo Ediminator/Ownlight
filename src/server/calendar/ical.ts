@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { CalendarFeedSummaryLevel } from '@/server/db/schema/calendar';
+import { DEFAULT_SHOOT_DURATION_MS } from './constants';
 
 /**
  * Generates a high-entropy secret token (32 cryptographically secure random bytes, base64url encoded).
@@ -211,7 +212,7 @@ export function buildShootEvent(
   summaryLevel: CalendarFeedSummaryLevel,
   dtstamp: Date = new Date(),
 ): IcalEvent {
-  const endsAt = shoot.endsAt ?? new Date(shoot.startsAt.getTime() + 60 * 60 * 1000);
+  const endsAt = shoot.endsAt ?? new Date(shoot.startsAt.getTime() + DEFAULT_SHOOT_DURATION_MS);
 
   if (summaryLevel === 'minimal') {
     return {

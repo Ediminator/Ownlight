@@ -2,6 +2,7 @@ import type { AvailableSlot } from '@/server/calendar/availability';
 import type {
   PublicBookingActionResult,
   ConfirmedBookingSummary,
+  getPublicAvailableSlotsAction,
 } from '@/server/calendar/public-actions';
 
 export const COMMON_TIMEZONES = [
@@ -484,4 +485,90 @@ export function processBookingSubmissionResult(
     shouldResetSlot: false,
     shouldReloadSlots: false,
   };
+}
+
+export interface LoadSlotsOptions {
+  preserveErrorBanner?: boolean;
+}
+
+/**
+ * Resolves which calendar date remains selected after a slot fetch:
+ * keeps `currentSelectedDate` if it still has available slots, otherwise switches
+ * to the first available slot date (or keeps `currentSelectedDate` if none exist).
+ */
+export function resolveSelectedDateAfterSlotLoad(
+  currentSelectedDate: string,
+  slots: AvailableSlot[],
+): string {
+  const datesWithSlots = new Set(slots.map((s) => s.date));
+  if (!datesWithSlots.has(currentSelectedDate) && slots.length > 0) {
+    const firstSlotDate = slots[0]?.date;
+    if (firstSlotDate) {
+      return firstSlotDate;
+    }
+  }
+  return currentSelectedDate;
+}
+
+export interface ExecutePublicSlotLoadParams {
+  slug: string;
+  year: number;
+  month: number;
+  timezone: string;
+  options?: LoadSlotsOptions;
+  fetchSlots: typeof getPublicAvailableSlotsAction;
+  setLoading: (loading: boolean) => void;
+  setErrorBanner: (error: string | null) => void;
+  setSlots: (slots: AvailableSlot[]) => void;
+  updateSelectedDate: (updater: (prev: string) => string) => void;
+  generalErrorText: string;
+}
+
+/**
+ * Fetches available slots for a 60-day window starting on `year`/`month`.
+ * Clears `errorBanner` before fetching unless `options.preserveErrorBanner` is true
+ * (used when reloading slots after a concurrent booking collision).
+ */
+export async function executePublicSlotLoad({
+  slug,
+  year,
+  month,
+  timezone,
+  options,
+  fetchSlots,
+  setLoading,
+  setErrorBanner,
+  setSlots,
+  updateSelectedDate,
+  generalErrorText,
+}: ExecutePublicSlotLoadParams): Promise<void> {
+  setLoading(true);
+  if (!options?.preserveErrorBanner) {
+    setErrorBanner(null);
+  }
+
+  const start = new Date(Date.UTC(year, month, 1));
+  const end = new Date(Date.UTC(year, month + 2, 0));
+
+  const startDateStr = start.toISOString().slice(0, 10);
+  const endDateStr = end.toISOString().slice(0, 10);
+
+  try {
+    const res = await fetchSlots({
+      slug,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      timezone,
+    });
+
+    if (res.success && res.data) {
+      const nextSlots = res.data.slots;
+      setSlots(nextSlots);
+      updateSelectedDate((prev) => resolveSelectedDateAfterSlotLoad(prev, nextSlots));
+    }
+  } catch {
+    setErrorBanner(generalErrorText);
+  } finally {
+    setLoading(false);
+  }
 }

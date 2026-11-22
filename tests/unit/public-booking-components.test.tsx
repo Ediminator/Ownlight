@@ -138,7 +138,12 @@ import {
   resolveBookingLocationLabel,
   buildPublicBookingSubmission,
   processBookingSubmissionResult,
+  resolveSelectedDateAfterSlotLoad,
+  executePublicSlotLoad,
 } from '@/components/calendar/public/booking-helpers';
+import { DEFAULT_SHOOT_DURATION_MS } from '@/server/calendar/constants';
+import fs from 'node:fs';
+import path from 'node:path';
 import BookingPage, { generateMetadata } from '@/app/[locale]/book/[slug]/page';
 import { GET as challengeRouteHandler } from '@/app/api/public/book/[slug]/challenge/route';
 import { findBookingTypeBySlug } from '@/server/calendar/repo';
@@ -1387,6 +1392,182 @@ describe('Public Booking Components & Routes (Unit Tests)', () => {
         tMock,
       );
       expect(genericResult.errorBanner).toBe('translated.errors.general');
+    });
+
+    it('AC-3: DEFAULT_SHOOT_DURATION_MS equals 60 minutes (3,600,000 ms)', () => {
+      expect(DEFAULT_SHOOT_DURATION_MS).toBe(60 * 60 * 1000);
+    });
+
+    it('AC-4: executePublicSlotLoad preserves collision errorBanner when preserveErrorBanner is true (including selectedDate auto-update) and clears on fresh loads', async () => {
+      let currentErrorBanner: string | null =
+        'This time slot was just booked by another client. Please select another time.';
+      let currentSelectedDate = '2026-11-23';
+      let currentSlots: AvailableSlot[] = [];
+      const loadingStates: boolean[] = [];
+
+      const nextDaySlot = createMockSlot({
+        date: '2026-11-24',
+        starts_at: '2026-11-24T10:00:00.000Z',
+        ends_at: '2026-11-24T10:30:00.000Z',
+        startsAt: '2026-11-24T10:00:00.000Z',
+        endsAt: '2026-11-24T10:30:00.000Z',
+        startsAtUtc: '2026-11-24T10:00:00.000Z',
+        endsAtUtc: '2026-11-24T10:30:00.000Z',
+      });
+
+      // 1. Reload slots after COLLISION where 2026-11-23 has no remaining slots,
+      // forcing selectedDate to advance to 2026-11-24.
+      await executePublicSlotLoad({
+        slug: 'discovery-call',
+        year: 2026,
+        month: 10,
+        timezone: 'Europe/Berlin',
+        options: { preserveErrorBanner: true },
+        fetchSlots: vi.fn().mockResolvedValue({
+          success: true,
+          data: {
+            slots: [nextDaySlot],
+            studioTimezone: 'Europe/Berlin',
+          },
+        }),
+        setLoading: (val) => loadingStates.push(val),
+        setErrorBanner: (val) => {
+          currentErrorBanner = val;
+        },
+        setSlots: (val) => {
+          currentSlots = val;
+        },
+        updateSelectedDate: (updater) => {
+          currentSelectedDate = updater(currentSelectedDate);
+        },
+        generalErrorText: 'Something went wrong. Please try again.',
+      });
+
+      expect(currentErrorBanner).toBe(
+        'This time slot was just booked by another client. Please select another time.',
+      );
+      expect(currentSelectedDate).toBe('2026-11-24');
+      expect(currentSlots).toHaveLength(1);
+      expect(loadingStates).toEqual([true, false]);
+
+      // 2. Subsequent fresh reload (e.g. month navigation / timezone change / book another)
+      // clears errorBanner BEFORE the fresh slot fetch completes.
+      let bannerDuringFetch: string | null = 'UNSET';
+      await executePublicSlotLoad({
+        slug: 'discovery-call',
+        year: 2026,
+        month: 11,
+        timezone: 'America/New_York',
+        fetchSlots: vi.fn().mockImplementation(() => {
+          bannerDuringFetch = currentErrorBanner;
+          return Promise.resolve({
+            success: true,
+            data: {
+              slots: [],
+              studioTimezone: 'Europe/Berlin',
+            },
+          });
+        }),
+        setLoading: () => undefined,
+        setErrorBanner: (val) => {
+          currentErrorBanner = val;
+        },
+        setSlots: (val) => {
+          currentSlots = val;
+        },
+        updateSelectedDate: (updater) => {
+          currentSelectedDate = updater(currentSelectedDate);
+        },
+        generalErrorText: 'Something went wrong. Please try again.',
+      });
+
+      expect(bannerDuringFetch).toBeNull();
+      expect(currentErrorBanner).toBeNull();
+    });
+
+    it('AC-4: resolveSelectedDateAfterSlotLoad keeps current date when slots remain and switches to first available date otherwise', () => {
+      const slotsNov24 = [
+        createMockSlot({ date: '2026-11-24' }),
+        createMockSlot({ date: '2026-11-25' }),
+      ];
+      expect(resolveSelectedDateAfterSlotLoad('2026-11-24', slotsNov24)).toBe('2026-11-24');
+      expect(resolveSelectedDateAfterSlotLoad('2026-11-23', slotsNov24)).toBe('2026-11-24');
+      expect(resolveSelectedDateAfterSlotLoad('2026-11-23', [])).toBe('2026-11-23');
+    });
+
+    it('AC-4: executePublicSlotLoad sets general error banner when fetchSlots rejects', async () => {
+      let currentErrorBanner: string | null = null;
+      await executePublicSlotLoad({
+        slug: 'discovery-call',
+        year: 2026,
+        month: 10,
+        timezone: 'Europe/Berlin',
+        fetchSlots: vi.fn().mockRejectedValue(new Error('Network offline')),
+        setLoading: () => undefined,
+        setErrorBanner: (val) => {
+          currentErrorBanner = val;
+        },
+        setSlots: () => undefined,
+        updateSelectedDate: () => undefined,
+        generalErrorText: 'Something went wrong. Please try again.',
+      });
+      expect(currentErrorBanner).toBe('Something went wrong. Please try again.');
+    });
+
+    it('AC-5: renders localized collision alert banner with role="alert" in en and de matching catalogues', () => {
+      const enMessages = JSON.parse(
+        fs.readFileSync(path.resolve(process.cwd(), 'messages/en.json'), 'utf8'),
+      ) as { publicBooking: { errors: { collision: string } } };
+      const deMessages = JSON.parse(
+        fs.readFileSync(path.resolve(process.cwd(), 'messages/de.json'), 'utf8'),
+      ) as { publicBooking: { errors: { collision: string } } };
+
+      const enCollision = enMessages.publicBooking.errors.collision;
+      const deCollision = deMessages.publicBooking.errors.collision;
+      expect(enCollision).toBe(
+        'This time slot was just booked by another client. Please select another time.',
+      );
+      expect(deCollision).toBe(
+        'Dieser Termin wurde gerade von einem anderen Kunden gebucht. Bitte wählen Sie einen anderen Termin.',
+      );
+
+      const enHtml = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={{
+            id: '019a0000-0000-7000-8000-000000000010',
+            slug: 'discovery-call',
+            title: 'Discovery Call',
+            durationMinutes: 30,
+            locationType: 'google_meet',
+          }}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="en"
+          initialErrorBanner={enCollision}
+        />,
+      );
+      expect(enHtml).toContain('role="alert"');
+      expect(enHtml).toContain('data-testid="booking-error-banner"');
+      expect(enHtml).toContain(enCollision);
+
+      const deHtml = renderToStaticMarkup(
+        <PublicBookingScheduler
+          bookingType={{
+            id: '019a0000-0000-7000-8000-000000000010',
+            slug: 'discovery-call',
+            title: 'Discovery Call',
+            durationMinutes: 30,
+            locationType: 'google_meet',
+          }}
+          studioName="Lumiere Studio"
+          studioTimezone="Europe/Berlin"
+          locale="de"
+          initialErrorBanner={deCollision}
+        />,
+      );
+      expect(deHtml).toContain('role="alert"');
+      expect(deHtml).toContain('data-testid="booking-error-banner"');
+      expect(deHtml).toContain(deCollision);
     });
   });
 

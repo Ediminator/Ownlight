@@ -58,7 +58,10 @@ import fs from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle as drizzlePglite } from 'drizzle-orm/pglite';
 
-export type DbClient = PostgresJsDatabase<typeof schema>;
+export type DbClient = Pick<
+  PostgresJsDatabase<typeof schema>,
+  keyof PostgresJsDatabase<typeof schema>
+>;
 
 // Global singleton cache for Next.js hot-reload persistence in development
 const globalForDb = globalThis as unknown as {

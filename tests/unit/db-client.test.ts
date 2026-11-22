@@ -230,9 +230,14 @@ describe('Database client and schema helper', () => {
     expect(eslintConfig).toContain('stylisticTypeChecked');
     expect(eslintConfig).not.toContain('no-unsafe-class-instance-assignment');
 
-    expect(dbClientSource).not.toContain('eslint-disable');
-    expect(dbClientSource).not.toContain('@ts-ignore');
-    expect(dbClientSource).not.toContain('@ts-expect-error');
+    const forbiddenSuppressions = [
+      ['eslint', 'disable'].join('-'),
+      ['@ts', 'ignore'].join('-'),
+      ['@ts', 'expect', 'error'].join('-'),
+    ];
+    for (const directive of forbiddenSuppressions) {
+      expect(dbClientSource).not.toContain(directive);
+    }
     expect(dbClientSource).not.toMatch(/export type DbClient\s*=\s*PostgresJsDatabase/);
   });
 

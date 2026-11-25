@@ -71,6 +71,19 @@ const GERMAN_COLUMN_HEADERS: Record<string, string> = {
   accepted_by_email: 'Angenommen von (E-Mail)',
   line_items: 'Positionen',
   deliverables: 'Leistungen & Positionen',
+  contract_number: 'Vertragsnummer',
+  title: 'Titel',
+  locale: 'Sprache',
+  status: 'Status',
+  signed_at: 'Unterzeichnet am',
+  studio_signed_at: 'Gegengezeichnet am',
+  signer_name: 'Unterzeichnet von (Name)',
+  signer_email: 'Unterzeichnet von (E-Mail)',
+  signature_type: 'Signaturart',
+  canonical_body_sha256: 'Text-Prüfsumme (SHA-256)',
+  pdf_sha256: 'PDF-Prüfsumme (SHA-256)',
+  created_at: 'Erstellt am',
+  project_id: 'Projekt-ID',
 };
 
 /**

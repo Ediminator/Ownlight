@@ -75,6 +75,15 @@ describe('TASK-0015: DSAR export schema coverage (AC-5)', () => {
     ).toEqual([]);
   });
 
+  it('TASK-0066: contracts table is covered by export provider with zero exemptions', () => {
+    const providers = getExportProviders();
+    const coveredTables = new Set(providers.flatMap((p) => p.coveredTables));
+    expect(coveredTables.has('contracts')).toBe(true);
+
+    const contractExemptions = EXPORT_COVERAGE_ALLOWLIST.filter((e) => e.tableName === 'contracts');
+    expect(contractExemptions).toHaveLength(0);
+  });
+
   it('AC-5: fails naming the unmapped table when a fixture table with client_id is not covered', () => {
     // Define a test-only fixture table with a client_id column
     const fixtureUnmappedTable = pgTable('fixture_unmapped_personal_data', {

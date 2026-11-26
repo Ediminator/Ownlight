@@ -1593,7 +1593,8 @@
       "active_project": "Active commission / project",
       "upcoming_shoot": "Upcoming scheduled shoot",
       "statutory": {
-        "commercial_document": "Statutory commercial agreement (§147 AO, §257 HGB)"
+        "commercial_document": "Statutory commercial agreement (§147 AO, §257 HGB)",
+        "commercial_contract": "Statutory commercial contract (§147 AO, §257 HGB)"
       },
       "manual": {
         "dispute": "Dispute resolution",

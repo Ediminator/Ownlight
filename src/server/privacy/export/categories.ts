@@ -522,6 +522,39 @@ export const INITIAL_CATEGORIES: readonly CategoryDefinition[] = [
       de: 'Vom Studioinhaber und Kunden im Rahmen der Angebotsverhandlung und -annahme bereitgestellt.',
     },
   },
+  {
+    id: 'contracts',
+    titleKey: 'privacy.export.categories.contracts.title',
+    purposeKey: 'privacy.export.categories.contracts.purpose',
+    lawfulBasisKey: 'privacy.export.categories.contracts.lawful_basis',
+    retentionKey: 'privacy.export.categories.contracts.retention',
+    recipientsKey: 'privacy.export.categories.contracts.recipients',
+    sourceKey: 'privacy.export.categories.contracts.source',
+    title: {
+      en: 'Contracts & Signatures',
+      de: 'Verträge & Signaturen',
+    },
+    purpose: {
+      en: 'Preparation, issuance, electronic signing, and legally binding execution of studio service agreements.',
+      de: 'Erstellung, Bereitstellung, elektronische Unterzeichnung und rechtsverbindliche Ausführung von Studio-Dienstleistungsverträgen.',
+    },
+    lawfulBasis: {
+      en: 'Art. 6(1)(b) GDPR (Performance of a contract / pre-contractual measures) and Art. 6(1)(c) GDPR / § 147 AO / § 257 HGB (Statutory commercial retention for executed contracts).',
+      de: 'Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung / vorvertragliche Maßnahmen) sowie Art. 6 Abs. 1 lit. c DSGVO / § 147 AO / § 257 HGB (Handels- und steuerrechtliche Aufbewahrungspflicht für geschlossene Verträge).',
+    },
+    retention: {
+      en: 'Unexecuted contracts (draft, declined, voided) are erased upon client erasure; executed contracts are retained for 10 years pursuant to § 147 AO and § 257 HGB.',
+      de: 'Nicht geschlossene Verträge (Entwurf, abgelehnt, storniert) werden bei Kundenlöschung entfernt; geschlossene Verträge werden 10 Jahre gemäß § 147 AO und § 257 HGB aufbewahrt.',
+    },
+    recipients: {
+      en: 'None (stored locally on the self-hosted studio instance).',
+      de: 'Keine (ausschließlich lokale Speicherung auf der selbst gehosteten Studio-Instanz).',
+    },
+    source: {
+      en: 'Generated from studio templates and client commission data, and executed via client electronic signature.',
+      de: 'Erstellt aus Studio-Vorlagen und Auftragsdaten sowie durch elektronische Kundensignatur unterzeichnet.',
+    },
+  },
 ];
 
 const categoryRegistry = new Map<string, CategoryDefinition>();

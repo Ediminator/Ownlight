@@ -87,6 +87,17 @@ describe('TASK-0016: Erasure schema coverage (AC-8)', () => {
     expect(proposalExemptions).toHaveLength(0);
   });
 
+  it('TASK-0066: contracts table passes full erasure verification with zero exemptions', () => {
+    const providers = getErasureProviders();
+    const coveredTables = new Set(providers.flatMap((p) => p.coveredTables));
+    expect(coveredTables.has('contracts')).toBe(true);
+
+    const contractExemptions = ERASURE_COVERAGE_ALLOWLIST.filter(
+      (e) => e.tableName === 'contracts',
+    );
+    expect(contractExemptions).toHaveLength(0);
+  });
+
   it('AC-8: fails naming the unmapped table when a fixture table with client_id is not covered', () => {
     // Define a test-only fixture table with a client_id column
     const fixtureUnmappedTable = pgTable('fixture_unmapped_erasure_client', {

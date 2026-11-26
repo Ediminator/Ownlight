@@ -10,10 +10,4 @@ export interface ErasureCoverageExemption {
   reason: string;
 }
 
-export const ERASURE_COVERAGE_ALLOWLIST: readonly ErasureCoverageExemption[] = [
-  {
-    tableName: 'contracts',
-    reason:
-      'Legal contracts and signature records. DSAR erasure provider and statutory retention hold implementation is scheduled in TASK-0066 as part of Epic E6.',
-  },
-];
+export const ERASURE_COVERAGE_ALLOWLIST: readonly ErasureCoverageExemption[] = [];
